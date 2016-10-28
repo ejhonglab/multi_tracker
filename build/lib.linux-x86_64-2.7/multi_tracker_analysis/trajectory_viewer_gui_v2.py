@@ -39,7 +39,7 @@ pg.mkQApp()
   
 ## Define main window class from template
 path = os.path.dirname(os.path.abspath(__file__))
-uiFile = os.path.join(path, 'trajectory_viewer_small_screens.ui')
+uiFile = os.path.join(path, 'trajectory_viewer_gui_modified.ui')
 WindowTemplate, TemplateBaseClass = pg.Qt.loadUiType(uiFile)
   
 def get_random_color():
@@ -131,9 +131,6 @@ class QTrajectory(TemplateBaseClass):
         self.join_objects = False
         self.add_data = False
         self.crosshair_pen = pg.mkPen('w', width=1)
-        # TODO MAKE SURE THIS IS OK
-        # trying to fix error
-        self.get_original_objid = False
         
         self.ui.qtplot_timetrace.enableAutoRange('xy', False)
         if self.config is not None:

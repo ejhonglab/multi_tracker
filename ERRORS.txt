@@ -1,0 +1,43 @@
+
+SWMR error still exists when charged line 116 of read_hdf5_file_to_pandas to:
+data = h5py.File(filename, 'r')['data']
+
+****
+
+in multi_tracker_analysis, trajectory viewer v2:
+
+Traceback (most recent call last):
+  File "trajectory_viewer_gui_v2.py", line 265, in movie_pause
+    if self.play is True:
+AttributeError: 'QTrajectory' object has no attribute 'play'
+Traceback (most recent call last):
+  File "trajectory_viewer_gui_v2.py", line 265, in movie_pause
+    if self.play is True:
+AttributeError: 'QTrajectory' object has no attribute 'play'
+loading image sequence
+loading image sequence from delta video bag - may take a moment
+Traceback (most recent call last):                  |
+  File "trajectory_viewer_gui_v2.py", line 277, in movie_play
+    self.load_image_sequence()
+  File "trajectory_viewer_gui_v2.py", line 666, in load_image_sequence
+    imgcopy[ msg[1].xpixels, msg[1].ypixels] = msg[1].values # if there's an error, check if you're using ROS hydro?
+IndexError: index 609 is out of bounds for axis 1 with size 609
+
+-was using 16.04 and ROS kinetic
+
+cant resize window either
+
+SIGINT not working, but SIGTSTP worked
+
+ File "/home/tom/src/catkin/src/multi_tracker/nodes/liveviewer.py", line 183, in image_callback
+    a = np.sqrt( contour.area / (np.pi*contour.ecc) )
+ZeroDivisionError: float division by zero
+
+[ERROR] [WallTime: 1477671708.186504] [1476149594.342091] bad callback: <bound method DeCompressor.delta_image_callback of <__main__.DeCompressor instance at 0x7f00d7c094d0>>
+Traceback (most recent call last):
+  File "/opt/ros/kinetic/lib/python2.7/dist-packages/rospy/topics.py", line 720, in _invoke_callback
+    cb(msg)
+  File "/home/tom/src/catkin/src/multi_tracker/nodes/delta_video_player.py", line 94, in delta_image_callback
+    new_image[delta_vid.xpixels, delta_vid.ypixels] = delta_vid.values # for indigo
+TypeError: 'NoneType' object does not support item assignment
+

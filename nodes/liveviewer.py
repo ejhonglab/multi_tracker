@@ -118,6 +118,7 @@ class LiveViewer:
         for trajec in self.tracked_trajectories.values():
             trajec.popout = 1
     
+        # TODO it seems some of the .tracked_objects variable has nan for position variables
         for tracked_object in tracked_objects.tracked_objects:
             if tracked_object.persistence > self.params['min_persistence_to_draw']:
                 if tracked_object.objid not in self.tracked_trajectories.keys(): # create new object
@@ -172,19 +173,43 @@ class LiveViewer:
             for c, contour in enumerate(self.contours.contours):
                 # b = contour.area / (np.pi*a)
                 # b = ecc*a
-                a = np.sqrt( contour.area / (np.pi*contour.ecc) )
-                b = contour.ecc*a
+
                 center = (int(contour.x), int(contour.y))
-                angle = int(contour.angle)
-                axes = (int(np.min([a,b])), int(np.max([a,b])))
-                cv2.ellipse(self.imgOutput, center, axes, angle, 0, 360, (0,255,0), 2 )
+                
+                # TODO remove / change if i stop using np.nan for this purpose
+
+                # draw an ellipse if we had enough points (5, set by OpenCV) to fit one
+                if (not np.isnan(contour.ecc)) and (not np.isnan(contour.angle)):
+                    a = np.sqrt( contour.area / (np.pi*contour.ecc) )
+                    b = contour.ecc*a
+                    angle = int(contour.angle)
+                    axes = (int(np.min([a,b])), int(np.max([a,b])))
+                    cv2.ellipse(self.imgOutput, center, axes, angle, 0, 360, (0,255,0), 2)
+
+                # otherwise draw a point (circle w/ radius 1)
+                else:
+                    cv2.circle(self.imgOutput, center, 1, (0,255,0), 2)
+
                             
         # Display the image | Draw the tracked trajectories
         for objid, trajec in self.tracked_trajectories.items():
             if len(trajec.positions) > 5:
+
+                """
+                print(type(trajec))
+                print(trajec)
+                print(trajec.positions)
+                print(trajec.covariances)
+                # TODO this is what is nan. and it is not 2 elements either?
+                print(trajec.positions[-1][0:1])
+                print(trajec.covariances[-1])
+                """
+
                 draw_trajectory(self.imgOutput, trajec.positions, trajec.color, 2)
                 cv2.circle(self.imgOutput,(int(trajec.positions[-1][0]),int(trajec.positions[-1][1])),int(trajec.covariances[-1]),trajec.color,2)
         cv2.imshow('output', self.imgOutput)
+
+        # TODO is this the source of the keypress error? make less verbose
         ascii_key = cv2.waitKey(1)
         if ascii_key != -1:
             self.on_key_press(ascii_key)

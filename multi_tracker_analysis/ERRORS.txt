@@ -1,0 +1,174 @@
+this one is probably my doing
+
+Traceback (most recent call last):
+  File "trajectory_viewer_gui_v2.py", line 301, in movie_play
+    self.updateData()
+  File "trajectory_viewer_gui_v2.py", line 776, in updateData
+    self.init_bg_image()
+  File "trajectory_viewer_gui_v2.py", line 542, in init_bg_image
+    self.binsx, self.binsy = mta.plot.get_bins_from_backgroundimage(self.backgroundimg_filename)
+  File "/usr/local/lib/python2.7/dist-packages/multi_tracker_analysis/plot.py", line 21, in get_bins_from_backgroundimage
+    binsx = np.arange(0, backgroundimage.shape[1]+1, pixel_resolution)
+AttributeError: 'NoneType' object has no attribute 'shape'
+
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 309, in paint
+    self.render()
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/graphicsItems/ImageItem.py", line 301, in render
+    argb, alpha = fn.makeARGB(image.transpose((1, 0, 2)[:image.ndim]), lut=lut, levels=self.levels)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 942, in makeARGB
+    data = rescaleData(data, scale/(maxVal-minVal), minVal, dtype=int)
+  File "/usr/lib/python2.7/dist-packages/pyqtgraph/functions.py", line 828, in rescaleData
+    d2 *= scale
+TypeError: Cannot cast ufunc multiply output from dtype('float64') to dtype('uint8') with casting rule 'same_kind'
+

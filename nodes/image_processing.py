@@ -55,7 +55,7 @@ def incredibly_basic(self):
         
     contour_info = []
     for contour in contours:
-        if len(contour) > 5: # Large objects are approximated by an ellipse
+        if len(contour) >= 5: # Large objects are approximated by an ellipse
             ellipse = cv2.fitEllipse(contour)
             (x,y), (a,b), angle = ellipse
             a /= 2.
@@ -132,25 +132,54 @@ def add_data_to_contour_info(x,y,ecc,area,angle,dtCamera,header):
     data.angle   = angle
     data.ecc     = ecc
     return data
+
+def add_point_to_contour_info(x, y, area, dtCamera, header):
+    # Prepare to publish the contour info
+    # contour message info: dt, x, y, area
+    data = Contourinfo()
+    data.header  = header
+    data.dt      = dtCamera
+    data.x       = x
+    data.y       = y
+    data.area    = area
+    # TODO something better to use?
+    # want to handle downstream in filtering
+    data.angle   = np.nan
+    data.ecc     = np.nan
+    return data
     
 def extract_and_publish_contours(self):
-    contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     # http://docs.opencv.org/trunk/doc/py_tutorials/py_imgproc/py_contours/py_contour_features/py_contour_features.html
-    
+
+    # TODO try fitting ellipse directly to contours.
+    # for some reason they are just the edge. that seems to not be what we want...
+
     try:
-        header  = Header(stamp=self.framestamp,frame_id=str(self.framenumber))
+        header = Header(stamp=self.framestamp, frame_id=str(self.framenumber))
     except:
-        header  = Header(stamp=None,frame_id=str(self.framenumber))
+        header = Header(stamp=None, frame_id=str(self.framenumber))
         print 'could not get framestamp, run tracker_nobuffer instead'
         
     contour_info = []
     for contour in contours:
         # Large objects are approximated by an ellipse
-        if len(contour) > 5:
+
+        # changed back to >=, was keeping at < to test improvement of 
+        # small contour handling
+        if len(contour) >= 5:
+            # TODO remove
+            # print('len(contour) > 5')
+
             x, y, ecc, area, angle = fit_ellipse_to_contour(self, contour)
+            # if these are similar, just return # pixels if # pixels < 5
+            # (they were similar / mostly reasonable)
+            # print area, cv2.contourArea(contour), len(contour)
             
             # if object is too large, split it in two, this helps with colliding objects, but is not 100% correct
             if area > self.params['max_expected_area']:
+                #print('splitting contours')
                 slope = np.tan(angle)
                 intercept = y - slope*x
                 c1 = []
@@ -163,14 +192,14 @@ def extract_and_publish_contours(self):
                         c2.append([point])
                 c1 = np.array(c1)
                 c2 = np.array(c2)
-                
-                if len(c1) > 5:
+
+                if len(c1) >= 5:
                     x, y, ecc, area, angle = fit_ellipse_to_contour(self, np.array(c1))
                     if area < self.params['max_size'] and area > self.params['min_size']:
                         data = add_data_to_contour_info(x,y,ecc,area,angle,self.dtCamera,header)
                         contour_info.append(data)
                 
-                if len(c2) > 5:
+                if len(c2) >= 5:
                     x, y, ecc, area, angle = fit_ellipse_to_contour(self, np.array(c2))
                     if area < self.params['max_size'] and area > self.params['min_size']:
                         data = add_data_to_contour_info(x,y,ecc,area,angle,self.dtCamera,header)
@@ -180,9 +209,37 @@ def extract_and_publish_contours(self):
                     data = add_data_to_contour_info(x,y,ecc,area,angle,self.dtCamera,header)
                     contour_info.append(data)
             
-            
         # Small ones just get a point
+        # TODO actually add to contour info, and handle appropriately downstream
+        # for my application, i can't really afford to throw away all contours < 5 pixels, especially
+        # if they could just be used as a meaningful center position update
+        # without all the parameters of the ellipse
         else:
+            """
+            # TODO remove
+            print 'len(contour) =', len(contour)
+            print 'area =', cv2.contourArea(contour)
+            print(contour)
+
+            #area = 0
+            # will this uniquely make moment 0?
+            if len(contour) == 1:
+                print('N=1 POINTS')
+
+            M = cv2.moments(contour)
+            if M['m00'] != 0:
+                cx = int(M['m10']/M['m00'])
+                cy = int(M['m01']/M['m00'])
+            else:
+                # trying to figure out exactly when this happens
+                # when 1 point?
+                print('MOMENT WAS 0')
+                cx = np.nan
+                cy = np.nan
+            area = cv2.contourArea(contour)
+            data = add_point_to_contour_info(cx, cy, area, self.dtCamera, header)
+            contour_info.append(data)
+            """
             area = 0
             
     # publish the contours
@@ -339,7 +396,9 @@ def dark_or_light_objects_only(self, color='dark'):
     convert_to_gray_if_necessary(self)
     
     # noise removal
-    self.threshed = cv2.morphologyEx(self.threshed,cv2.MORPH_OPEN, kernel, iterations = 1)
+    self.threshed = cv2.morphologyEx(self.threshed, \
+            cv2.MORPH_OPEN, kernel, iterations =  \
+            self.params['initial_erode_denoise_iter'])
 
     # sure background area
     #sure_bg = cv2.dilate(opening,kernel,iterations=3)
@@ -355,11 +414,31 @@ def dark_or_light_objects_only(self, color='dark'):
     #self.threshed = sure_fg
     erode_and_dialate(self)
 
+    
+    # TODO revert to original
+    # publish the processed image
+    c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
+
+    """
+    # same step as in publish contour method
+    contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    cv2.drawContours(c, contours, -1, (0,255,0), 1)
+    for cont in contours:
+        if len(cont) == 4:
+            print('length of a contour was indeed 4')
+    """
+
+    # commented for now, because publishing unthresholded difference
+    img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
+    self.pubProcessedImage.publish(img)
+
+    """ original
     # publish the processed image
     c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
     # commented for now, because publishing unthresholded difference
     img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
     self.pubProcessedImage.publish(img)
+    """
 
     extract_and_publish_contours(self)
     #reset_background_if_difference_is_very_large(self, color)

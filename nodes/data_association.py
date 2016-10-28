@@ -64,6 +64,7 @@ class DataAssociator(object):
         with self.lockBuffer:
             self.contour_buffer.append(contourlist)
         
+    # TODO ***could just set angle to zero to simplify this fix***
     def contour_identifier(self, contourlist):
         
         # keep track of which new objects have been "taken"
@@ -71,6 +72,9 @@ class DataAssociator(object):
         
         update_dict = {}
         
+        # TODO equivalent Kalman logic for missing variables currently represented as np.nan?
+        # i think i want the gain (if possible just for the absent angle variable) to be zero
+        # will that cause later bad behavior with how things are written?
         def update_tracked_object(tracked_object, measurement, contourlist):
             if measurement is None:
                 m = np.matrix([np.nan for i in range( tracked_object['measurement'].shape[0] ) ]).T
@@ -84,7 +88,6 @@ class DataAssociator(object):
             tracked_object['timestamp'].append(contourlist.header.stamp)
             tracked_object['timestamp'].pop(0)
             tracked_object['state'] = np.hstack( (tracked_object['state'][:,-1], xhat) )
-            
         
         # iterate through objects first
         # get order of persistence
@@ -106,6 +109,7 @@ class DataAssociator(object):
         tracked_object_covariances = None 
         tracked_object_ids = []            
         for objid, tracked_object in self.tracked_objects.items():
+            # TODO study this step!
             tose = np.array([[tracked_object['kalmanfilter'].xhat_apriori[0,0], tracked_object['kalmanfilter'].xhat_apriori[2,0]]]) 
             cov = np.array([np.linalg.norm( (tracked_object['kalmanfilter'].H*tracked_object['kalmanfilter'].P).T*self.association_matrix )])
             tracked_object_ids.append(objid)
@@ -120,12 +124,13 @@ class DataAssociator(object):
             for c, contour in enumerate(contourlist.contours):
                 m = np.array([[contour.x, contour.y]])
                 error = np.array([np.linalg.norm(m-e) for e in tracked_object_state_estimates])
-                ncov = self.n_covariances_to_reject_data*np.sqrt(tracked_object_covariances)
+                ncov = self.n_covariances_to_reject_data * np.sqrt(tracked_object_covariances)
                 indices = np.where( (error < ncov ) )[0]
                 if len(indices) > 0:
                     new_contour_object_errors = [[error[i], tracked_object_ids[i], c] for i in indices]
                     contour_to_object_error.extend(new_contour_object_errors)
                     
+        # TODO what does he mean by each of these terms? filtering or just organization?
         # Association and Propagation                
         #o = []
         if len(contour_to_object_error) > 0:
@@ -140,6 +145,7 @@ class DataAssociator(object):
                 if objid not in objects_accounted_for:
                     if c not in contours_accounted_for:
                         contour = contourlist.contours[c]
+                        # TODO i could add some more explicit prediction (by tangent of traj) maybe
                         measurement = np.matrix([contour.x, contour.y, 0, contour.area, contour.angle]).T
                         tracked_object = self.tracked_objects[objid]
                         update_tracked_object(tracked_object, measurement, contourlist)
@@ -184,7 +190,6 @@ class DataAssociator(object):
                 self.current_objid += 1
         
         
-        
         # propagate unmatched objects
         for objid, tracked_object in self.tracked_objects.items():
             if tracked_object['frames'][-1] != int(contourlist.header.frame_id):
@@ -222,6 +227,7 @@ class DataAssociator(object):
             most_persistant_objid = objid_in_order_of_persistance[0]
 
         # publish tracked objects
+        # TODO remove condition? (always true?)
         if 1:
             object_info_to_publish = []
             t = contourlist.header.stamp

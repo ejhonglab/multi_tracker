@@ -52,6 +52,8 @@ class Tracker:
                         'dilate'                    : 2,
                         'morph_open_kernel_size'
 : 3,
+                        'initial_erode_denoise_iter'
+: 0,
                         'max_change_in_frame'       : 0.2,
                         'min_size'                  : 5,
                         'max_size'                  : 200,
