@@ -13,7 +13,7 @@
 <node name="data_association_1" pkg="multi_tracker" type="data_association.py" output="screen" args="--nodenum=1" />
 
 # launch node to save data to hdf5
-<node name="save_hdf5_data_1" pkg="multi_tracker" type="save_data_to_hdf5.py" output="screen" args="--nodenum=1"/>
+<node name="save_hdf5_data_1" pkg="multi_tracker" type="save_data_to_hdf5.py" output="screen" args="--nodenum=1 --record-time-hrs=1"/>
 
 # load parameters for, and show live tracking
 <rosparam command="load" file="liveviewer_parameters.yaml"/>
