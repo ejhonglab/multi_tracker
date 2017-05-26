@@ -1,0 +1,13 @@
+<launch>
+<arg name="path" default="/dickinson/low-contrast/10" />
+<arg name="file" default="20161011_145821_N1_delta_video.bag"/>
+
+<rosparam command="load" file="launch_delta_video_parameters.yaml"/>
+
+<node name="rosbag_player" pkg="rosbag" type="play" args="$(arg path)/$(arg file) --clock --rate 6.0 --start 0.0" required="true"/>
+
+<node name="delta_video_player" pkg="multi_tracker" type="delta_video_player.py" args="--in='/multi_tracker/1/delta_video' --out='/camera/image_raw' --directory=$(arg path)" required="true"/>
+
+<node name="image_viewer" pkg="image_view" type="image_view" args="image:=/camera/image_raw" />
+
+</launch>

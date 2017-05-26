@@ -1,12 +1,12 @@
 /multi_tracker/1/tracker/image_topic: '/camera/image_raw'
-/multi_tracker/1/tracker/threshold: 15
+/multi_tracker/1/tracker/threshold: 10
 /multi_tracker/1/tracker/backgroundupdate: 0
 /multi_tracker/1/tracker/medianbgupdateinterval: 0
 /multi_tracker/1/tracker/camera_encoding: 'mono8'
 /multi_tracker/1/tracker/min_persistence_to_draw: 10
 /multi_tracker/1/tracker/max_frames_to_draw: 50
 /multi_tracker/1/tracker/morph_open_kernel_size : 3 
-/multi_tracker/1/tracker/initial_erode_denoise_iter : 1
+/multi_tracker/1/tracker/initial_erode_denoise_iter : 0
 /multi_tracker/1/tracker/erode: 0
 /multi_tracker/1/tracker/dilate: 0
 /multi_tracker/1/tracker/max_change_in_frame: 0.2
