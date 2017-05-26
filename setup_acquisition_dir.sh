@@ -19,4 +19,4 @@ printf "Didn't make symlink to examples/demo because "\
 "~/demo exists\n"
 fi
 
-mkdir $FROM/data
+mkdir $FROM/demo_1/data

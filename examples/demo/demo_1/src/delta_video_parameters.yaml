@@ -1,4 +1,4 @@
-/multi_tracker/1/delta_video/image_topic: '/camera/image_raw'
+/multi_tracker/1/delta_video/image_topic: '/usb_cam/image_rect'
 /multi_tracker/1/delta_video/threshold: 6
 /multi_tracker/1/delta_video/camera_encoding: 'mono8'
 /multi_tracker/1/delta_video/max_change_in_frame: 0.2

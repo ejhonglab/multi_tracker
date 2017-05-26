@@ -8,7 +8,6 @@ This node records mouse clicks and keypresses to a csv file. Requires a image to
 from __future__ import division
 
 import numpy as np
-import cv
 import cv2
 
 from optparse import OptionParser

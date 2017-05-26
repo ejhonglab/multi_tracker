@@ -6,7 +6,6 @@ import roslib
 import rospy
 import rosparam
 import copy
-import cv
 import cv2
 import numpy as np
 import threading

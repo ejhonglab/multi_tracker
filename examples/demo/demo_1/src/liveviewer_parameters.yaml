@@ -1,4 +1,4 @@
-/multi_tracker/1/liveviewer/image_topic: '/camera/image_raw'
+/multi_tracker/1/liveviewer/image_topic: '/usb_cam/image_rect'
 /multi_tracker/1/liveviewer/camera_encoding: 'mono8'
 /multi_tracker/1/liveviewer/min_persistence_to_draw: 10
 /multi_tracker/1/liveviewer/max_frames_to_draw: 50

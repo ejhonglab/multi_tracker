@@ -1,4 +1,4 @@
-/multi_tracker/1/tracker/image_topic: '/camera/image_raw'
+/multi_tracker/1/tracker/image_topic: '/usb_cam/image_rect'
 /multi_tracker/1/tracker/threshold: 6
 /multi_tracker/1/tracker/backgroundupdate: 0
 /multi_tracker/1/tracker/medianbgupdateinterval: 0

@@ -9,7 +9,6 @@ import threading
 import numpy as np
 
 from sensor_msgs.msg import Image
-import cv
 from cv_bridge import CvBridge, CvBridgeError
 
 import imp

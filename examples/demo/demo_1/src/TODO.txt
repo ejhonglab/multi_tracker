@@ -1,0 +1,2 @@
+include instructions and launch files for calibrating camera.
+link to checkerboard or make a local copy.
