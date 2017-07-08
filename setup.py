@@ -3,7 +3,8 @@ from setuptools import setup
 setup(
 name='MultiTrackerAnalysis',
 version='0.0.1',
-install_requires=['h5py', 'progressbar'],
+install_requires=['h5py', 'progressbar', 'pandas', 'scipy', \
+    'sympy'],
 author='Floris van Breugel',
 author_email='floris@caltech.edu',
 packages = ['multi_tracker_analysis'],

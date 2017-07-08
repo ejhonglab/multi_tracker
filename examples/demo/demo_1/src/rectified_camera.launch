@@ -4,7 +4,7 @@
 	<!-- TODO appropriate framerate? check not duplicates -->
 	<!-- TODO make camera_name match calibration -->
 
-	<param name="video_device" value="/dev/video1"/>
+	<param name="video_device" value="/dev/video0"/>
 
 	<!-- TODO make path generic somehow, or have other
 	          scripts replace it when installing -->

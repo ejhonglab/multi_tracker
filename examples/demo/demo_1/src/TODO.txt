@@ -1,2 +1,13 @@
 include instructions and launch files for calibrating camera.
 link to checkerboard or make a local copy.
+-calibrate
+-enforce that camera is calibrated and test calibration periodically / warn?
+-test i can track flies reliably with this lens / camera
+	-order if so
+-test lighting works (waiting on power supply from digikey?)
+
+-run multi_tracker setup.py in install scripts
+-or package it for / with floris and install from ppa / repo?
+ python package?
+
+
