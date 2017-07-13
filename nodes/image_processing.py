@@ -134,7 +134,8 @@ def add_data_to_contour_info(x,y,ecc,area,angle,dtCamera,header):
     return data
     
 def extract_and_publish_contours(self):
-    contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    _, contours, hierarchy = cv2.findContours(self.threshed, \
+        cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     # http://docs.opencv.org/trunk/doc/py_tutorials/py_imgproc/py_contours/py_contour_features/py_contour_features.html
     
     try:

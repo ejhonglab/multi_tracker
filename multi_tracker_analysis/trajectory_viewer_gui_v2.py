@@ -31,9 +31,8 @@ print('Using pyqtgraph: ' + pg.__version__)
 # video would not load before installing most recent version of pyqtgraph from github repo
 # this is the version of the commit that fixed the
 # issue with current numpy: pyqtgraph-0.9.10-118-ge495bbc (in commit e495bbc...)
-if pg.__version__ < 'pyqtgraph-0.9.10-118' and numpy.version.version > '1.10':
+if pg.__version__ < 'pyqtgraph-0.9.10-118' and np.version.version > '1.10':
     warnings.warn('Using pyqtgraph probably incompatible with numpy. Video may not load.')
-    quit()
   
 pg.mkQApp()
   
