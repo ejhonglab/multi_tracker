@@ -1,5 +1,5 @@
 <launch>
-<arg name="path" default="/home/caveman/catkin_ws/src/multi_tracker/examples/sample_data" />
+<arg name="path" default="/home/tom/catkin/src/multi_tracker/examples/sample_data" />
 
 <rosparam command="load" file="launch_delta_video_parameters.yaml"/>
 

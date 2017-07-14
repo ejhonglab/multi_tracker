@@ -356,11 +356,18 @@ def dark_or_light_objects_only(self, color='dark'):
     #self.threshed = sure_fg
     erode_and_dialate(self)
 
+    # for help picking threshold parameters
+    if self.pubDifferenceImage.get_num_connections() > 0:
+        diff = cv2.diff(np.float32(self.imgScaled), self.backgroundImage)
+        self.pubDifferenceImage.publish(diff)
+    
     # publish the processed image
-    c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
-    # commented for now, because publishing unthresholded difference
-    img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
-    self.pubProcessedImage.publish(img)
+    # for troubleshooting image processing pipeline
+    if self.pubProcessedImage.get_num_connections() > 0:
+        c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
+        # commented for now, because publishing unthresholded difference
+        img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
+        self.pubProcessedImage.publish(img)
 
     extract_and_publish_contours(self)
     #reset_background_if_difference_is_very_large(self, color)

@@ -87,7 +87,7 @@ class LiveViewer:
         
         # initialize display
         self.window_name = 'output'
-        cv2.namedWindow(self.window_name,1)
+        cv2.namedWindow(self.window_name, cv2.WINDOW_AUTOSIZE)
         self.subTrackedObjects = rospy.Subscriber('/multi_tracker/' + nodenum + '/tracked_objects', Trackedobjectlist, self.tracked_object_callback)
         self.subContours = rospy.Subscriber('/multi_tracker/' + nodenum + '/contours', Contourlist, self.contour_callback)
             
