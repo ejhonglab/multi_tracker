@@ -19,6 +19,18 @@ from multi_tracker.srv import resetBackgroundService, addImageToBackgroundServic
 
 import image_processing
 
+from distutils.version import LooseVersion, StrictVersion
+print 'Using open cv: ' + cv2.__version__
+if StrictVersion(cv2.__version__.split('-')[0]) >= StrictVersion("3.0.0"):
+    OPENCV_VERSION = 3
+    print 'Open CV 3'
+else:
+    OPENCV_VERSION = 2
+    print 'Open CV 2'
+
+if 0:#OPENCV_VERSION == 3:
+    raise ImportError('cv bridge not compatible with opencv 3, killing live viewer')
+
 # for basler ace cameras, use camera_aravis
 # https://github.com/ssafarik/camera_aravis
 # rosrun camera_aravis camnode
@@ -86,15 +98,15 @@ class LiveViewer:
         self.nodenum = nodenum
         
         # initialize display
-        self.window_name = 'output'
-        cv2.namedWindow(self.window_name, cv2.WINDOW_AUTOSIZE)
+        self.window_name = 'liveviewer_' + nodenum
         self.subTrackedObjects = rospy.Subscriber('/multi_tracker/' + nodenum + '/tracked_objects', Trackedobjectlist, self.tracked_object_callback)
         self.subContours = rospy.Subscriber('/multi_tracker/' + nodenum + '/contours', Contourlist, self.contour_callback)
             
         self.cvbridge = CvBridge()
         self.tracked_trajectories = {}
         self.contours = None
-        cv2.setMouseCallback(self.window_name, self.on_mouse_click)
+
+        self.window_initiated = False
         
         # Subscriptions - subscribe to images, and tracked objects
         self.image_mask = None 
@@ -148,7 +160,7 @@ class LiveViewer:
         except CvBridgeError, e:
             rospy.logwarn ('Exception converting background image from ROS to opencv:  %s' % e)
             img = np.zeros((320,240))
-
+        
         self.imgScaled = img[self.params['roi_b']:self.params['roi_t'], self.params['roi_l']:self.params['roi_r']]
         self.shapeImage = self.imgScaled.shape # (height,width)
         
@@ -166,24 +178,34 @@ class LiveViewer:
         else:
             self.imgOutput = self.imgScaled
         
+        
         # Draw ellipses from contours
         if self.contours is not None:
             for c, contour in enumerate(self.contours.contours):
                 # b = contour.area / (np.pi*a)
                 # b = ecc*a
-                a = np.sqrt( contour.area / (np.pi*contour.ecc) )
-                b = contour.ecc*a
+                if contour.ecc != 0: # eccentricity of ellipse < 1 but > 0
+                    a = np.sqrt( contour.area / (np.pi*contour.ecc) )
+                    b = contour.ecc*a
+                else: # eccentricity of circle is 0 
+                    a = 1
+                    b = 1
                 center = (int(contour.x), int(contour.y))
                 angle = int(contour.angle)
                 axes = (int(np.min([a,b])), int(np.max([a,b])))
                 cv2.ellipse(self.imgOutput, center, axes, angle, 0, 360, (0,255,0), 2 )
-                            
+        
         # Display the image | Draw the tracked trajectories
         for objid, trajec in self.tracked_trajectories.items():
             if len(trajec.positions) > 5:
                 draw_trajectory(self.imgOutput, trajec.positions, trajec.color, 2)
                 cv2.circle(self.imgOutput,(int(trajec.positions[-1][0]),int(trajec.positions[-1][1])),int(trajec.covariances[-1]),trajec.color,2)
-        cv2.imshow('output', self.imgOutput)
+        cv2.imshow(self.window_name, self.imgOutput)
+
+        if not self.window_initiated: # for some reason this approach works in opencv 3 instead of previous approach
+            cv2.setMouseCallback(self.window_name, self.on_mouse_click)
+            self.window_initiated = True
+        
         ascii_key = cv2.waitKey(1)
         if ascii_key != -1:
             self.on_key_press(ascii_key)

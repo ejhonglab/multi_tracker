@@ -25,28 +25,42 @@ import progressbar
 import subprocess
 import warnings
 
+from distutils.version import LooseVersion, StrictVersion
+
 print('Using numpy: ' + np.version.version)
 print('Using pyqtgraph: ' + pg.__version__)
 
 # video would not load before installing most recent version of pyqtgraph from github repo
 # this is the version of the commit that fixed the
 # issue with current numpy: pyqtgraph-0.9.10-118-ge495bbc (in commit e495bbc...)
-if pg.__version__ < 'pyqtgraph-0.9.10-118' and np.version.version > '1.10':
-    warnings.warn('Using pyqtgraph probably incompatible with numpy. Video may not load.')
-  
+# version checking with distutils.version. See: http://stackoverflow.com/questions/11887762/compare-version-strings
+if StrictVersion(pg.__version__) < StrictVersion("0.9.10"):
+    if StrictVersion(np.version.version) > StrictVersion("1.10"):
+        warnings.warn('Using pyqtgraph may be incompatible with numpy. Video may not load.')
+        quit()
 pg.mkQApp()
-  
-## Define main window class from template
+
+import gtk, pygtk
+window = gtk.Window()
+screen = window.get_screen()
+screen_width = screen.get_width()
+screen_height = screen.get_height()
+
+# check screen size - if "small" screen use smaller ui
 path = os.path.dirname(os.path.abspath(__file__))
-uiFile = os.path.join(path, 'trajectory_viewer_gui.ui')
+if screen_height < 900:
+    uiFile = os.path.join(path, 'trajectory_viewer_small_screens.ui')
+else:
+    uiFile = os.path.join(path, 'trajectory_viewer_gui.ui')
+#uiFile = '/home/caveman/catkin_ws/src/multi_tracker/multi_tracker_analysis/trajectory_viewer_small_screens.ui'
 WindowTemplate, TemplateBaseClass = pg.Qt.loadUiType(uiFile)
-  
+
 def get_random_color():
     color = (np.random.randint(0,255), np.random.randint(0,255), np.random.randint(0,255))
     return color
   
 class QTrajectory(TemplateBaseClass):
-    def __init__(self, data_filename, bgimg, delta_video_filename, load_original=False):
+    def __init__(self, data_filename, bgimg, delta_video_filename, load_original=False, clickable_width=6, draw_interesting_time_points=True, draw_config_function=False):
         self.load_original = load_original 
         
         TemplateBaseClass.__init__(self)
@@ -57,6 +71,10 @@ class QTrajectory(TemplateBaseClass):
         self.ui = WindowTemplate()
         self.ui.setupUi(self)
         #self.show()
+
+        # options
+        self.draw_interesting_time_points = draw_interesting_time_points
+        self.draw_config_function = draw_config_function
 
         # Buttons
         self.ui.movie_save.clicked.connect(self.save_image_sequence)
@@ -89,6 +107,7 @@ class QTrajectory(TemplateBaseClass):
         self.skip_frames = 1
         self.frame_delay = 0.03
         self.path = os.path.dirname(data_filename)
+        self.clickable_width = clickable_width
         
         # load delta video bag
         if delta_video_filename != 'none':
@@ -137,7 +156,10 @@ class QTrajectory(TemplateBaseClass):
             for r, row in enumerate(self.config.sensory_stimulus_on):
                 v1 = pg.PlotDataItem([self.config.sensory_stimulus_on[r][0],self.config.sensory_stimulus_on[r][0]], [0,10])
                 v2 = pg.PlotDataItem([self.config.sensory_stimulus_on[r][-1],self.config.sensory_stimulus_on[r][-1]], [0,10])
-                f12 = pg.FillBetweenItem(curve1=v1, curve2=v2, brush=pg.mkBrush((255,0,0,150)) )
+                try:
+                    f12 = pg.FillBetweenItem(curve1=v1, curve2=v2, brush=pg.mkBrush(self.config.sensory_stimulus_rgba[r]) )
+                except:
+                    f12 = pg.FillBetweenItem(curve1=v1, curve2=v2, brush=pg.mkBrush((255,0,0,150)) )
                 self.ui.qtplot_timetrace.addItem(f12)
         
         lr = pg.LinearRegionItem(values=self.troi)
@@ -483,31 +505,32 @@ class QTrajectory(TemplateBaseClass):
     ### Drawing functions
     
     def draw_timeseries_vlines_for_interesting_timepoints(self):
-        self.calc_time_etc()
-        
-        # clear
-        try:
-            self.ui.qtplot_timetrace.removeItem(self.nflies_plot)
-        except:
-            pass
-        for vline in self.trajectory_ends_vlines:
-            self.ui.qtplot_timetrace.removeItem(vline)
-        self.trajectory_ends_vlines = []
-        
-        # draw
-        self.nflies_plot = self.ui.qtplot_timetrace.plot(x=self.time_epoch_continuous, y=self.nflies)
-        
-        objid_ends = self.pd.groupby('objid').time_epoch.max()
-        for key in objid_ends.keys():
-            t = objid_ends[key]
-            vline = pg.InfiniteLine(angle=90, movable=False)
-            self.ui.qtplot_timetrace.addItem(vline, ignoreBounds=True)
-            vline.setPos(t)
-            pen = pg.mkPen(self.trajec_to_color_dict[key], width=1)
-            vline.setPen(pen)
-            self.trajectory_ends_vlines.append(vline)
-        
-        # TODO: times (or frames) where trajectories get very close to one another
+        if self.draw_interesting_time_points:
+            self.calc_time_etc()
+            
+            # clear
+            try:
+                self.ui.qtplot_timetrace.removeItem(self.nflies_plot)
+            except:
+                pass
+            for vline in self.trajectory_ends_vlines:
+                self.ui.qtplot_timetrace.removeItem(vline)
+            self.trajectory_ends_vlines = []
+            
+            # draw
+            self.nflies_plot = self.ui.qtplot_timetrace.plot(x=self.time_epoch_continuous, y=self.nflies)
+            
+            objid_ends = self.pd.groupby('objid').time_epoch.max()
+            for key in objid_ends.keys():
+                t = objid_ends[key]
+                vline = pg.InfiniteLine(angle=90, movable=False)
+                self.ui.qtplot_timetrace.addItem(vline, ignoreBounds=True)
+                vline.setPos(t)
+                pen = pg.mkPen(self.trajec_to_color_dict[key], width=1)
+                vline.setPen(pen)
+                self.trajectory_ends_vlines.append(vline)
+            
+            # TODO: times (or frames) where trajectories get very close to one another
         
     def draw_vlines_for_selected_trajecs(self):
         for vline in self.selected_trajectory_ends:
@@ -600,7 +623,7 @@ class QTrajectory(TemplateBaseClass):
                 self.plotted_traces_keys.append(key)
                 
             for i, key in enumerate(self.plotted_traces_keys):
-                self.plotted_traces[i].curve.setClickable(True, width=3)
+                self.plotted_traces[i].curve.setClickable(True, width=self.clickable_width)
                 self.plotted_traces[i].curve.key = key
                 self.plotted_traces[i].curve.sigClicked.connect(self.trace_clicked)
         
@@ -674,6 +697,7 @@ class QTrajectory(TemplateBaseClass):
         self.delta_video_background_img = None
         
         for m, msg in enumerate(self.msgs):
+            bag_time_stamp = float(msg[1].header.stamp.secs) + float(msg[1].header.stamp.nsecs)*1e-9
             delta_video_background_img_filename = os.path.join( self.path, os.path.basename(msg[1].background_image) )
             if os.path.exists(delta_video_background_img_filename):            
                 if delta_video_background_img_filename != self.delta_video_background_img_filename:
@@ -692,9 +716,14 @@ class QTrajectory(TemplateBaseClass):
                     msg[1].xpixels = tuple(x - 1 for x in msg[1].xpixels)
                     msg[1].ypixels = tuple(y - 1 for y in msg[1].ypixels)
                 else:
-                    print('Not ros kinetic.')
+                    pass #print('Not ros kinetic.')
 
                 imgcopy[msg[1].xpixels, msg[1].ypixels] = msg[1].values # if there's an error, check if you're using ROS hydro?
+            
+            if self.draw_config_function:
+                imgcopy = cv2.cvtColor(imgcopy, cv2.COLOR_GRAY2RGB)
+                self.config.draw(imgcopy, bag_time_stamp)
+
             self.image_sequence.append(imgcopy)
             #s = int((m / float(len(self.msgs)))*100)
             tfloat = msg[1].header.stamp.secs + msg[1].header.stamp.nsecs*1e-9
@@ -728,7 +757,10 @@ class QTrajectory(TemplateBaseClass):
             print i, img_name
         print 'To turn the PNGs into a movie, you can run this command from inside the directory with the tmp files: '
         print 'mencoder \'mf://*.png\' -mf type=png:fps=30 -ovc lavc -lavcopts vcodec=mpeg4 -oac copy -o animation.avi'
-            
+        print ' or '
+        print "mencoder 'mf://*.jpg' -mf type=jpg:fps=30 -ovc x264 -x264encopts preset=slow:tune=film:crf=22 -oac copy -o animation.mp4"
+        print "might need: https://www.faqforge.com/linux/how-to-install-ffmpeg-on-ubuntu-14-04/"
+        print ''
     def get_next_reconstructed_image(self):
         self.current_frame += self.skip_frames
         if self.current_frame >= len(self.image_sequence)-1:
@@ -775,12 +807,15 @@ if __name__ == '__main__':
     parser.add_option('--path', type=str, default='none', help="option: path that points to standard named filename, background image, dvbag, config. If using 'path', no need to provide filename, bgimg, dvbag, and config. Note")
     parser.add_option('--movie', type=int, default=1, help="load and play the dvbag movie, default is 1, to load use 1")
     parser.add_option('--load-original', type=int, default=0, dest="load_original", help="load original (unprocessed) dataset for debugging, use 1 to load, default 0")
+    parser.add_option('--draw-interesting-time-points', type=int, default=1, dest="draw_interesting_time_points", help="draw interesting time points (e.g. vertical lines). Default = True, set to False if VERY large dataset.")
+    parser.add_option('--draw-config-function', type=int, default=0, dest="draw_config_function", help="If config has a draw function, apply this function to movie frames")
+    parser.add_option('--clickable-width', type=int, default=6, dest="clickable_width", help="pixel distance from trace to accept click (larger number means easier to click traces)")
     parser.add_option('--filename', type=str, help="name and path of the hdf5 tracked_objects filename")
     parser.add_option('--bgimg', type=str, help="name and path of the background image")
     parser.add_option('--dvbag', type=str, default='none', help="name and path of the delta video bag file, optional")
     parser.add_option('--config', type=str, default='none', help="name and path of a configuration file, optional. If the configuration file has an attribute 'sensory_stimulus_on', which should be a list of epoch timestamps e.g. [[t1,t2],[t3,4]], then these timeframes will be highlighted in the gui.")
     (options, args) = parser.parse_args()
-
+    
     if options.path != 'none':
         if not os.path.isdir(options.path):
             raise ValueError('Path needs to be a directory!')
@@ -792,7 +827,9 @@ if __name__ == '__main__':
     if options.movie != 1:
         options.dvbag = 'none'
     
-    Qtrajec = QTrajectory(options.filename, options.bgimg, options.dvbag, options.load_original)
+    Qtrajec = QTrajectory(options.filename, options.bgimg, options.dvbag, options.load_original, options.clickable_width, 
+        options.draw_interesting_time_points,
+        options.draw_config_function)
     Qtrajec.run()
     
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):

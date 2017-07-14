@@ -7,9 +7,13 @@ import imp
 import pickle
 import scipy.interpolate
 import warnings
+import time
+import matplotlib.pyplot as plt
+import inspect
+import types
 
 def get_filenames(path, contains, does_not_contain=['~', '.pyc']):
-    cmd = 'ls ' + path
+    cmd = 'ls ' + '"' + path + '"'
     ls = os.popen(cmd).read()
     all_filelist = ls.split('\n')
     try:
@@ -52,39 +56,97 @@ def load_bag_as_hdf5(bag, skip_messages=[]):
     return metadata
 
 class Trajectory(object):
-    def __init__(self, pd, objid):
+    def __init__(self, pd, objid, functions=None):
         self.pd = pd[pd['objid']==objid]
-        
         for column in self.pd.columns:
             self.__setattr__(column, self.pd[column].values)
+        if functions is not None:
+            self.__attach_analysis_functions__(functions)
+
             
     def __getitem__(self, key): # trajec attributes can be accessed just like a dictionary this way
         return self.__getattribute__(key)
-        
+
 class Dataset(object):
-    def __init__(self, pd, copy=False, config=None):
+    def __init__(self, pd, path=None, save=False, convert_to_units=False, annotations=None):
+        '''
+        highly recommended to provide directory path
+        
+        convert_to_units requires that path is given, and that path contains a config file, which has attributes:
+            - pixels_per_mm (or pixels_per_cm, etc) 
+            - position_zero = [x, y] # the x and y pixels of position zero
+            - frames_per_second defined
+        '''
         self.pd = pd
         self.keys = []
         self.__processed_trajecs__ = {}
-        self.copy = copy
-        self.config = config
-        
-        if copy:
+        self.save = save
+        self.path = path
+        self.annotations = annotations
+
+        self.units = {'length': 'pixels', 'speed': 'pixels per frame'}
+        if path is not None:
+            if convert_to_units:
+                self.load_config()
+                pixels_per_unit_key = []
+                for key in self.config.__dict__.keys():
+                    if 'pixels_per_' in key:
+                        pixels_per_unit_key = key
+                        self.units['length'] = key.split('pixels_per_')[1]
+                        self.units['speed'] = self.units['length'] + ' per second'
+                        break
+                self.pixels_per_unit = self.config.__dict__[pixels_per_unit_key]
+                self.frames_per_second = self.config.frames_per_second
+                self.convert_to_units()
+            
+            raw_data_filename = get_filename(self.path, 'trackedobjects.hdf5')
+            self.dataset_filename = raw_data_filename.split('trackedobjects.hdf5')[0] + 'trackedobjects_dataset.pickle'
+
+        if save:
             self.load_keys()
             self.copy_trajectory_objects_to_dataset()
             del(self.pd)
-            print 'Dataset loaded as a stand alone object - to save your dataset, use pickle:'
+            self.pd = None
+            print
+            print 'Dataset loaded as a stand alone object - to save your dataset, use: '
+            print 'dataset.save_dataset()'
+            print
+            print '  -- OR --  '
+            print
+            print 'del (dataset.config)'
             print 'import pickle'
-            print 'f = open(filename, "w+")'
+            print 'f = open(dataset.dataset_filename, "w+")'
             print 'pickle.dump(dataset, f)'
             print 'f.close()'
-            
+
+    def convert_to_units(self):
+        self.pd.position_x = (self.pd.position_x-self.config.position_zero[0])/float(self.pixels_per_unit)
+        self.pd.position_y = (self.pd.position_y-self.config.position_zero[1])/float(self.pixels_per_unit)
+        self.pd.speed = self.pd.speed/float(self.pixels_per_unit)*self.frames_per_second
+        self.pd.velocity_x = self.pd.velocity_x/float(self.pixels_per_unit)*self.frames_per_second
+        self.pd.velocity_y = self.pd.velocity_y/float(self.pixels_per_unit)*self.frames_per_second
+
+    def load_config(self):
+        self.config = load_config_from_path(self.path)
+
+    def save_dataset(self):
+        try:
+            del(self.config)
+        except:
+            pass
+        f = open(self.dataset_filename, "w+")
+        pickle.dump(self, f)
+        f.close()
+
     def trajec(self, key):
-        if not self.copy:
-            return Trajectory(self.pd, key)
+        if self.pd is not None:
+            trajec = Trajectory(self.pd, key)
+            return trajec
         else:
-            raise ValueError('This is a copied dataset, use dictionary acccess: dataset.trajecs[key]') 
-            
+            return self.trajecs[key]
+            #raise ValueError('This is a saved dataset, use dict access: Dataset.trajecs[key] for data')
+
+
     def framestamp_to_timestamp(self, frame):
         t = self.pd.ix[frame]['time_epoch']
         try:
@@ -101,17 +163,75 @@ class Dataset(object):
         return int(func(t))
         
     def load_keys(self, keys=None):
-        if keys is None:
-            self.keys = np.unique(self.pd.objid).tolist()
+        if self.annotations is None:
+            if keys is None:
+                self.keys = np.unique(self.pd.objid).tolist()
+            else:
+                self.keys = keys
         else:
-            self.keys = keys
-            
+            self.keys = []
+            for key, note in self.annotations.items():
+                if 'confirmed' in note['notes']:
+                    self.keys.append(key)
+
     def copy_trajectory_objects_to_dataset(self):
         self.trajecs = {}
         for key in self.keys:
-            trajec = copy.copy(Trajectory(self.pd, key))
+            trajec = copy.copy( Trajectory(self.pd, key) )
             self.trajecs.setdefault(key, trajec)
-            
+
+    def calculate_function_for_all_trajecs(self, function):
+        for key, trajec in self.trajecs.items():
+            function(trajec)
+
+def load_dataset_from_path(path, load_saved=False, convert_to_units=True, use_annotations=True):
+    '''
+    load_saved only recommended for reasonably sized datasets, < 500 mb
+    convert_to_units - see Dataset; converts pixels and frames to mm (or cm) and seconds, based on config
+    '''
+    if load_saved:
+        data_filename = get_filename(path, 'trackedobjects_dataset.pickle')
+        if data_filename is not None:
+            print data_filename
+            delete_cut_join_instructions_filename = get_filename(path, 'delete_cut_join_instructions.pickle')
+            epoch_time_when_dcjif_modified = os.path.getmtime(delete_cut_join_instructions_filename)
+            epoch_time_when_dataset_modified = os.path.getmtime(data_filename)
+
+            if epoch_time_when_dcjif_modified > epoch_time_when_dataset_modified:
+                print 'Delete cut join instructions modified - recalculating new dataset'
+
+            else:
+                f = open(data_filename)
+                dataset = pickle.load(f)
+                f.close()
+                print 'Loaded cached dataset last modified: '
+                print time.localtime(epoch_time_when_dataset_modified)
+                print
+                return dataset
+        else:
+            print 'Could not find cached dataset in path: '
+            print path
+            print ' Loading dataset from raw data now...'
+
+    data_filename = get_filename(path, 'trackedobjects.hdf5')
+    pd, config = load_and_preprocess_data(data_filename)
+
+    if use_annotations:
+        annotations_file = open(get_filename(path, 'annotations'))
+        annotations = pickle.load(annotations_file)
+        annotations_file.close()
+    else:
+        annotations = None
+
+    dataset = Dataset(pd, path=path, 
+                          save=load_saved, 
+                          convert_to_units=convert_to_units,
+                          annotations=annotations) # if load_saved is True, copy the dataset, so it can be cached
+
+    if load_saved:
+        dataset.save_dataset()
+
+    return dataset
             
 def load_data_as_pandas_dataframe_from_hdf5_file(filename, attributes=None):
     if '.pickle' in filename:
@@ -184,8 +304,12 @@ def load_and_preprocess_data(hdf5_filename):
 
 def load_config_from_path(path):
     config_filename = get_filename(path, 'config')
-    hdf5_file = os.path.basename(get_filename(path, 'trackedobjects.hdf5'))
-    identifiercode = hdf5_file.split('_trackedobjects')[0]
+    try:
+        hdf5_file = os.path.basename(get_filename(path, 'trackedobjects.hdf5'))
+        identifiercode = hdf5_file.split('_trackedobjects')[0]
+    except:
+        config_file_basename = os.path.basename(config_filename)
+        identifiercode = config_file_basename.split('config_')[1].split('.py')[0]
     print 'identifiercode: ', identifiercode
     if config_filename is not None:
         Config = imp.load_source('Config', config_filename)

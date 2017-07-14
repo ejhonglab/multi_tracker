@@ -18,6 +18,20 @@ from multi_tracker.srv import resetBackgroundService
 
 import time, os
 
+from distutils.version import LooseVersion, StrictVersion
+print 'Using open cv: ' + cv2.__version__
+
+# video would not load before installing most recent version of pyqtgraph from github repo
+# this is the version of the commit that fixed the
+# issue with current numpy: pyqtgraph-0.9.10-118-ge495bbc (in commit e495bbc...)
+# version checking with distutils.version. See: http://stackoverflow.com/questions/11887762/compare-version-strings
+if StrictVersion(cv2.__version__.split('-')[0]) >= StrictVersion("3.0.0"):
+    OPENCV_VERSION = 3
+    print 'Open CV 3'
+else:
+    OPENCV_VERSION = 2
+    print 'Open CV 2'
+    
 ###########################################################################################################
 # Incredibly basic image processing function (self contained), to demonstrate the format custom image processing functions should follow
 #######################
@@ -25,12 +39,10 @@ import time, os
 def incredibly_basic(self):
     # If there is no background image, grab one, and move on to the next frame
     if self.backgroundImage is None:
-        if np.sum(self.threshed>0) / float(self.shapeImage[0]*self.shapeImage[1]) > self.params['max_change_in_frame']:
-            reset_background(self)
+        reset_background(self)
         return
     if self.reset_background_flag:
-        if np.sum(self.threshed>0) / float(self.shapeImage[0]*self.shapeImage[1]) > self.params['max_change_in_frame']:
-            reset_background(self)
+        reset_background(self)
         self.reset_background_flag = False
         return
       
@@ -45,7 +57,11 @@ def incredibly_basic(self):
     
     # extract and publish contours
     # http://docs.opencv.org/trunk/doc/py_tutorials/py_imgproc/py_contours/py_contour_features/py_contour_features.html
-    contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if OPENCV_VERSION == 2:
+        contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    elif OPENCV_VERSION == 3:
+        self.threshed = np.uint8(self.threshed)
+        image, contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     try:
         header  = Header(stamp=self.framestamp,frame_id=str(self.framenumber))
@@ -101,7 +117,7 @@ def fit_ellipse_to_contour(self, contour):
     b /= 2.
     ecc = np.min((a,b)) / np.max((a,b))
     area = np.pi*a*b
-    if self.params['use_moments']:
+    if self.params['use_moments']: # inefficient - double calculating. Is ecc use somewhere else? If not, the ellipse is not at all needed
         try:
             moments = get_centroid_from_moments(contour) # get these values from moments - might be more robust?
         except:
@@ -134,8 +150,10 @@ def add_data_to_contour_info(x,y,ecc,area,angle,dtCamera,header):
     return data
     
 def extract_and_publish_contours(self):
-    _, contours, hierarchy = cv2.findContours(self.threshed, \
-        cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if OPENCV_VERSION == 2:
+        contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    elif OPENCV_VERSION == 3:
+        image, contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     # http://docs.opencv.org/trunk/doc/py_tutorials/py_imgproc/py_contours/py_contour_features/py_contour_features.html
     
     try:
@@ -336,12 +354,12 @@ def dark_or_light_objects_only(self, color='dark'):
         dark = cv2.compare(np.float32(self.imgScaled), self.backgroundImage-self.params['threshold'], cv2.CMP_LT) # CMP_LT is less than
         light = cv2.compare(np.float32(self.imgScaled), self.backgroundImage+self.params['threshold'], cv2.CMP_GT) # CMP_GT is greater than
         self.threshed = dark+light
-
+    
     convert_to_gray_if_necessary(self)
     
     # noise removal
     self.threshed = cv2.morphologyEx(self.threshed,cv2.MORPH_OPEN, kernel, iterations = 1)
-
+    
     # sure background area
     #sure_bg = cv2.dilate(opening,kernel,iterations=3)
 
@@ -365,7 +383,8 @@ def dark_or_light_objects_only(self, color='dark'):
     # for troubleshooting image processing pipeline
     if self.pubProcessedImage.get_num_connections() > 0:
         c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
-        # commented for now, because publishing unthresholded difference
+        # TODO test whether this works in OpenCV 2 and 3 (i think it works in 3 for me, despite
+        # Floris's comment
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
         self.pubProcessedImage.publish(img)
 
