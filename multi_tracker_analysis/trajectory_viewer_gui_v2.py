@@ -27,6 +27,7 @@ import warnings
 
 from distutils.version import LooseVersion, StrictVersion
 
+
 print('Using numpy: ' + np.version.version)
 print('Using pyqtgraph: ' + pg.__version__)
 
@@ -711,14 +712,7 @@ class QTrajectory(TemplateBaseClass):
             imgcopy = copy.copy(self.delta_video_background_img)
 
             if len(msg[1].values) > 0:
-
-                if 'kinetic' in version:
-                    msg[1].xpixels = tuple(x - 1 for x in msg[1].xpixels)
-                    msg[1].ypixels = tuple(y - 1 for y in msg[1].ypixels)
-                else:
-                    pass #print('Not ros kinetic.')
-
-                imgcopy[msg[1].xpixels, msg[1].ypixels] = msg[1].values # if there's an error, check if you're using ROS hydro?
+                imgcopy[msg[1].xpixels, msg[1].ypixels] = msg[1].values
             
             if self.draw_config_function:
                 imgcopy = cv2.cvtColor(imgcopy, cv2.COLOR_GRAY2RGB)
@@ -735,6 +729,7 @@ class QTrajectory(TemplateBaseClass):
                 pbar.update(s)
             else:
                 t0 = tfloat
+        
         pbar.finish()
         self.current_frame = -1
         

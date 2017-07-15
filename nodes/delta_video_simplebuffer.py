@@ -149,10 +149,12 @@ class Compressor:
             self.current_background_img += 1
             self.reset_background_flag = False
             return
+
+        # TODO why absdiff, if the tracker only cares about one direction or the other?
         # Absdiff
         self.absdiff = cv2.absdiff(self.imgScaled, self.backgroundImage)
-        
-        changed_pixels = np.where(self.absdiff>self.params['threshold'])
+
+        changed_pixels = np.where(self.absdiff > self.params['threshold'])
         delta_msg = DeltaVid()
         header  = Header(stamp=self.framestamp,frame_id=str(self.framenumber))
         delta_msg.header = header

@@ -1,10 +1,13 @@
 <launch>
-<arg name="path" default="/home/tom/catkin/src/multi_tracker/examples/sample_data" />
+<arg name="path" default="/media/remy/storage/tracking_data/71117" />
 
 <rosparam command="load" file="launch_delta_video_parameters.yaml"/>
 
-<node name="rosbag_player" pkg="rosbag" type="play" output="screen" args="$(arg path)/20160412_134708_N1_delta_video.bag --clock --pause" />
-<node name="delta_video_player" pkg="multi_tracker" type="delta_video_player.py" args="--in='/multi_tracker/1/delta_video' --out='/camera/image_raw' --directory=$(arg path)" />
+<node name="rosbag_player" pkg="rosbag" type="play" output="screen" args="$(arg path)/20170711_150010_N1_delta_video.bag --clock --pause --rate 30 --start 0" >
+  <remap from="/multi_tracker/1/delta_video" to="/original_delta_video" />
+</node>
+
+<node name="delta_video_player" pkg="multi_tracker" type="delta_video_player.py" args="--in='/original_delta_video' --out='/camera/image_raw' --directory=$(arg path)" />
 <node name="image_viewer" pkg="image_view" type="image_view" args="image:=/camera/image_raw" />
 
 </launch>
