@@ -507,7 +507,7 @@ def cull_short_trajectories(pd, min_length=4):
     keys_ok = np.array(keys)[indices]
     
     culled_pd = pd.query('objid in @keys_ok')
-    
+    print('Removing ' + str(len(keys) - len(indices)) + ' trajectories below minimum length')
     return culled_pd
 
 def compare_objids_from_two_dataframes(pd1, pd2):
@@ -525,6 +525,8 @@ def cull_trajectories_that_do_not_cover_much_ground(pd, min_distance_travelled=1
     objids = distance_travelled.index[indices]
     indices_where_object_acceptable = pd.objid.isin(objids)
     culled_pd = pd[indices_where_object_acceptable]
+    print('Removing ' + str(len(pd.index) - len(culled_pd.index)) + ' trajectories ' + \
+        'not covering enough distance.')
     return culled_pd
     
 def cull_trajectories_that_do_not_cover_much_x_or_y_distance(pd, min_distance_travelled=10):
@@ -545,6 +547,8 @@ def cull_trajectories_that_do_not_cover_much_x_or_y_distance(pd, min_distance_tr
     indices_where_object_acceptable = pd.objid.isin(objids)
     culled_pd = pd[indices_where_object_acceptable]
     
+    print('Removing ' + str(len(pd.index) - len(culled_pd.index)) + \
+        ' trajectories not covering enough x or y distance.')
     return culled_pd
 
 def get_objid_lengths(pd, objid_attribute='objid'):
@@ -558,16 +562,18 @@ def get_objid_lengths(pd, objid_attribute='objid'):
     
 def remove_rows_above_speed_threshold(pd, speed_threshold=10):
     q = 'speed < ' + str(speed_threshold)
-    return pd.query(q)
+    pd_q = pd.query(q)
+    print('Removing ' + str(len(pd.index) - len(pd_q.index)) + \
+        ' trajectories above speed threshold.')
+    return pd_q
     
 def remove_objects_that_never_exceed_minimum_speed(pd, speed_threshold=1):
-
     speeds = pd.speed.groupby(pd.objid).max()
-    
     keysok = np.where(speeds.values > speed_threshold)
     objidsok = speeds.iloc[keysok].index
     pd_q = pd.query('objid in @objidsok')
-
+    print('Removing ' + str(len(pd.index) - len(pd_q.index)) + ' trajectories never exceeding ' + \
+        'minimum speed.')
     return pd_q
 
 

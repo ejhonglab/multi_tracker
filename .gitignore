@@ -1,8 +1,9 @@
 include/
 build/
-*.pyc
-*~
 data/
 dist/
 *.egg-info/
 .ipynb_checkpoints
+*.pyc
+*.swp
+*~

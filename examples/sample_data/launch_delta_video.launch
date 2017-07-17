@@ -1,9 +1,9 @@
 <launch>
-<arg name="path" default="/media/remy/storage/tracking_data/71117" />
+<arg name="path" default="/media/remy/storage/tracking_data/20170711_150010_N1" />
 
 <rosparam command="load" file="launch_delta_video_parameters.yaml"/>
 
-<node name="rosbag_player" pkg="rosbag" type="play" output="screen" args="$(arg path)/20170711_150010_N1_delta_video.bag --clock --pause --rate 30 --start 0" >
+<node name="rosbag_player" pkg="rosbag" type="play" output="screen" args="$(arg path)/20170711_150010_N1_delta_video.bag --clock --pause --rate=30 --start=0" >
   <remap from="/multi_tracker/1/delta_video" to="/original_delta_video" />
 </node>
 
