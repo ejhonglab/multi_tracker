@@ -6,7 +6,7 @@ import rosparam
 import time
 
 #####################################################################################################
-    
+# TODO path? rename this?
 if __name__ == '__main__':
     parser = OptionParser()
     parser.add_option("--nodenum", type="str", dest="nodenum", default='1',

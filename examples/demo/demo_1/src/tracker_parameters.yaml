@@ -21,3 +21,4 @@
 /multi_tracker/1/tracker/circular_mask_x: 'none'
 /multi_tracker/1/tracker/circular_mask_y: 'none'
 /multi_tracker/1/tracker/circular_mask_r: 'none'
+/multi_tracker/1/tracker/record_length_hours: 24

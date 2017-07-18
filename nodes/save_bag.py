@@ -17,14 +17,15 @@ import imp
 #
 class SaveBag:
     def __init__(self, config, nodenum):
+        # TODO configure this from ros yaml as well
         basename = config.basename
         directory = config.directory
         self.topics = config.topics
-        try:
-            self.record_length_seconds = config.record_length_hours*3600
-        except:
-            self.record_length_seconds = 24*3600
-        self.time_start = time.time()
+        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/' + \
+            nodenum + 'record_length_hours', 24)
+        
+        # TODO does this need to go back to python time?
+        self.time_start = rospy.Time.now()
         
         experiment_basename = rospy.get_param('/multi_tracker/' + nodenum + '/experiment_basename', 'none')
         if experiment_basename == 'none':
@@ -61,7 +62,7 @@ class SaveBag:
         savebag.StartRecordingBag()
         rate = rospy.Rate(0.01)
         while not rospy.is_shutdown():
-            t = time.time() - self.time_start
+            t = rospy.Time.now() - self.time_start
             if t > self.record_length_seconds:
                 self.StopRecordingBag()      
                 return
@@ -87,6 +88,8 @@ if __name__ == '__main__':
     
     config = configuration.Config()
 
+    # TODO why is this not init_node-d in __init__ of the class?
+    # tracker does it that way; havent checked elsewhere yet.
     rospy.init_node('SaveBag', log_level=rospy.INFO)
     rospy.sleep(1)
     savebag = SaveBag(config, nodenum=options.nodenum)

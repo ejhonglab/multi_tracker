@@ -15,19 +15,24 @@ import h5py
 import atexit
 
 class DataListener:
-    def __init__(self, nodenum, info='data information', record_time_hrs=24):
+    def __init__(self, nodenum, info='data information'):
         self.subTrackedObjects = rospy.Subscriber('multi_tracker/' + nodenum + '/tracked_objects', Trackedobjectlist, self.tracked_object_callback, queue_size=300)
         
         experiment_basename = rospy.get_param('/multi_tracker/' + nodenum + '/experiment_basename', 'none')
         if experiment_basename == 'none':
             experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
            
+        # TODO maybe break a lot of this setup currently 
+        # done in many of these nodes out somewhere?
+        # just reference ros params directly? (overhead?)
         filename = experiment_basename + '_trackedobjects.hdf5'
         home_directory = os.path.expanduser( rospy.get_param('/multi_tracker/' + nodenum + '/data_directory') )
         filename = os.path.join(home_directory, filename)
+        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/' + \
+            nodenum + 'record_length_hours', 24)
+        
         print 'Saving hdf5 data to: ', filename
-        self.time_start = time.time()
-        self.record_time_hrs = record_time_hrs
+        self.time_start = rospy.Time.now()
         
         self.buffer = []
         self.array_buffer = []
@@ -97,11 +102,13 @@ class DataListener:
             self.add_chunk()
         
         self.hdf5['data'][newline:newline+nrows_to_add] = self.array_buffer
+        # TODO 
         self.array_buffer = []
                                                    
     def tracked_object_callback(self, tracked_objects):
         with self.lockBuffer:
             for tracked_object in tracked_objects.tracked_objects:
+                # TODO delete this comment. where are stamps in header defined? using correct time source?
                 a = np.array([(     tracked_object.objid,
                                     tracked_object.header.stamp.secs,
                                     tracked_object.header.stamp.nsecs,
@@ -121,30 +128,31 @@ class DataListener:
     def main(self):
         atexit.register(self.stop_saving_data)
         while (not rospy.is_shutdown()):
-            t = time.time() - self.time_start
-            if t > self.record_time_hrs*3600:
+            # TODO delete this comment. is there a reason this was previously not using ros time?
+            t = rospy.Time.now() - self.time_start
+            if t > self.record_length_seconds:
                 self.stop_saving_data()
                 return
+            
+            # TODO why locking here and not further down? (less probably better)
             with self.lockBuffer:
                 time_now = rospy.Time.now()
                 if len(self.array_buffer) > 0:
                     self.process_buffer()
-                pt = (rospy.Time.now()-time_now).to_sec()
+                pt = (rospy.Time.now() - time_now).to_sec()
                 if len(self.buffer) > 9:
                     rospy.logwarn("Data saving processing time exceeds acquisition rate. Processing time: %f, Buffer: %d", pt, len(self.buffer))
             
         
     def stop_saving_data(self):
         self.hdf5.close()
-        print 'shut down nicely'
+        print 'save_data_to_hdf5 shut down nicely'
         
 if __name__ == '__main__':
     parser = OptionParser()
     parser.add_option("--nodenum", type="str", dest="nodenum", default='1',
                         help="node number, for example, if running multiple tracker instances on one computer")
-    parser.add_option("--record-time-hrs", type="int", dest="record_time_hrs", default=24,
-                        help="number of hours to record data for")
     (options, args) = parser.parse_args()
     
-    datalistener = DataListener(options.nodenum, options.record_time_hrs)
+    datalistener = DataListener(options.nodenum)
     datalistener.main()

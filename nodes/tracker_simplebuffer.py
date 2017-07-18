@@ -41,6 +41,7 @@ class Tracker:
             Pt Grey Firefly cameras with pt grey driver : camera/image_mono
         '''
         self.nodenum = nodenum
+        # TODO load from a defaults.yaml?
         # default parameters (parameter server overides them)
         self.params = { 'image_topic'               : '/camera/image_mono',
                         'threshold'                 : 20,
@@ -63,6 +64,7 @@ class Tracker:
                         'circular_mask_y'           : 'none',
                         'circular_mask_r'           : 'none',
                         'use_moments'               : True, # use moments for x,y,area instead of fitted ellipse
+                        'record_length_hours'       : 24
                         }
         for parameter, value in self.params.items():
             try:
@@ -74,11 +76,13 @@ class Tracker:
         self.experiment_basename = rospy.get_param('/multi_tracker/' + nodenum + '/experiment_basename', 'none')
         if self.experiment_basename == 'none':
             self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
+        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/' + \
+            nodenum + 'record_length_hours', 24)
 
         # initialize the node
         rospy.init_node('multi_tracker_' + nodenum)
         self.nodename = rospy.get_name().rstrip('/')
-        self.time_start = time.time()
+        self.time_start = rospy.Time.now()
         
         # background reset service
         self.reset_background_flag = False
@@ -153,8 +157,8 @@ class Tracker:
         
     def Main(self):
         while (not rospy.is_shutdown()):
-            t = time.time() - self.time_start
-            if t > 24*3600:
+            t = rospy.Time.now() - self.time_start
+            if t > self.record_length_seconds:
                 return
             with self.lockBuffer:
                 time_now = rospy.Time.now()

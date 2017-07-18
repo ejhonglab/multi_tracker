@@ -43,6 +43,8 @@ class Compressor:
         '''
         # default parameters (parameter server overides them)
         self.nodenum = nodenum
+        # TODO set via default yaml?
+        # share this default setting code?
         self.params = { 'image_topic'       : '/camera/image_raw',
                         'threshold'         : 10,
                         'camera_encoding'   : 'mono8', # fireflies are bgr8, basler gige cams are mono8
@@ -65,10 +67,13 @@ class Compressor:
         # initialize the node
         rospy.init_node('delta_compressor_' + nodenum)
         self.nodename = rospy.get_name().rstrip('/')
-        self.time_start = time.time()
+        self.time_start = rospy.Time.now()
         
         # experiment basename
         self.experiment_basename = rospy.get_param('/multi_tracker/' + nodenum + '/experiment_basename', 'none')
+        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/' + \
+            nodenum + 'record_length_hours', 24)
+        
         if self.experiment_basename == 'none':
             self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
         
@@ -133,7 +138,8 @@ class Compressor:
         # If there is no background image, grab one, and move on to the next frame
         if self.backgroundImage is None:
             self.backgroundImage = copy.copy(self.imgScaled)
-            self.background_img_filename = self.experiment_basename + '_deltavideo_bgimg_' + time.strftime("%Y%m%d_%H%M.png", time.localtime())
+            self.background_img_filename = self.experiment_basename + '_deltavideo_bgimg_' \
+                + time.strftime("%Y%m%d_%H%M.png", time.localtime())
             data_directory = os.path.expanduser( rospy.get_param('/multi_tracker/' + self.nodenum + '/data_directory') )
             self.background_img_filename = os.path.join(data_directory, self.background_img_filename)
             
@@ -150,7 +156,9 @@ class Compressor:
             self.reset_background_flag = False
             return
 
-        # TODO why absdiff, if the tracker only cares about one direction or the other?
+        # TODO not absolute diff. use sign appropriate given tracking function (dark / light)
+        # may not want to make dependent on that though? could use abs if not one of a
+        # certain set of tracking functions
         # Absdiff
         self.absdiff = cv2.absdiff(self.imgScaled, self.backgroundImage)
 
@@ -177,8 +185,8 @@ class Compressor:
     
     def Main(self):
         while (not rospy.is_shutdown()):
-            t = time.time() - self.time_start
-            if t > 24*3600:
+            t = rospy.Time.now() - self.time_start
+            if t > self.record_length_seconds:
                 cv2.destroyAllWindows()
                 return
             with self.lockBuffer:
