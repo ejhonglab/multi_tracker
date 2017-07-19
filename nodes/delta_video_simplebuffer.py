@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 from __future__ import division
-from optparse import OptionParser
 import rospy
 import rosparam
 import copy
 import cv2
 import numpy as np
 import threading
+# TODO
 import dynamic_reconfigure.server
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image
@@ -35,17 +35,18 @@ import matplotlib.pyplot as plt
 
 # The main tracking class, a ROS node
 class Compressor:
-    def __init__(self, nodenum):
+    def __init__(self):
         '''
         Default image_topic for:
             Basler ace cameras with camera_aravis driver: camera/image_raw
             Pt Grey Firefly cameras with pt grey driver : camera/image_mono
         '''
         # default parameters (parameter server overides them)
-        self.nodenum = nodenum
         # TODO set via default yaml?
         # share this default setting code?
-        self.params = { 'image_topic'       : '/camera/image_raw',
+        # TODO does camera need to be global if multiple multi_trackers are going to operate on it?
+        # idiomatic way to do that? is what floris did the best?
+        self.params = { 'image_topic'       : 'camera/image_raw',
                         'threshold'         : 10,
                         'camera_encoding'   : 'mono8', # fireflies are bgr8, basler gige cams are mono8
                         'max_change_in_frame'       : 0.2,
@@ -59,30 +60,37 @@ class Compressor:
                         }
         for parameter, value in self.params.items():
             try:
-                p = '/multi_tracker/' + nodenum + '/delta_video/' + parameter
+                p = 'multi_tracker/delta_video/' + parameter
                 self.params[parameter] = rospy.get_param(p)
             except:
                 print 'Using default parameter: ', parameter, ' = ', value
         
         # initialize the node
-        rospy.init_node('delta_compressor_' + nodenum)
-        self.nodename = rospy.get_name().rstrip('/')
+        rospy.init_node('delta_compressor')
+        # TODO the self.nodename variable that used to be here wasnt something used by rospy
+        # under the hood is it?
         self.time_start = rospy.Time.now()
         
         # experiment basename
-        self.experiment_basename = rospy.get_param('/multi_tracker/' + nodenum + '/experiment_basename', 'none')
-        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/' + \
-            nodenum + 'record_length_hours', 24)
+        self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
+        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
+        # TODO share the code that is conditional on this across places that access it
+        self.use_original_timestamp = rospy.get_param('multi_tracker/retracking_original_timestamp', False)
         
         if self.experiment_basename == 'none':
-            self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
+            # TODO make this work via detecting the parent namespace
+            nodenum = 1
+            if self.use_original_timestamp:
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime(rospy.Time.now()))
+            else:
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
         
         # Publishers - publish pixel changes
-        self.pubDeltaVid = rospy.Publisher('/multi_tracker/' + nodenum + '/delta_video', DeltaVid, queue_size=30)
+        self.pubDeltaVid = rospy.Publisher('multi_tracker/delta_video', DeltaVid, queue_size=30)
         
         # background reset service
         self.reset_background_flag = False
-        self.reset_background_service = rospy.Service('/multi_tracker/' + nodenum + '/reset_background', resetBackgroundService, self.reset_background)
+        self.reset_background_service = rospy.Service('multi_tracker/reset_background', resetBackgroundService, self.reset_background)
         
         self.cvbridge = CvBridge()
         self.imgScaled      = None
@@ -132,25 +140,31 @@ class Compressor:
                 self.image_mask = np.zeros_like(self.imgScaled)
                 cv2.circle(self.image_mask,(self.params['circular_mask_x'], self.params['circular_mask_y']),int(self.params['circular_mask_r']),[1,1,1],-1)
             self.imgScaled = self.image_mask*self.imgScaled
+
+        def background_png_name():
+            # TODO fix nodenum. derive from enclosing namespace if possible.
+            nodenum = 1
+            if self.use_original_timestamp:
+                background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%.png', time.localtime(rospy.Time.now()))
+            else:
+                background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%.png', time.localtime())
+
+            data_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
+            return os.path.join(data_directory, background_img_filename)
         
 ########### image processing function ##############################################################
         
         # If there is no background image, grab one, and move on to the next frame
         if self.backgroundImage is None:
             self.backgroundImage = copy.copy(self.imgScaled)
-            self.background_img_filename = self.experiment_basename + '_deltavideo_bgimg_' \
-                + time.strftime("%Y%m%d_%H%M.png", time.localtime())
-            data_directory = os.path.expanduser( rospy.get_param('/multi_tracker/' + self.nodenum + '/data_directory') )
-            self.background_img_filename = os.path.join(data_directory, self.background_img_filename)
-            
+            self.background_img_filename = background_png_name()
             cv2.imwrite(self.background_img_filename, self.backgroundImage)
             self.current_background_img += 1
             return
+
         if self.reset_background_flag:
             self.backgroundImage = copy.copy(self.imgScaled)
-            self.background_img_filename = time.strftime("%Y%m%d_%H%M_deltavideo_bgimg_N" + self.nodenum, time.localtime()) + '.png'
-            data_directory = os.path.expanduser( rospy.get_param('/multi_tracker/' + self.nodenum + '/data_directory') )
-            self.background_img_filename = os.path.join(data_directory, self.background_img_filename)
+            self.background_img_filename = background_png_name()
             cv2.imwrite(self.background_img_filename, self.backgroundImage)
             self.current_background_img += 1
             self.reset_background_flag = False
@@ -202,10 +216,5 @@ class Compressor:
 #####################################################################################################
     
 if __name__ == '__main__':
-    parser = OptionParser()
-    parser.add_option("--nodenum", type="str", dest="nodenum", default='1',
-                        help="node number, for example, if running multiple tracker instances on one computer")
-    (options, args) = parser.parse_args()
-    
-    compressor = Compressor(options.nodenum)
+    compressor = Compressor()
     compressor.Main()

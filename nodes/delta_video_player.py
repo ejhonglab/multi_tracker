@@ -57,13 +57,12 @@ class DeCompressor:
                         
         # initialize the node
         rospy.init_node('delta_decompressor')
-        self.nodename = rospy.get_name().rstrip('/')
         
         # Publishers - publish contours
         self.pubDeltaVid = rospy.Publisher(topic_out, Image, queue_size=30)
         self.subDeltaVid = rospy.Subscriber(topic_in, DeltaVid, self.delta_image_callback, queue_size=30)
         
-        self.directory = directory #rospy.get_param('/multi_tracker/delta_video/directory', default='')
+        self.directory = directory #rospy.get_param('multi_tracker/delta_video/directory', default='')
         
         self.cvbridge = CvBridge()
         
@@ -136,9 +135,9 @@ class DeCompressor:
     
 if __name__ == '__main__':
     parser = OptionParser()
-    parser.add_option("--in", type="str", dest="input", default='/multi_tracker/delta_video',
+    parser.add_option("--in", type="str", dest="input", default='multi_tracker/delta_video',
                         help="input topic name")
-    parser.add_option("--out", type="str", dest="output", default='/camera/image_decompressed',
+    parser.add_option("--out", type="str", dest="output", default='camera/image_decompressed',
                         help="output topic name")
     parser.add_option("--directory", type="str", dest="directory", default='',
                         help="directory where background images can be found")

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 from __future__ import division
-from optparse import OptionParser
 import roslib
 import rospy
 import rosparam
@@ -61,14 +60,14 @@ def draw_trajectory(img, pts, color, thickness):
             
 # The main tracking class, a ROS node
 class LiveViewer:
-    def __init__(self, nodenum):
+    def __init__(self):
         '''
         Default image_topic for:
             Basler ace cameras with camera_aravis driver: camera/image_raw
             Pt Grey Firefly cameras with pt grey driver : camera/image_mono
         '''
         # default parameters (parameter server overides them)
-        self.params = { 'image_topic'               : '/camera/image_mono',
+        self.params = { 'image_topic'               : 'camera/image_mono',
                         'min_persistence_to_draw'   : 10,
                         'max_frames_to_draw'        : 50,
                         'camera_encoding'           : 'mono8', # fireflies are bgr8, basler gige cams are mono8
@@ -83,24 +82,23 @@ class LiveViewer:
         for parameter, value in self.params.items():
             try:
 		# allows image processed view to be overlaid with tracked objects
-                p = '/multi_tracker/' + nodenum + '/liveviewer/' + parameter
+                p = 'multi_tracker/liveviewer/' + parameter
                 self.params[parameter] = rospy.get_param(p)
             except:
                 try:
-                    p = '/multi_tracker/' + nodenum + '/tracker/' + parameter
+                    p = 'multi_tracker/tracker/' + parameter
                     self.params[parameter] = rospy.get_param(p)
                 except:
                     print 'Using default parameter: ', parameter, ' = ', value
                 
+        # TODO fix old nodenum stuff, but derived from any enclosing namespace
         # initialize the node
-        rospy.init_node('liveviewer_' + nodenum)
-        self.nodename = rospy.get_name().rstrip('/')
-        self.nodenum = nodenum
+        rospy.init_node('liveviewer')
         
         # initialize display
-        self.window_name = 'liveviewer_' + nodenum
-        self.subTrackedObjects = rospy.Subscriber('/multi_tracker/' + nodenum + '/tracked_objects', Trackedobjectlist, self.tracked_object_callback)
-        self.subContours = rospy.Subscriber('/multi_tracker/' + nodenum + '/contours', Contourlist, self.contour_callback)
+        self.window_name = 'liveviewer'
+        self.subTrackedObjects = rospy.Subscriber('multi_tracker/tracked_objects', Trackedobjectlist, self.tracked_object_callback)
+        self.subContours = rospy.Subscriber('multi_tracker/contours', Contourlist, self.contour_callback)
             
         self.cvbridge = CvBridge()
         self.tracked_trajectories = {}
@@ -114,7 +112,7 @@ class LiveViewer:
         self.subImage = rospy.Subscriber(self.params['image_topic'], Image, self.image_callback, queue_size=5, buff_size=2*sizeImage, tcp_nodelay=True)
 
         # for adding images to background
-        add_image_to_background_service_name = '/multi_tracker/' + self.nodenum + '/' + 'tracker/' + "add_image_to_background"
+        add_image_to_background_service_name = 'multi_tracker/tracker/add_image_to_background'
         rospy.wait_for_service(add_image_to_background_service_name)
         try:
             self.add_image_to_background = rospy.ServiceProxy(add_image_to_background_service_name, addImageToBackgroundService)
@@ -228,10 +226,5 @@ class LiveViewer:
 #####################################################################################################
     
 if __name__ == '__main__':
-    parser = OptionParser()
-    parser.add_option("--nodenum", type="str", dest="nodenum", default='1',
-                        help="node number, for example, if running multiple tracker instances on one computer")
-    (options, args) = parser.parse_args()
-    
-    liveviewer = LiveViewer(options.nodenum)
+    liveviewer = LiveViewer()
     liveviewer.Main()

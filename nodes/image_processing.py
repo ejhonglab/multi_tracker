@@ -238,12 +238,21 @@ def reset_background_if_difference_is_very_large(self, color='dark'):
         # NOT IMPLEMENTED
         pass
 
+# TODO is this one being called? are all places that save pngs?
 def reset_background(self):
+    # the variables under self are defined in the tracker_simplebuffer.py that this code is glued into
     self.backgroundImage = copy.copy(np.float32(self.imgScaled))
     print self.imgScaled.shape, self.backgroundImage.shape
-    filename = self.experiment_basename + '_' + time.strftime("%Y%m%d_%H%M%S_bgimg_N" + self.nodenum, time.localtime()) + '.png'
-    home_directory = os.path.expanduser( rospy.get_param('/multi_tracker/' + self.nodenum + '/data_directory') )
+    # TODO was this behaving correctly? if so, did i break it?
+    '''
+    filename = self.experiment_basename + '_' + time.strftime("%Y%m%d_%H%M%S_bgimg_N1", time.localtime(rospy.Time.now())) + '.png'
+    home_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
     filename = os.path.join(home_directory, filename)
+    '''
+    # TODO share with other place that generates these
+    background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%.png', time.localtime(rospy.Time.now()))
+    data_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
+    filename = os.path.join(data_directory, background_img_filename)
     
     try:
         cv2.imwrite(filename, self.backgroundImage) # requires opencv > 2.4.9
@@ -257,8 +266,9 @@ def add_image_to_background(self, color='dark'):
         self.backgroundImage = np.max([self.backgroundImage, tmp_backgroundImage], axis=0)
     elif color == 'light':
         self.backgroundImage = np.min([self.backgroundImage, tmp_backgroundImage], axis=0)
-    filename = self.experiment_basename + '_' + time.strftime("%Y%m%d_%H%M%S_bgimg_N" + self.nodenum, time.localtime()) + '.png'
-    home_directory = os.path.expanduser( rospy.get_param('/multi_tracker/' + self.nodenum + '/data_directory') )
+    # TODO get nodenum from parent namespace
+    filename = self.experiment_basename + '_' + time.strftime("%Y%m%d_%H%M%S_bgimg_N1", time.localtime(rospy.Time.now())) + '.png'
+    home_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
     filename = os.path.join(home_directory, filename)
     
     try:

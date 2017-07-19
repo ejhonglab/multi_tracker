@@ -16,20 +16,25 @@ import imp
 ###############################################################################
 #
 class SaveBag:
-    def __init__(self, config, nodenum):
+    def __init__(self, config):
         # TODO configure this from ros yaml as well
         basename = config.basename
         directory = config.directory
         self.topics = config.topics
-        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/' + \
-            nodenum + 'record_length_hours', 24)
+        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
+        self.use_original_timestamp = rospy.get_param('multi_tracker/retracking_original_timestamp', False)
         
         # TODO does this need to go back to python time?
         self.time_start = rospy.Time.now()
         
-        experiment_basename = rospy.get_param('/multi_tracker/' + nodenum + '/experiment_basename', 'none')
+        experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
         if experiment_basename == 'none':
-            experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
+            # TODO fix
+            nodenum = 1
+            if self.use_original_timestamp:
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime(rospy.Time.now()))
+            else:
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
         
         filename = experiment_basename + '_' + basename + '.bag'
 
@@ -70,10 +75,9 @@ class SaveBag:
 
 if __name__ == '__main__':
     parser = OptionParser()
+    # TODO centralize config and get rid of option
     parser.add_option("--config", type="str", dest="config", default='',
                         help="filename of configuration file")
-    parser.add_option("--nodenum", type="str", dest="nodenum", default='1',
-                        help="node number, for example, if running multiple tracker instances on one computer")
     (options, args) = parser.parse_args()
     
     
@@ -81,7 +85,7 @@ if __name__ == '__main__':
         configuration = imp.load_source('configuration', options.config)
         print "Loaded configuration: ", options.config
     except: # look in home directory for config file
-        home_directory = os.path.expanduser( rospy.get_param('/multi_tracker/' + options.nodenum + '/home_directory') )
+        home_directory = os.path.expanduser( rospy.get_param('multi_tracker/home_directory') )
         config_file = os.path.join(home_directory, options.config)
         configuration = imp.load_source('configuration', config_file)
         print "Loaded configuration: ", config_file
@@ -92,6 +96,6 @@ if __name__ == '__main__':
     # tracker does it that way; havent checked elsewhere yet.
     rospy.init_node('SaveBag', log_level=rospy.INFO)
     rospy.sleep(1)
-    savebag = SaveBag(config, nodenum=options.nodenum)
+    savebag = SaveBag(config)
     savebag.Main()
     

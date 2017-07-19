@@ -1,9 +1,9 @@
-/multi_tracker/1/liveviewer/image_topic: '/usb_cam/image_rect'
-/multi_tracker/1/liveviewer/camera_encoding: 'mono8'
-/multi_tracker/1/liveviewer/min_persistence_to_draw: 10
-/multi_tracker/1/liveviewer/max_frames_to_draw: 50
-/multi_tracker/1/liveviewer/roi_l: 0
-/multi_tracker/1/liveviewer/roi_r: -1
-/multi_tracker/1/liveviewer/roi_b: 0
-/multi_tracker/1/liveviewer/roi_t: -1
+multi_tracker/liveviewer/image_topic: 'usb_cam/image_rect'
+multi_tracker/liveviewer/camera_encoding: 'mono8'
+multi_tracker/liveviewer/min_persistence_to_draw: 10
+multi_tracker/liveviewer/max_frames_to_draw: 50
+multi_tracker/liveviewer/roi_l: 0
+multi_tracker/liveviewer/roi_r: -1
+multi_tracker/liveviewer/roi_b: 0
+multi_tracker/liveviewer/roi_t: -1
 

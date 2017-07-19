@@ -21,15 +21,15 @@ import threading
 
 
 class DataAssociator(object):
-    def __init__(self, nodenum):
-        kalman_parameter_py_file = os.path.expanduser( rospy.get_param('/multi_tracker/' + nodenum + '/data_association/kalman_parameters_py_file') )
+    def __init__(self):
+        kalman_parameter_py_file = os.path.expanduser( rospy.get_param('multi_tracker/data_association/kalman_parameters_py_file') )
         self.lockBuffer = threading.Lock()
         
         try:
             self.kalman_parameters = imp.load_source('kalman_parameters', kalman_parameter_py_file)
             print 'Kalman py file: ', kalman_parameter_py_file
         except: # look in home directory for kalman parameter file
-            home_directory = os.path.expanduser( rospy.get_param('/multi_tracker/' + nodenum + '/home_directory') )
+            home_directory = os.path.expanduser( rospy.get_param('multi_tracker/home_directory') )
             kalman_parameter_py_file = os.path.join(home_directory, kalman_parameter_py_file)
             self.kalman_parameters = imp.load_source('kalman_parameters', kalman_parameter_py_file)
             print 'Kalman py file: ', kalman_parameter_py_file
@@ -42,32 +42,30 @@ class DataAssociator(object):
         self.tracked_objects = {}
         self.current_objid = 0
         
-        #self.min_size = rospy.get_param('/multi_tracker/data_association/min_size')
-        #self.max_size = rospy.get_param('/multi_tracker/data_association/max_size')
-        self.max_tracked_objects = rospy.get_param('/multi_tracker/' + nodenum + '/data_association/max_tracked_objects')
-        self.n_covariances_to_reject_data = rospy.get_param('/multi_tracker/' + nodenum + '/data_association/n_covariances_to_reject_data')
+        #self.min_size = rospy.get_param('multi_tracker/data_association/min_size')
+        #self.max_size = rospy.get_param('multi_tracker/data_association/max_size')
+        self.max_tracked_objects = rospy.get_param('multi_tracker/data_association/max_tracked_objects')
+        self.n_covariances_to_reject_data = rospy.get_param('multi_tracker/data_association/n_covariances_to_reject_data')
 
         self.contour_buffer = []
         
         # initialize the node
-        rospy.init_node('data_associator_' + nodenum)
+        rospy.init_node('data_associator')
         self.time_start = rospy.Time.now()
         
         # Publishers.
-        self.pubTrackedObjects = rospy.Publisher('/multi_tracker/' + nodenum + '/tracked_objects', Trackedobjectlist, queue_size=300)
+        self.pubTrackedObjects = rospy.Publisher('multi_tracker/tracked_objects', Trackedobjectlist, queue_size=300)
         
         # Subscriptions.
-        self.subImage = rospy.Subscriber('/multi_tracker/' + nodenum + '/contours', Contourlist, self.contour_callback, queue_size=300)
+        self.subImage = rospy.Subscriber('multi_tracker/contours', Contourlist, self.contour_callback, queue_size=300)
         
     def contour_callback(self, contourlist):
         with self.lockBuffer:
             self.contour_buffer.append(contourlist)
         
     def contour_identifier(self, contourlist):
-        
         # keep track of which new objects have been "taken"
         contours_accounted_for = []
-        
         update_dict = {}
         
         def update_tracked_object(tracked_object, measurement, contourlist):
@@ -258,10 +256,5 @@ class DataAssociator(object):
             
                 
 if __name__ == '__main__':
-    parser = OptionParser()
-    parser.add_option("--nodenum", type="str", dest="nodenum", default='1',
-                        help="node number, for example, if running multiple tracker instances on one computer")
-    (options, args) = parser.parse_args()
-    
-    data_associator = DataAssociator(options.nodenum)
+    data_associator = DataAssociator()
     data_associator.main()

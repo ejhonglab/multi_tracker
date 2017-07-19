@@ -19,31 +19,29 @@ from multi_tracker.msg import Contourinfo, Contourlist
 from multi_tracker.msg import Trackedobject, Trackedobjectlist
 from multi_tracker.srv import resetBackgroundService, addImageToBackgroundService
 
-#import image_processing
 
 # for basler ace cameras, use camera_aravis
 # https://github.com/ssafarik/camera_aravis
 # rosrun camera_aravis camnode
-# default image: /camera/image_raw
+# default image: camera/image_raw
 
 # for firefley cameras, camera1394 does not provide timestamps but otherwise works
 # use point grey drivers
 # http://wiki.ros.org/pointgrey_camera_driver
 # rosrun pointgrey_camera_driver camera_node
-# default image: /camera/image_mono
+# default image: camera/image_mono
 
 # The main tracking class, a ROS node
 class Tracker:
-    def __init__(self, nodenum):
+    def __init__(self):
         '''
         Default image_topic for:
             Basler ace cameras with camera_aravis driver: camera/image_raw
             Pt Grey Firefly cameras with pt grey driver : camera/image_mono
         '''
-        self.nodenum = nodenum
         # TODO load from a defaults.yaml?
         # default parameters (parameter server overides them)
-        self.params = { 'image_topic'               : '/camera/image_mono',
+        self.params = { 'image_topic'               : 'camera/image_mono',
                         'threshold'                 : 20,
                         'backgroundupdate'          : 0.001,
                         'medianbgupdateinterval'    : 30,
@@ -68,27 +66,35 @@ class Tracker:
                         }
         for parameter, value in self.params.items():
             try:
-                p = '/multi_tracker/' + nodenum + '/tracker/' + parameter
+                p = 'multi_tracker/tracker/' + parameter
                 self.params[parameter] = rospy.get_param(p)
             except:
                 print 'Using default parameter: ', parameter, ' = ', value
 	
-        self.experiment_basename = rospy.get_param('/multi_tracker/' + nodenum + '/experiment_basename', 'none')
-        if self.experiment_basename == 'none':
-            self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/' + \
             nodenum + 'record_length_hours', 24)
+        self.use_original_timestamp = rospy.get_param('multi_tracker/retracking_original_timestamp', False)
+        self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
+        
+        if self.experiment_basename == 'none':
+            nodenum = 1
+            if self.use_original_timestamp:
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime(rospy.Time.now()))
+            else:
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
 
         # initialize the node
-        rospy.init_node('multi_tracker_' + nodenum)
-        self.nodename = rospy.get_name().rstrip('/')
+        rospy.init_node('multi_tracker')
         self.time_start = rospy.Time.now()
         
         # background reset service
         self.reset_background_flag = False
         self.add_image_to_background_flag = False
-        self.reset_background_service = rospy.Service('/multi_tracker/' + nodenum + '/' + 'tracker/' + "reset_background", resetBackgroundService, self.reset_background)
-        self.add_image_to_background_service = rospy.Service('/multi_tracker/' + nodenum + '/' + 'tracker/' + "add_image_to_background", addImageToBackgroundService, self.add_image_to_background)
+        self.reset_background_service = rospy.Service('multi_tracker/tracker/reset_background', \
+            resetBackgroundService, self.reset_background)
+        self.add_image_to_background_service = \
+            rospy.Service('multi_tracker/tracker/add_image_to_background', \
+            addImageToBackgroundService, self.add_image_to_background)
         
         # init cvbridge
         self.cvbridge = CvBridge()
@@ -101,17 +107,17 @@ class Tracker:
         self.framestamp = None
         
         # Publishers - publish contours
-        self.pubContours = rospy.Publisher('/multi_tracker/' + nodenum + '/contours', Contourlist, queue_size=300)
+        self.pubContours = rospy.Publisher('multi_tracker/contours', Contourlist, queue_size=300)
         
         # Subscriptions - subscribe to images, and tracked objects
         self.image_mask = None 
         sizeImage = 128+1024*1024*3 # Size of header + data.
         self.subImage = rospy.Subscriber(self.params['image_topic'], Image, self.image_callback, queue_size=60, buff_size=2*sizeImage, tcp_nodelay=True)
-        self.pubThreshed = rospy.Publisher('/multi_tracker/' + nodenum + '/1_thresholded', Image, queue_size=5)
-        self.pubDenoised = rospy.Publisher('/multi_tracker/' + nodenum + '/2_denoised', Image, queue_size=5)
-        self.pubDilated = rospy.Publisher('/multi_tracker/' + nodenum + '/3_dilated', Image, queue_size=5)
-        self.pubEroded = rospy.Publisher('/multi_tracker/' + nodenum + '/4_eroded', Image, queue_size=5)
-        self.pubProcessedImage = rospy.Publisher('/multi_tracker/' + nodenum + '/processed_image', Image, queue_size=5)
+        self.pubThreshed = rospy.Publisher('multi_tracker/1_thresholded', Image, queue_size=5)
+        self.pubDenoised = rospy.Publisher('multi_tracker/2_denoised', Image, queue_size=5)
+        self.pubDilated = rospy.Publisher('multi_tracker/3_dilated', Image, queue_size=5)
+        self.pubEroded = rospy.Publisher('multi_tracker/4_eroded', Image, queue_size=5)
+        self.pubProcessedImage = rospy.Publisher('multi_tracker/processed_image', Image, queue_size=5)
         
     def image_callback(self, rosimg):
         with self.lockBuffer:
@@ -174,22 +180,17 @@ class Tracker:
 #####################################################################################################
     
 if __name__ == '__main__':
-    parser = OptionParser()
-    parser.add_option("--nodenum", type="str", dest="nodenum", default='1',
-                        help="node number, for example, if running multiple tracker instances on one computer")
-    (options, args) = parser.parse_args()
-    
     catkin_node_directory = os.path.dirname(os.path.realpath(__file__))
     
-    tracker_node_basename = '/multi_tracker/' + options.nodenum + '/tracker'
+    tracker_node_basename = 'multi_tracker/tracker'
     image_processing_function = rospy.get_param(tracker_node_basename + '/image_processor')
-    
     image_processing_module = rospy.get_param(tracker_node_basename + '/image_processing_module')
+    
     if image_processing_module == 'default':
         image_processing_module = os.path.join(catkin_node_directory, 'image_processing.py')
     image_processing = imp.load_source('image_processing', image_processing_module)
     
     image_processor = image_processing.__getattribute__(image_processing_function)
     Tracker.process_image = image_processor
-    tracker = Tracker(options.nodenum)
+    tracker = Tracker()
     tracker.Main()

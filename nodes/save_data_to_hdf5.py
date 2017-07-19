@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 from __future__ import division
-from optparse import OptionParser
 import roslib
 import rospy
 import os
@@ -15,21 +14,24 @@ import h5py
 import atexit
 
 class DataListener:
-    def __init__(self, nodenum, info='data information'):
-        self.subTrackedObjects = rospy.Subscriber('multi_tracker/' + nodenum + '/tracked_objects', Trackedobjectlist, self.tracked_object_callback, queue_size=300)
+    def __init__(self, info='data information'):
+        self.subTrackedObjects = rospy.Subscriber('multi_tracker/tracked_objects', Trackedobjectlist, self.tracked_object_callback, queue_size=300)
         
-        experiment_basename = rospy.get_param('/multi_tracker/' + nodenum + '/experiment_basename', 'none')
+        experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
         if experiment_basename == 'none':
-            experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
+            nodenum = 1
+            if self.use_original_timestamp:
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime(rospy.Time.now()))
+            else:
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
            
         # TODO maybe break a lot of this setup currently 
         # done in many of these nodes out somewhere?
         # just reference ros params directly? (overhead?)
         filename = experiment_basename + '_trackedobjects.hdf5'
-        home_directory = os.path.expanduser( rospy.get_param('/multi_tracker/' + nodenum + '/data_directory') )
+        home_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
         filename = os.path.join(home_directory, filename)
-        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/' + \
-            nodenum + 'record_length_hours', 24)
+        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
         
         print 'Saving hdf5 data to: ', filename
         self.time_start = rospy.Time.now()
@@ -79,7 +81,7 @@ class DataListener:
                             }
                             
         self.dtype = [(data,self.data_format[data]) for data in self.data_to_save]
-        rospy.init_node('save_data_to_hdf5_' + nodenum)
+        rospy.init_node('save_data_to_hdf5')
         
         self.hdf5.create_dataset('data', (self.chunk_size, 1), maxshape=(None,1), dtype=self.dtype)
         self.hdf5['data'].attrs.create('current_frame', 0)
@@ -149,10 +151,5 @@ class DataListener:
         print 'save_data_to_hdf5 shut down nicely'
         
 if __name__ == '__main__':
-    parser = OptionParser()
-    parser.add_option("--nodenum", type="str", dest="nodenum", default='1',
-                        help="node number, for example, if running multiple tracker instances on one computer")
-    (options, args) = parser.parse_args()
-    
-    datalistener = DataListener(options.nodenum)
+    datalistener = DataListener()
     datalistener.main()
