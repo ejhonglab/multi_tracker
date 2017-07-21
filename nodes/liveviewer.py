@@ -27,9 +27,6 @@ else:
     OPENCV_VERSION = 2
     print 'Open CV 2'
 
-if 0:#OPENCV_VERSION == 3:
-    raise ImportError('cv bridge not compatible with opencv 3, killing live viewer')
-
 # for basler ace cameras, use camera_aravis
 # https://github.com/ssafarik/camera_aravis
 # rosrun camera_aravis camnode
@@ -46,7 +43,7 @@ class Trajectory(object):
     def __init__(self, objid):
         self.objid = objid
         self.positions = []
-        self.color = None
+        self.color = np.random.randint(0,255,3).tolist()
         self.covariances = []
         self.popout = 0
 
@@ -81,7 +78,7 @@ class LiveViewer:
                         }
         for parameter, value in self.params.items():
             try:
-		# allows image processed view to be overlaid with tracked objects
+                # allows image processed view to be overlaid with tracked objects
                 p = 'multi_tracker/liveviewer/' + parameter
                 self.params[parameter] = rospy.get_param(p)
             except:
@@ -90,6 +87,10 @@ class LiveViewer:
                     self.params[parameter] = rospy.get_param(p)
                 except:
                     print 'Using default parameter: ', parameter, ' = ', value
+
+        # displays extra information about trajectory predictions / associations if True
+        self.debug_tracking = rospy.get_param('/multi_tracker/' + nodenum + \
+            '/liveviewer/debug_tracking', False)
                 
         # TODO fix old nodenum stuff, but derived from any enclosing namespace
         # initialize the node
@@ -103,7 +104,6 @@ class LiveViewer:
         self.cvbridge = CvBridge()
         self.tracked_trajectories = {}
         self.contours = None
-
         self.window_initiated = False
         
         # Subscriptions - subscribe to images, and tracked objects
@@ -129,14 +129,15 @@ class LiveViewer:
     
         for tracked_object in tracked_objects.tracked_objects:
             if tracked_object.persistence > self.params['min_persistence_to_draw']:
-                if tracked_object.objid not in self.tracked_trajectories.keys(): # create new object
-                    self.tracked_trajectories.setdefault(tracked_object.objid, Trajectory(tracked_object.objid))
-                    self.tracked_trajectories[tracked_object.objid].color = np.random.randint(0,255,3).tolist()
+                # create new object
+                if tracked_object.objid not in self.tracked_trajectories.keys():
+                    self.tracked_trajectories[tracked_object.objid] = Trajectory(tracked_object.objid)
                 # update tracked objects
+                # TODO why multiple covariances? how used?
                 self.tracked_trajectories[tracked_object.objid].covariances.append(tracked_object.covariance)
                 self.tracked_trajectories[tracked_object.objid].positions.append([tracked_object.position.x, tracked_object.position.y])
                 
-                # if it is a young object, let it grow to length 100
+                # if it is a young object, let it grow to max length
                 if len(self.tracked_trajectories[tracked_object.objid].positions) < self.params['max_frames_to_draw']:
                     self.tracked_trajectories[tracked_object.objid].popout = 0
         
@@ -176,7 +177,6 @@ class LiveViewer:
         else:
             self.imgOutput = self.imgScaled
         
-        
         # Draw ellipses from contours
         if self.contours is not None:
             for c, contour in enumerate(self.contours.contours):
@@ -192,12 +192,37 @@ class LiveViewer:
                 angle = int(contour.angle)
                 axes = (int(np.min([a,b])), int(np.max([a,b])))
                 cv2.ellipse(self.imgOutput, center, axes, angle, 0, 360, (0,255,0), 2 )
+                
+                if self.debug_tracking:
+                    # assumes consistent order in contourlist, read in same iteration as data_assoc,
+                    # and that data_assoc doesn't change order
+                    offset_center = (int(contour.x) + 15, int(contour.y))
+                    cv2.putText(self.imgOutput, str(c), offset_center, cv2.FONT_HERSHEY_SIMPLEX, \
+                        0.65, (0,255,0), 2, cv2.LINE_AA)
         
         # Display the image | Draw the tracked trajectories
         for objid, trajec in self.tracked_trajectories.items():
             if len(trajec.positions) > 5:
                 draw_trajectory(self.imgOutput, trajec.positions, trajec.color, 2)
-                cv2.circle(self.imgOutput,(int(trajec.positions[-1][0]),int(trajec.positions[-1][1])),int(trajec.covariances[-1]),trajec.color,2)
+                trajec_center = (int(trajec.positions[-1][0]), int(trajec.positions[-1][1]))
+                cv2.circle(self.imgOutput, trajec_center, int(trajec.covariances[-1]), \
+                    trajec.color, 2)
+                
+                if self.debug_tracking:
+                    offset_center = (int(trajec.positions[-1][0]) - 45, int(trajec.positions[-1][1]))
+                    cv2.putText(self.imgOutput, str(objid), offset_center, \
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, trajec.color, 2, cv2.LINE_AA)
+                
+                '''
+                #if self.debug_tracking:
+                    # TODO display predictions in same color (x w/ dashed line?)
+                    # should i just display pos + velocity * (frame / prediction) interval?
+                    # or also something about weight it will have? which kalman parameter?
+                    
+                    # TODO display (sorted? cost listed?) associations between trajectories 
+                    # and contours
+                '''
+        
         cv2.imshow(self.window_name, self.imgOutput)
 
         if not self.window_initiated: # for some reason this approach works in opencv 3 instead of previous approach

@@ -81,6 +81,7 @@ def incredibly_basic(self):
             
             data = Contourinfo()
             data.header  = header
+            # TODO what happens if this is set incorrectly? detect incorrect if not using simtime?
             data.dt      = dtCamera
             data.x       = x
             data.y       = y
@@ -165,6 +166,7 @@ def extract_and_publish_contours(self):
     contour_info = []
     for contour in contours:
         # Large objects are approximated by an ellipse
+        # TODO break fitting into func and make recursive?
         if len(contour) > 5:
             x, y, ecc, area, angle = fit_ellipse_to_contour(self, contour)
             

@@ -87,6 +87,17 @@ class Compressor:
         
         # Publishers - publish pixel changes
         self.pubDeltaVid = rospy.Publisher('multi_tracker/delta_video', DeltaVid, queue_size=30)
+
+        # determine what kind of differences from background frame we are interested in
+        tracking_fn = rospy.get_param('/multi_tracker/' + self.nodenum + '/tracker/image_processor')
+        if tracking_fn == 'dark_objects_only':
+            self.sign = -1
+        elif tracking_fn == 'light_objects_only':
+            self.sign = 1
+        else:
+            # will just use absdiff if the sign of the deviations of interest isn't obvious
+            # from the name of the tracking function
+            self.sign = 0
         
         # background reset service
         self.reset_background_flag = False
@@ -170,13 +181,17 @@ class Compressor:
             self.reset_background_flag = False
             return
 
-        # TODO not absolute diff. use sign appropriate given tracking function (dark / light)
-        # may not want to make dependent on that though? could use abs if not one of a
-        # certain set of tracking functions
-        # Absdiff
-        self.absdiff = cv2.absdiff(self.imgScaled, self.backgroundImage)
+        # calculate the difference from the background
+        # sign set in __init__ based on name of tracking function (defaults to 0)
+        # TODO test
+        if self.sign == -1:
+            self.diff = self.backgroundImage - self.imgScaled
+        else self.sign == 1:
+            self.diff = self.imgScaled - self.backgroundImage
+        else:
+            self.diff = cv2.absdiff(self.imgScaled, self.backgroundImage)
 
-        changed_pixels = np.where(self.absdiff > self.params['threshold'])
+        changed_pixels = np.where(self.diff > self.params['threshold'])
         delta_msg = DeltaVid()
         header  = Header(stamp=self.framestamp,frame_id=str(self.framenumber))
         delta_msg.header = header
@@ -192,7 +207,7 @@ class Compressor:
         self.pubDeltaVid.publish(delta_msg)
         
         # if the thresholded absolute difference is too large, reset the background
-        if len(changed_pixels[0]) / (self.absdiff.shape[0]*self.absdiff.shape[1])>self.params['max_change_in_frame']:
+        if len(changed_pixels[0]) / (self.diff.shape[0] * self.diff.shape[1]) > self.params['max_change_in_frame']:
             self.reset_background_flag = True
 
         #self.backgroundImage[delta_msg.xpixels, delta_msg.ypixels] = delta_msg.values 
