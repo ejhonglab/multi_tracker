@@ -20,10 +20,13 @@ class DataListener:
         experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
         if experiment_basename == 'none':
             nodenum = 1
+	    self.use_original_timestamp = rospy.get_param('multi_tracker/retracking_original_timestamp', False)
             if self.use_original_timestamp:
-                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime(rospy.Time.now()))
+                rospy.init_node('SaveBag', log_level=rospy.INFO)
+                rospy.sleep(1)
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime(rospy.Time.now().to_secs()))
             else:
-                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime())
            
         # TODO maybe break a lot of this setup currently 
         # done in many of these nodes out somewhere?

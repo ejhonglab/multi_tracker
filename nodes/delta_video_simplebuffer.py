@@ -69,7 +69,7 @@ class Compressor:
         rospy.init_node('delta_compressor')
         # TODO the self.nodename variable that used to be here wasnt something used by rospy
         # under the hood is it?
-        self.time_start = rospy.Time.now()
+        self.time_start = rospy.Time.now().to_sec()
         
         # experiment basename
         self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
@@ -81,9 +81,9 @@ class Compressor:
             # TODO make this work via detecting the parent namespace
             nodenum = 1
             if self.use_original_timestamp:
-                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime(rospy.Time.now()))
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime(rospy.Time.now().to_sec()))
             else:
-                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime())
         
         # Publishers - publish pixel changes
         self.pubDeltaVid = rospy.Publisher('multi_tracker/delta_video', DeltaVid, queue_size=30)
@@ -199,7 +199,7 @@ class Compressor:
     
     def Main(self):
         while (not rospy.is_shutdown()):
-            t = rospy.Time.now() - self.time_start
+            t = rospy.Time.now().to_sec() - self.time_start
             if t > self.record_length_seconds:
                 cv2.destroyAllWindows()
                 return

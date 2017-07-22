@@ -71,15 +71,16 @@ class Tracker:
             except:
                 print 'Using default parameter: ', parameter, ' = ', value
 	
-        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/' + \
-            nodenum + 'record_length_hours', 24)
+        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
         self.use_original_timestamp = rospy.get_param('multi_tracker/retracking_original_timestamp', False)
         self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
         
         if self.experiment_basename == 'none':
+	    rospy.init_node('tracker_simplebuffer', log_level=rospy.INFO)
+            rospy.sleep(1)
             nodenum = 1
             if self.use_original_timestamp:
-                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime(rospy.Time.now()))
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime(rospy.Time.now()))
             else:
                 self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
 
