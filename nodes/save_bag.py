@@ -32,7 +32,7 @@ class SaveBag:
             # TODO fix
             nodenum = 1
             if self.use_original_timestamp:
-                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime(rospy.Time.now()))
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime(rospy.Time.now().to_sec()))
             else:
                 self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
         
@@ -67,7 +67,7 @@ class SaveBag:
         savebag.StartRecordingBag()
         rate = rospy.Rate(0.01)
         while not rospy.is_shutdown():
-            t = rospy.Time.now() - self.time_start
+            t = (rospy.Time.now() - self.time_start).to_sec()
             if t > self.record_length_seconds:
                 self.StopRecordingBag()      
                 return
@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     # TODO why is this not init_node-d in __init__ of the class?
     # tracker does it that way; havent checked elsewhere yet.
-    rospy.init_node('SaveBag', log_level=rospy.INFO)
+    rospy.init_node('save_delta_video', log_level=rospy.INFO)
     rospy.sleep(1)
     savebag = SaveBag(config)
     savebag.Main()

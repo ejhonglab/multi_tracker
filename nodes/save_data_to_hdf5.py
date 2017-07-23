@@ -15,16 +15,18 @@ import atexit
 
 class DataListener:
     def __init__(self, info='data information'):
+        rospy.init_node('save_hdf5_data', log_level=rospy.INFO)
+        rospy.sleep(1)
+        
         self.subTrackedObjects = rospy.Subscriber('multi_tracker/tracked_objects', Trackedobjectlist, self.tracked_object_callback, queue_size=300)
         
         experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
+        
         if experiment_basename == 'none':
             nodenum = 1
 	    self.use_original_timestamp = rospy.get_param('multi_tracker/retracking_original_timestamp', False)
             if self.use_original_timestamp:
-                rospy.init_node('SaveBag', log_level=rospy.INFO)
-                rospy.sleep(1)
-                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime(rospy.Time.now().to_secs()))
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime(rospy.Time.now().to_sec()))
             else:
                 self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime())
            
@@ -84,7 +86,6 @@ class DataListener:
                             }
                             
         self.dtype = [(data,self.data_format[data]) for data in self.data_to_save]
-        rospy.init_node('save_data_to_hdf5')
         
         self.hdf5.create_dataset('data', (self.chunk_size, 1), maxshape=(None,1), dtype=self.dtype)
         self.hdf5['data'].attrs.create('current_frame', 0)
@@ -134,7 +135,7 @@ class DataListener:
         atexit.register(self.stop_saving_data)
         while (not rospy.is_shutdown()):
             # TODO delete this comment. is there a reason this was previously not using ros time?
-            t = rospy.Time.now() - self.time_start
+            t = (rospy.Time.now() - self.time_start).to_sec()
             if t > self.record_length_seconds:
                 self.stop_saving_data()
                 return

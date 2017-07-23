@@ -250,7 +250,7 @@ def reset_background(self):
     filename = os.path.join(home_directory, filename)
     '''
     # TODO share with other place that generates these
-    background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%.png', time.localtime(rospy.Time.now()))
+    background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%.png', time.localtime(rospy.Time.now().to_sec()))
     data_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
     filename = os.path.join(data_directory, background_img_filename)
     
@@ -267,7 +267,7 @@ def add_image_to_background(self, color='dark'):
     elif color == 'light':
         self.backgroundImage = np.min([self.backgroundImage, tmp_backgroundImage], axis=0)
     # TODO get nodenum from parent namespace
-    filename = self.experiment_basename + '_' + time.strftime("%Y%m%d_%H%M%S_bgimg_N1", time.localtime(rospy.Time.now())) + '.png'
+    filename = self.experiment_basename + '_' + time.strftime("%Y%m%d_%H%M%S_bgimg_N1", time.localtime(rospy.Time.now().to_sec())) + '.png'
     home_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
     filename = os.path.join(home_directory, filename)
     
@@ -343,7 +343,7 @@ def dark_or_light_objects_only(self, color='dark'):
     if self.params['backgroundupdate'] != 0:
         cv2.accumulateWeighted(np.float32(self.imgScaled), self.backgroundImage, self.params['backgroundupdate']) # this needs to be here, otherwise there's an accumulation of something in the background
     if self.params['medianbgupdateinterval'] != 0:
-        t = rospy.Time.now().secs
+        t = rospy.Time.now().to_sec()
         if not self.__dict__.has_key('medianbgimages'):
             self.medianbgimages = [self.imgScaled]
             self.medianbgimages_times = [t]

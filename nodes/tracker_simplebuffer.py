@@ -39,6 +39,9 @@ class Tracker:
             Basler ace cameras with camera_aravis driver: camera/image_raw
             Pt Grey Firefly cameras with pt grey driver : camera/image_mono
         '''
+        rospy.init_node('multi_tracker')
+        rospy.sleep(1)
+        
         # TODO load from a defaults.yaml?
         # default parameters (parameter server overides them)
         self.params = { 'image_topic'               : 'camera/image_mono',
@@ -76,17 +79,14 @@ class Tracker:
         self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
         
         if self.experiment_basename == 'none':
-	    rospy.init_node('tracker_simplebuffer', log_level=rospy.INFO)
-            rospy.sleep(1)
             nodenum = 1
             if self.use_original_timestamp:
-                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime(rospy.Time.now()))
+                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime(rospy.Time.now().to_sec()))
             else:
                 self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
 
         # initialize the node
-        rospy.init_node('multi_tracker')
-        self.time_start = rospy.Time.now()
+        self.time_start = rospy.Time.now().to_sec()
         
         # background reset service
         self.reset_background_flag = False
@@ -164,7 +164,7 @@ class Tracker:
         
     def Main(self):
         while (not rospy.is_shutdown()):
-            t = rospy.Time.now() - self.time_start
+            t = rospy.Time.now().to_sec() - self.time_start
             if t > self.record_length_seconds:
                 return
             with self.lockBuffer:
