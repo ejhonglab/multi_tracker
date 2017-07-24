@@ -85,6 +85,15 @@ class DeCompressor:
             self.background_img_filename = delta_vid.background_image
             basename = os.path.basename(self.background_img_filename)
             directory_with_basename = os.path.join(self.directory, basename)
+            
+            if not os.path.exists(directory_with_basename):
+                raise IOError('background image file ' + directory_with_basename + \
+                    ' did not exist')
+
+            if not os.path.getsize(directory_with_basename) > 0:
+                raise IOError('background image file ' + directory_with_basename + \
+                    ' was empty')
+            
             self.backgroundImage = cv2.imread(directory_with_basename, cv2.CV_8UC1)
             try:
                 self.backgroundImage = self.backgroundImage.reshape([self.backgroundImage.shape[0], self.backgroundImage[1], 1]) # for hydro

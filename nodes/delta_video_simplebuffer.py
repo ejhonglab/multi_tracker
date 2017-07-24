@@ -69,7 +69,11 @@ class Compressor:
         rospy.init_node('delta_compressor')
         # TODO the self.nodename variable that used to be here wasnt something used by rospy
         # under the hood is it?
-        self.time_start = rospy.Time.now().to_sec()
+        # TODO why does rospy.Time.now() jump from 0 to ~149998...???
+        # this solution seems hacky and i wish i didn't have to do it...
+        self.time_start = 0
+        while np.isclose(self.time_start, 0.0):
+            self.time_start = rospy.Time.now().to_sec()
         
         # experiment basename
         self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
@@ -89,7 +93,7 @@ class Compressor:
         self.pubDeltaVid = rospy.Publisher('multi_tracker/delta_video', DeltaVid, queue_size=30)
 
         # determine what kind of differences from background frame we are interested in
-        tracking_fn = rospy.get_param('/multi_tracker/' + self.nodenum + '/tracker/image_processor')
+        tracking_fn = rospy.get_param('multi_tracker/tracker/image_processor')
         if tracking_fn == 'dark_objects_only':
             self.sign = -1
         elif tracking_fn == 'light_objects_only':
@@ -149,14 +153,14 @@ class Compressor:
         if self.params['circular_mask_x'] != 'none':
             if self.image_mask is None:
                 self.image_mask = np.zeros_like(self.imgScaled)
-                cv2.circle(self.image_mask,(self.params['circular_mask_x'], self.params['circular_mask_y']),int(self.params['circular_mask_r']),[1,1,1],-1)
+                cv2.circle(self.image_mask,(self.params['circular_mask_x'], self.params['circular_mask_y']), int(self.params['circular_mask_r']), [1,1,1], -1)
             self.imgScaled = self.image_mask*self.imgScaled
 
         def background_png_name():
             # TODO fix nodenum. derive from enclosing namespace if possible.
             nodenum = 1
             if self.use_original_timestamp:
-                background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%.png', time.localtime(rospy.Time.now()))
+                background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%.png', time.localtime(rospy.Time.now().to_sec()))
             else:
                 background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%.png', time.localtime())
 
@@ -173,6 +177,8 @@ class Compressor:
             self.current_background_img += 1
             return
 
+        # TODO will this be true by default? if so, is it always saving two images?
+        # maybe get rid of the above?
         if self.reset_background_flag:
             self.backgroundImage = copy.copy(self.imgScaled)
             self.background_img_filename = background_png_name()
@@ -186,7 +192,7 @@ class Compressor:
         # TODO test
         if self.sign == -1:
             self.diff = self.backgroundImage - self.imgScaled
-        else self.sign == 1:
+        elif self.sign == 1:
             self.diff = self.imgScaled - self.backgroundImage
         else:
             self.diff = cv2.absdiff(self.imgScaled, self.backgroundImage)
@@ -218,14 +224,17 @@ class Compressor:
             if t > self.record_length_seconds:
                 cv2.destroyAllWindows()
                 return
+            
             with self.lockBuffer:
                 time_now = rospy.Time.now()
                 if len(self.image_buffer) > 0:
                     self.process_image_buffer(self.image_buffer.pop(0))
-                pt = (rospy.Time.now()-time_now).to_sec()
+                
+                pt = (rospy.Time.now() - time_now).to_sec()
                 if len(self.image_buffer) > 3:
                     rospy.logwarn("Delta video processing time exceeds acquisition rate. Processing time: %f, Buffer: %d", pt, len(self.image_buffer))
             
+        # TODO why here?
         cv2.destroyAllWindows()
 
 #####################################################################################################
