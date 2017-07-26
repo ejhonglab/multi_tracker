@@ -75,6 +75,7 @@ class Compressor:
         while np.isclose(self.time_start, 0.0):
             self.time_start = rospy.Time.now().to_sec()
         
+        self.save_data = rospy.get_param('multi_tracker/delta_video/save_data', True)
         # experiment basename
         self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
@@ -173,7 +174,8 @@ class Compressor:
         if self.backgroundImage is None:
             self.backgroundImage = copy.copy(self.imgScaled)
             self.background_img_filename = background_png_name()
-            cv2.imwrite(self.background_img_filename, self.backgroundImage)
+            if self.save_data:
+                cv2.imwrite(self.background_img_filename, self.backgroundImage)
             self.current_background_img += 1
             return
 
@@ -182,7 +184,8 @@ class Compressor:
         if self.reset_background_flag:
             self.backgroundImage = copy.copy(self.imgScaled)
             self.background_img_filename = background_png_name()
-            cv2.imwrite(self.background_img_filename, self.backgroundImage)
+            if self.save_data:
+                cv2.imwrite(self.background_img_filename, self.backgroundImage)
             self.current_background_img += 1
             self.reset_background_flag = False
             return

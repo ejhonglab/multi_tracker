@@ -89,8 +89,7 @@ class LiveViewer:
                     print 'Using default parameter: ', parameter, ' = ', value
 
         # displays extra information about trajectory predictions / associations if True
-        self.debug_tracking = rospy.get_param('/multi_tracker/' + nodenum + \
-            '/liveviewer/debug_tracking', False)
+        self.debug = rospy.get_param('multi_tracker/liveviewer/debug', False)
                 
         # TODO fix old nodenum stuff, but derived from any enclosing namespace
         # initialize the node
@@ -193,7 +192,7 @@ class LiveViewer:
                 axes = (int(np.min([a,b])), int(np.max([a,b])))
                 cv2.ellipse(self.imgOutput, center, axes, angle, 0, 360, (0,255,0), 2 )
                 
-                if self.debug_tracking:
+                if self.debug:
                     # assumes consistent order in contourlist, read in same iteration as data_assoc,
                     # and that data_assoc doesn't change order
                     offset_center = (int(contour.x) + 15, int(contour.y))
@@ -208,13 +207,13 @@ class LiveViewer:
                 cv2.circle(self.imgOutput, trajec_center, int(trajec.covariances[-1]), \
                     trajec.color, 2)
                 
-                if self.debug_tracking:
+                if self.debug:
                     offset_center = (int(trajec.positions[-1][0]) - 45, int(trajec.positions[-1][1]))
                     cv2.putText(self.imgOutput, str(objid), offset_center, \
                         cv2.FONT_HERSHEY_SIMPLEX, 0.65, trajec.color, 2, cv2.LINE_AA)
                 
                 '''
-                #if self.debug_tracking:
+                #if self.debug:
                     # TODO display predictions in same color (x w/ dashed line?)
                     # should i just display pos + velocity * (frame / prediction) interval?
                     # or also something about weight it will have? which kalman parameter?

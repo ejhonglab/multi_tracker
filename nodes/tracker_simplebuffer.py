@@ -74,6 +74,9 @@ class Tracker:
             except:
                 print 'Using default parameter: ', parameter, ' = ', value
 	
+        # TODO maybe just reduce to debug flag and not save data in that case?
+        self.save_data = rospy.get_param('multi_tracker/tracker/save_data', True)
+        self.debug = rospy.get_param('multi_tracker/tracker/debug', False)
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
         self.use_original_timestamp = rospy.get_param('multi_tracker/retracking_original_timestamp', False)
         self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
@@ -114,11 +117,14 @@ class Tracker:
         self.image_mask = None 
         sizeImage = 128+1024*1024*3 # Size of header + data.
         self.subImage = rospy.Subscriber(self.params['image_topic'], Image, self.image_callback, queue_size=60, buff_size=2*sizeImage, tcp_nodelay=True)
-        self.pubThreshed = rospy.Publisher('multi_tracker/1_thresholded', Image, queue_size=5)
-        self.pubDenoised = rospy.Publisher('multi_tracker/2_denoised', Image, queue_size=5)
-        self.pubDilated = rospy.Publisher('multi_tracker/3_dilated', Image, queue_size=5)
-        self.pubEroded = rospy.Publisher('multi_tracker/4_eroded', Image, queue_size=5)
-        self.pubProcessedImage = rospy.Publisher('multi_tracker/processed_image', Image, queue_size=5)
+        
+        if self.debug:
+            self.pubThreshed = rospy.Publisher('multi_tracker/1_thresholded', Image, queue_size=5)
+            self.pubDenoised = rospy.Publisher('multi_tracker/2_denoised', Image, queue_size=5)
+            self.pubDilated = rospy.Publisher('multi_tracker/3_dilated', Image, queue_size=5)
+            self.pubEroded = rospy.Publisher('multi_tracker/4_eroded', Image, queue_size=5)
+            self.pubProcessedImage = rospy.Publisher('multi_tracker/processed_image', Image, \
+                queue_size=5)
         
     def image_callback(self, rosimg):
         with self.lockBuffer:

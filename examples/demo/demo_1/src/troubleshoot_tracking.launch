@@ -6,8 +6,13 @@
 <node name="set_exp_basename" pkg="multi_tracker" type="set_basename_and_path.py" output="screen" />
 
 # load parameters for the tracking, and the data association
+<param name="multi_tracker/tracker/save_data" type="bool" value="false" />
+<param name="multi_tracker/delta_video/save_data" type="bool" value="false" />
+
 <rosparam command="load" file="tracker_parameters.yaml"/>
 <rosparam command="load" file="data_association_parameters.yaml"/>
+
+<rosparam command="load" file="debug_flags.yaml"/>
 
 # launch tracking and data association nodes
 <node name="tracker" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" />
@@ -20,6 +25,7 @@
 <rosparam command="load" file="delta_video_parameters.yaml"/>
 <node name="delta_video" pkg="multi_tracker" type="delta_video_simplebuffer.py" output="screen" />
 
+# TODO how to make these conditional on tracking debug parameter. impossible?
 <node name="threshold_view" pkg="image_view" type="image_view" output="screen">
     <remap from="image" to="multi_tracker/1_thresholded" />
 </node>

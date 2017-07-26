@@ -1,13 +1,19 @@
 <launch>
-<arg name="path" default="/home/lab/catkin/src/multi_tracker/examples/sample_data" />
+<arg name="path" default="/home/lab/demo/demo_1/original/20170718_161010_N1" />
 
+<!--
 <rosparam command="load" file="launch_delta_video_parameters.yaml"/>
+-->
+<param name="use_sim_time" type="bool" value="true" />
 
-<node name="rosbag_player" pkg="rosbag" type="play" output="screen" args="$(arg path)/20160412_134708_N1_delta_video.bag --clock --pause --rate=5 --start=0" >
-  <remap from="/multi_tracker/1/delta_video" to="/original_delta_video" />
+<node name="rosbag_player" pkg="rosbag" type="play" output="screen" args="$(arg path)/20170718_161010_N1_delta_video.bag --clock --pause --rate=1 --start=0" >
+  <!-- TODO this won't currently play video recorded on multi_tracker/delta_video
+       fix so that it does (hopefully working here too)
+  -->
+  <remap from="multi_tracker/1/delta_video" to="original_delta_video" />
 </node>
 
-<node name="delta_video_player" pkg="multi_tracker" type="delta_video_player.py" args="--in='/original_delta_video' --out='/camera/image_raw' --directory=$(arg path)" />
-<node name="image_viewer" pkg="image_view" type="image_view" args="image:=/camera/image_raw" />
+<node name="delta_video_player" pkg="multi_tracker" type="delta_video_player.py" args="--in='original_delta_video' --out='camera/image_raw' --directory=$(arg path)" />
+<node name="image_viewer" pkg="image_view" type="image_view" args="image:=camera/image_raw" />
 
 </launch>

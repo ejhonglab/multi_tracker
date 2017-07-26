@@ -208,7 +208,7 @@ def extract_and_publish_contours(self):
             
     # publish the contours
     self.pubContours.publish( Contourlist(header = header, contours=contour_info) )  
-
+    # TODO remove?
     return
 
 def convert_to_gray_if_necessary(self):
@@ -219,13 +219,13 @@ def erode_and_dialate(self):
     kernel = np.ones((3,3), np.uint8)
 
     self.threshed = cv2.dilate(self.threshed, kernel, iterations=self.params['dilate'])
-    if self.pubDilated.get_num_connections() > 0:
+    if self.debug and self.pubDilated.get_num_connections() > 0:
         c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
         self.pubDilated.publish(img)
 
     self.threshed = cv2.erode(self.threshed, kernel, iterations=self.params['erode'])
-    if self.pubEroded.get_num_connections() > 0:
+    if self.debug and self.pubEroded.get_num_connections() > 0:
         c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
         self.pubEroded.publish(img)
@@ -256,11 +256,12 @@ def reset_background(self):
     data_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
     filename = os.path.join(data_directory, background_img_filename)
     
-    try:
-        cv2.imwrite(filename, self.backgroundImage) # requires opencv > 2.4.9
-        print 'Background reset: ', filename
-    except:
-        print 'failed to save background image, might need opencv 2.4.9?'
+    if self.save_data:
+        try:
+            cv2.imwrite(filename, self.backgroundImage) # requires opencv > 2.4.9
+            print 'Background reset: ', filename
+        except:
+            print 'failed to save background image, might need opencv 2.4.9?'
 
 def add_image_to_background(self, color='dark'):
     tmp_backgroundImage = copy.copy(np.float32(self.imgScaled))
@@ -273,11 +274,13 @@ def add_image_to_background(self, color='dark'):
     home_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
     filename = os.path.join(home_directory, filename)
     
-    try:
-        cv2.imwrite(filename, self.backgroundImage) # requires opencv > 2.4.9
-        print 'Background reset: ', filename
-    except:
-        print 'failed to save background image, might need opencv 2.4.9?'
+    if self.save_data:
+        try:
+            cv2.imwrite(filename, self.backgroundImage) # requires opencv > 2.4.9
+            print 'Background reset: ', filename
+        except:
+            print 'failed to save background image, might need opencv 2.4.9?'
+    
 ###########################################################################################################
 
 ###########################################################################################################
@@ -379,14 +382,14 @@ def dark_or_light_objects_only(self, color='dark'):
     
     convert_to_gray_if_necessary(self)
 
-    if self.pubThreshed.get_num_connections() > 0:
+    if self.debug and self.pubThreshed.get_num_connections() > 0:
         c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
         self.pubThreshed.publish(img)
     
     # noise removal
     self.threshed = cv2.morphologyEx(self.threshed,cv2.MORPH_OPEN, kernel, iterations = 1)
-    if self.pubDenoised.get_num_connections() > 0:
+    if self.debug and self.pubDenoised.get_num_connections() > 0:
         c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
         self.pubDenoised.publish(img)
@@ -407,7 +410,7 @@ def dark_or_light_objects_only(self, color='dark'):
 
     # publish the processed image
     # for troubleshooting image processing pipeline
-    if self.pubProcessedImage.get_num_connections() > 0:
+    if self.debug and self.pubProcessedImage.get_num_connections() > 0:
         c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
         # TODO test whether this works in OpenCV 2 and 3 (i think it works in 3 for me, despite
         # Floris's comment

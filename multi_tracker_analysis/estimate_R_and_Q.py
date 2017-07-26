@@ -7,17 +7,12 @@ import matplotlib.pyplot as plt
 import imp
 
 
-def find_covariance_R_given_static_object_data(x):
+def find_covariance_R_given_static_object_data(X):
     '''
     x - list or np.array - time series of measured x position of a static object (e.g. a dead fly)
         ideally data is collected using the same image processing algorithm, arena, etc.
     '''
-    if type(x) is list:
-        x = np.array(x)
-    x_expected = np.tile(np.mean(x), len(x))
-    x_centered = x-x_expected 
-    x_cov = np.dot(x_centered, x_centered.T)    
-    return x_cov
+    return np.cov(X)
 
 def calc_actual_covariance_for_trajectory_given_q(trajec, kalman_parameter_py_file, q=1, r=10, no_data_after_nth_frame=30):
     '''
@@ -35,7 +30,6 @@ def calc_actual_covariance_for_trajectory_given_q(trajec, kalman_parameter_py_fi
     
     kalman_parameters = imp.load_source('kalman_parameters', kalman_parameter_py_file)
     Q   = q*np.matrix(np.eye(kalman_parameters.phi.shape[0]))
-    R   = r*np.matrix(np.eye(5))
     
     KF_nm = Kalman.DiscreteKalmanFilter(x0=np.matrix([trajec.position_x.iloc[0], 0, trajec.position_y.iloc[0], 0, 0, 0, 0, 0, 0, 0]).T, 
                                         P0=kalman_parameters.P0, 
