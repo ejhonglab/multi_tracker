@@ -6,7 +6,7 @@
 -->
 <param name="use_sim_time" type="bool" value="true" />
 
-<node name="rosbag_player" pkg="rosbag" type="play" output="screen" args="$(arg path)/20170718_161010_N1_delta_video.bag --clock --pause --rate=1 --start=0" >
+<node name="rosbag_player" pkg="rosbag" type="play" output="screen" args="$(arg path)/20170718_161010_N1_delta_video.bag --clock --pause --rate=5 --start=0" >
   <!-- TODO this won't currently play video recorded on multi_tracker/delta_video
        fix so that it does (hopefully working here too)
   -->

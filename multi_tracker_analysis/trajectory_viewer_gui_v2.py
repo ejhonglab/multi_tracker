@@ -180,7 +180,7 @@ class QTrajectory(TemplateBaseClass):
         self.current_time_vline.setPos(0)
         pen = pg.mkPen((255,255,255), width=2)
         self.current_time_vline.setPen(pen)
-        
+        self.get_original_objid = False
     ### Button Callbacks
     
     def set_all_buttons_false(self):

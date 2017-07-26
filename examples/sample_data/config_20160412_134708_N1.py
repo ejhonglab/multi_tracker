@@ -14,7 +14,7 @@ class Config(object):
         # pre-processing data parameters
         self.preprocess_data_function = self.preprocess_data
         self.minlength = 5 # in frames
-        self.maxspeed = 10 # pixels / frame
+        self.maxspeed = 150 # pixels / frame
         self.minspeed = 0
         self.minimal_cumulative_distance_travelled = 4
         

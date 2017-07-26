@@ -127,23 +127,22 @@ class DataAssociator(object):
         #new_contour_object_errors = [[costs[c,i], tracked_object_ids[i], c] for i in indices]
         #contour_to_object_error.extend(new_contour_object_errors)
         contour_to_object_error = cost_matrix_to_coord_val_format(costs)
-        print 'costs converted to coord-val format'
-        print contour_to_object_error
+        #print 'costs converted to coord-val format'
+        #print contour_to_object_error
 
         # values over threshold # covariances are set to max cost before this function
         contour_to_object_error = drop_max_cost(contour_to_object_error)
-        print 'after dropping max_cost entries'
-        print contour_to_object_error
+        #print 'after dropping max_cost entries'
+        #print contour_to_object_error
         
         # TODO compare floris / ctrax versions for correctness
         # TODO multiple assignments to same / suboptimal / dissapearing?
         # TODO TODO not currently equipped to deal with splits. fix.
         
-        print 'unsorted by costs\n', contour_to_object_error
+        #print 'unsorted by costs\n', contour_to_object_error
         sorted_indices = np.argsort(contour_to_object_error[:,2])
         contour_to_object_error = contour_to_object_error[sorted_indices,:]
-        print 'sorted by costs\n', contour_to_object_error
-        print 'sorted costs\n', contour_to_object_error[:,2]
+        #print 'sorted by costs\n', contour_to_object_error
 
         objects2contours = {}
         all_objects = set()
@@ -256,7 +255,7 @@ class DataAssociator(object):
         if tracked_object_state_estimates is not None:
             costs = np.empty([len(contourlist.contours), len(self.tracked_objects)])
             # TODO warn if incurring max_cost (in debugging)
-            max_cost = 10000 # TODO replace me with correct value / rosparam
+            max_cost = 50 # TODO replace me with correct value / rosparam
             do_assignment = False
             
             for c, contour in enumerate(contourlist.contours):
@@ -272,8 +271,7 @@ class DataAssociator(object):
                 mask = costs[c,:] >= ncov.flatten()
                 # TODO why are tracked_object_covariances not a 1d array? werent they scalars?
                 # if this is a history thing, maybe get rid of it?
-                # TODO uncomment me
-                #costs[c, mask] = max_cost
+                costs[c, mask] = max_cost
                 objects_rejected = np.sum(mask)
                 if objects_rejected < len(mask):
                     do_assignment = True
@@ -287,8 +285,6 @@ class DataAssociator(object):
                     elif objects_rejected  > 0:
                         print objects_rejected , 'pairs above covariance threshold (set to max_cost)'
 
-            print costs
-            
             if do_assignment:
                 # TODO use float INFINITY constant to get rid of max_cost?
                 # TODO just pass floris' the object covariances too, rather than acting

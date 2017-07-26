@@ -1,3 +1,3 @@
-multi_tracker/tracker/debug: False
+multi_tracker/tracker/debug: True
 multi_tracker/data_association/debug: True
 multi_tracker/liveviewer/debug: True
