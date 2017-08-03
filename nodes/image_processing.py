@@ -1,24 +1,20 @@
 #!/usr/bin/env python
+
 from __future__ import division
-import roslib
 import rospy
-import rosparam
 import copy
 import cv2
 import numpy as np
-import threading
 import dynamic_reconfigure.server
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image
-from std_msgs.msg import Float32, Header, String
+from std_msgs.msg import Header
 
 from multi_tracker.msg import Contourinfo, Contourlist
-from multi_tracker.msg import Trackedobject, Trackedobjectlist
-from multi_tracker.srv import resetBackgroundService
 
 import time, os
-
 from distutils.version import LooseVersion, StrictVersion
+
 print 'Using open cv: ' + cv2.__version__
 
 # video would not load before installing most recent version of pyqtgraph from github repo

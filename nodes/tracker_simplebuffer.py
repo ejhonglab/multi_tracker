@@ -1,15 +1,13 @@
 #!/usr/bin/env python
+
 from __future__ import division
-from optparse import OptionParser
 import imp, os
-import roslib
 import rospy
-import rosparam
-import copy
 import cv2
 import numpy as np
 import threading
 import dynamic_reconfigure.server
+# TODO remove?
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float32, Header, String
@@ -83,6 +81,7 @@ class Tracker:
         
         if self.experiment_basename == 'none':
             nodenum = 1
+            # TODO fix (right now it lags by a few seconds)
             if self.use_original_timestamp:
                 self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime(rospy.Time.now().to_sec()))
             else:
@@ -115,9 +114,13 @@ class Tracker:
         
         # Subscriptions - subscribe to images, and tracked objects
         self.image_mask = None 
+        # TODO define dynamically?
         sizeImage = 128+1024*1024*3 # Size of header + data.
+        # TODO remove this variable (it doesn't seem to be used. somewhat misleading.)
         self.subImage = rospy.Subscriber(self.params['image_topic'], Image, self.image_callback, queue_size=60, buff_size=2*sizeImage, tcp_nodelay=True)
         
+        # TODO launch from within a python script so i can actually conditionally open their
+        # viewers (based on debug settings)?
         if self.debug:
             self.pubThreshed = rospy.Publisher('multi_tracker/1_thresholded', Image, queue_size=5)
             self.pubDenoised = rospy.Publisher('multi_tracker/2_denoised', Image, queue_size=5)

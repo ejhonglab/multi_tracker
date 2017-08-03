@@ -10,4 +10,4 @@ link to checkerboard or make a local copy.
 -or package it for / with floris and install from ppa / repo?
  python package?
 
-
+-transition .py config files to .yaml?

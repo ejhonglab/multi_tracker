@@ -2,26 +2,21 @@
 
 # set up src and data directories and define prefix name
 <rosparam command="load" file="home_directory.yaml"/>
+# TODO move / get rid of this one?
 <node name="set_exp_basename" pkg="multi_tracker" type="set_basename_and_path.py" output="screen" />
 
+# TODO way to load these from current directory (rather than directory in which package resides)?
 # load parameters for the tracking, and the data association
 <rosparam command="load" file="tracker_parameters.yaml"/>
 <rosparam command="load" file="data_association_parameters.yaml"/>
 
-# launch tracking and data association nodes
-<node name="tracker" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" />
-<node name="data_association" pkg="multi_tracker" type="data_association.py" output="screen" />
-
-# launch node to save data to hdf5
-<node name="save_hdf5_data" pkg="multi_tracker" type="save_data_to_hdf5.py" output="screen" />
-
 # load parameters for, and show live tracking
 <rosparam command="load" file="liveviewer_parameters.yaml"/>
-<node name="liveview" pkg="multi_tracker" type="liveviewer.py" output="screen" /> 
 
 # load parameters for, process, and save, delta video bag file
 <rosparam command="load" file="delta_video_parameters.yaml"/>
-<node name="delta_video" pkg="multi_tracker" type="delta_video_simplebuffer.py" output="screen" />
-<node name="save_delta_video" pkg="multi_tracker" type="save_bag.py" args="--config=delta_video_config.py" output="screen" />
+
+# may later want to use pass_all_args argument
+<include file="$(find multi_tracker)/launch/single_tracking_pipeline.launch" />
 
 </launch>
