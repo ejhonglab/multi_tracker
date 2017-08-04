@@ -1,9 +1,9 @@
 <launch>
 
 # set up src and data directories and define prefix name
+# TODO get rid of this home_directory thing? or make optional w/ tracker parameter
 <rosparam command="load" file="home_directory.yaml"/>
-<!-- TODO maybe get rid of this? it isn't doing any path stuff either -->
-<node name="set_exp_basename" pkg="multi_tracker" type="set_basename_and_path.py" output="screen" />
+<node name="set_exp_basename" pkg="multi_tracker" type="set_basename.py" output="screen" />
 
 # load parameters for the tracking, and the data association
 <param name="multi_tracker/tracker/save_data" type="bool" value="false" />

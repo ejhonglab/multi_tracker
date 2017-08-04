@@ -20,18 +20,11 @@ class DataListener:
         
         self.subTrackedObjects = rospy.Subscriber('multi_tracker/tracked_objects', Trackedobjectlist, self.tracked_object_callback, queue_size=300)
         
-        self.use_original_timestamp = rospy.get_param('multi_tracker/retracking_original_timestamp', False)
-        if self.use_original_timestamp:
-            self.experiment_basename = rospy.get_param('original_basename', None)
-            if self.experiment_basename is None:
-                raise ValueError('need original_basename parameter to be set if using ' + \
-                    'original timestamp. possibly incorrect argument to set_original_basename.py' + \
-                    ' or you are not calling this node?')
-        
-        else:
-            # TODO make N# work via detecting the parent namespace
-            self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', \
-                time.strftime("%Y%m%d_%H%M%S_N1", time.localtime()))
+        self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', None)
+        if self.experiment_basename is None:
+            rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
+                ' Run the set_basename.py node along with others to fix this.')
+            self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N1", time.localtime())
         
         # TODO maybe break a lot of this setup currently 
         # done in many of these nodes out somewhere?

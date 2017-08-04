@@ -2,8 +2,7 @@
 
 # set up src and data directories and define prefix name
 <rosparam command="load" file="home_directory.yaml"/>
-# TODO move / get rid of this one?
-<node name="set_exp_basename" pkg="multi_tracker" type="set_basename_and_path.py" output="screen" />
+<node name="set_exp_basename" pkg="multi_tracker" type="set_basename.py" output="screen" />
 
 # TODO way to load these from current directory (rather than directory in which package resides)?
 # load parameters for the tracking, and the data association
