@@ -76,19 +76,21 @@ class Compressor:
             self.time_start = rospy.Time.now().to_sec()
         
         self.save_data = rospy.get_param('multi_tracker/delta_video/save_data', True)
-        # experiment basename
-        self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
+
         # TODO share the code that is conditional on this across places that access it
         self.use_original_timestamp = rospy.get_param('multi_tracker/retracking_original_timestamp', False)
+        if self.use_original_timestamp:
+            self.experiment_basename = rospy.get_param('original_basename', None)
+            if self.experiment_basename is None:
+                raise ValueError('need original_basename parameter to be set if using ' + \
+                    'original timestamp. possibly incorrect argument to set_original_basename.py' + \
+                    ' or you are not calling this node?')
         
-        if self.experiment_basename == 'none':
-            # TODO make this work via detecting the parent namespace
-            nodenum = 1
-            if self.use_original_timestamp:
-                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime(rospy.Time.now().to_sec()))
-            else:
-                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime())
+        else:
+            # TODO make N# work via detecting the parent namespace
+            self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', \
+                time.strftime("%Y%m%d_%H%M%S_N1", time.localtime()))
         
         # Publishers - publish pixel changes
         self.pubDeltaVid = rospy.Publisher('multi_tracker/delta_video', DeltaVid, queue_size=30)

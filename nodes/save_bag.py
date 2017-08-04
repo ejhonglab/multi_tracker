@@ -18,25 +18,28 @@ import imp
 class SaveBag:
     def __init__(self, config):
         # TODO configure this from ros yaml as well
+        # TODO rename basename since we use basename so much elsewhere, to avoid confusion
         basename = config.basename
         directory = config.directory
         self.topics = config.topics
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
         self.use_original_timestamp = rospy.get_param('multi_tracker/retracking_original_timestamp', False)
+        if self.use_original_timestamp:
+            self.experiment_basename = rospy.get_param('original_basename', None)
+            if self.experiment_basename is None:
+                raise ValueError('need original_basename parameter to be set if using ' + \
+                    'original timestamp. possibly incorrect argument to set_original_basename.py' + \
+                    ' or you are not calling this node?')
+        
+        else:
+            # TODO make N# work via detecting the parent namespace
+            self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', \
+                time.strftime("%Y%m%d_%H%M%S_N1", time.localtime()))
+        
+        filename = self.experiment_basename + '_' + basename + '.bag'
         
         # TODO does this need to go back to python time?
         self.time_start = rospy.Time.now()
-        
-        experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
-        if experiment_basename == 'none':
-            # TODO fix
-            nodenum = 1
-            if self.use_original_timestamp:
-                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime(rospy.Time.now().to_sec()))
-            else:
-                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
-        
-        filename = experiment_basename + '_' + basename + '.bag'
 
         # Make sure path exists.
         try:

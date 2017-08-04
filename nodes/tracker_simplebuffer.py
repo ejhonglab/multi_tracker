@@ -76,16 +76,19 @@ class Tracker:
         self.save_data = rospy.get_param('multi_tracker/tracker/save_data', True)
         self.debug = rospy.get_param('multi_tracker/tracker/debug', False)
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
-        self.use_original_timestamp = rospy.get_param('multi_tracker/retracking_original_timestamp', False)
-        self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', 'none')
         
-        if self.experiment_basename == 'none':
-            nodenum = 1
-            # TODO fix (right now it lags by a few seconds)
-            if self.use_original_timestamp:
-                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + str(nodenum), time.localtime(rospy.Time.now().to_sec()))
-            else:
-                self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N" + nodenum, time.localtime())
+        self.use_original_timestamp = rospy.get_param('multi_tracker/retracking_original_timestamp', False)
+        if self.use_original_timestamp:
+            self.experiment_basename = rospy.get_param('original_basename', None)
+            if self.experiment_basename is None:
+                raise ValueError('need original_basename parameter to be set if using ' + \
+                    'original timestamp. possibly incorrect argument to set_original_basename.py' + \
+                    ' or you are not calling this node?')
+        
+        else:
+            # TODO make N# work via detecting the parent namespace
+            self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', \
+                time.strftime("%Y%m%d_%H%M%S_N1", time.localtime()))
 
         # initialize the node
         self.time_start = rospy.Time.now().to_sec()
