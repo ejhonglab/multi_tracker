@@ -16,25 +16,32 @@ import atexit
 class DataListener:
     def __init__(self, info='data information'):
         rospy.init_node('save_hdf5_data', log_level=rospy.INFO)
-        rospy.sleep(1)
+        rospy.sleep(0.5)
         
         self.subTrackedObjects = rospy.Subscriber('multi_tracker/tracked_objects', Trackedobjectlist, self.tracked_object_callback, queue_size=300)
         
         self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', None)
+        generated_basename = False
         if self.experiment_basename is None:
             rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
                 ' Run the set_basename.py node along with others to fix this.')
             self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N1", time.localtime())
+            generated_basename = True
         
-        # TODO maybe break a lot of this setup currently 
-        # done in many of these nodes out somewhere?
-        # just reference ros params directly? (overhead?)
-        filename = self.experiment_basename + '_trackedobjects.hdf5'
-        home_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
-        filename = os.path.join(home_directory, filename)
-        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
+        if rospy.get_param('multi_tracker/explicit_directories', False):
+            directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
+        else:
+            directory = os.path.join(os.getcwd(), self.experiment_basename)
         
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            if generated_basename:
+                rospy.set_param('multi_tracker/experiment_basename', self.experiment_basename)
+
+        filename = os.path.join(directory, self.experiment_basename + '_trackedobjects.hdf5')
         print 'Saving hdf5 data to: ', filename
+        
+        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
         self.time_start = rospy.Time.now()
         
         self.buffer = []

@@ -1,8 +1,8 @@
-multi_tracker/delta_video/image_topic: '/camera/image_raw'
+multi_tracker/delta_video/image_topic: 'camera/image_raw'
 multi_tracker/delta_video/threshold: 20
 multi_tracker/delta_video/camera_encoding: 'mono8'
 multi_tracker/delta_video/max_change_in_frame: 0.2
-multi_tracker/delta_video/roi_l: 150
+multi_tracker/delta_video/roi_l: 100
 multi_tracker/delta_video/roi_r: 1650
-multi_tracker/delta_video/roi_b: 335
-multi_tracker/delta_video/roi_t: 1050
+multi_tracker/delta_video/roi_b: 330
+multi_tracker/delta_video/roi_t: 1100

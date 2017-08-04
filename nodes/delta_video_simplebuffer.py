@@ -84,6 +84,8 @@ class Compressor:
             rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
                 ' Run the set_basename.py node along with others to fix this.')
             self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N1", time.localtime())
+
+        self.explicit_directories = rospy.get_param('multi_tracker/explicit_directories', False)
         
         # Publishers - publish pixel changes
         self.pubDeltaVid = rospy.Publisher('multi_tracker/delta_video', DeltaVid, queue_size=30)
@@ -156,11 +158,15 @@ class Compressor:
             # TODO fix nodenum. derive from enclosing namespace if possible.
             nodenum = 1
             if self.use_original_timestamp:
-                background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%.png', time.localtime(rospy.Time.now().to_sec()))
+                background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M.png', time.localtime(rospy.Time.now().to_sec()))
             else:
-                background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%.png', time.localtime())
+                background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M.png', time.localtime())
 
-            data_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
+            if self.explicit_directories:
+                data_directory = os.path.expanduser(rospy.get_param('multi_tracker/data_directory'))
+            else:
+                data_directory = os.path.join(os.getcwd(), self.experiment_basename)
+            
             return os.path.join(data_directory, background_img_filename)
         
 ########### image processing function ##############################################################

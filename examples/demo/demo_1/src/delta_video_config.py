@@ -1,6 +1,4 @@
 class Config:
     def __init__(self):
-        # TODO get rid of these things and handle in yamls?
-        self.basename = 'delta_video'
-        self.directory = '~/demo/demo_1/data'
+        # TODO get rid of this and handle in yamls?
         self.topics = ['multi_tracker/delta_video',]

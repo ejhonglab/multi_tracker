@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 from __future__ import division
 import rospy
 from optparse import OptionParser
@@ -19,40 +20,43 @@ class SaveBag:
     def __init__(self, config):
         # TODO configure this from ros yaml as well
         # TODO rename basename since we use basename so much elsewhere, to avoid confusion
-        basename = config.basename
-        directory = config.directory
         self.topics = config.topics
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
         
         # TODO break into utility function?
         self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', None)
+        generated_basename = False
         if self.experiment_basename is None:
             rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
                 ' Run the set_basename.py node along with others to fix this.')
             self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N1", time.localtime())
-        
-        filename = self.experiment_basename + '_' + basename + '.bag'
-        
+            generated_basename = True
+
+        filename = self.experiment_basename + '_delta_video.bag'
+        if rospy.get_param('multi_tracker/explicit_directories', False):
+            directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
+        else:
+            directory = os.path.join(os.getcwd(), self.experiment_basename)
+
+        if not os.path.exists(directory):
+            # TODO this could run into concurrency issues. lock somehow?
+            os.makedirs(directory)
+            if generated_basename:
+                rospy.set_param('multi_tracker/experiment_basename', self.experiment_basename)
+
+        self.bag_filename = os.path.join(directory, filename)
         # TODO does this need to go back to python time?
         self.time_start = rospy.Time.now()
-
-        # Make sure path exists.
-        try:
-            os.makedirs(directory)
-        except OSError:
-            pass
-
-        self.filenameBag = os.path.expanduser(os.path.join(directory, filename))
         self.processRosbag = None
-        
         rospy.on_shutdown(self.OnShutdown_callback)
 
     def OnShutdown_callback(self):
         self.StopRecordingBag()
         
     def StartRecordingBag(self):
-        rospy.logwarn('Saving bag file: %s' % (self.filenameBag))
-        cmdline = ['rosbag', 'record','-O', self.filenameBag]
+        rospy.logwarn('Saving bag file: %s' % (self.bag_filename))
+        cmdline = ['rosbag', 'record','-O', self.bag_filename]
+        # TODO how to pass a list of something with ros params? type for that?
         cmdline.extend(self.topics)
         print cmdline
         self.processRosbag = subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)
@@ -78,15 +82,20 @@ if __name__ == '__main__':
                         help="filename of configuration file")
     (options, args) = parser.parse_args()
     
-    
     try:
         configuration = imp.load_source('configuration', options.config)
         print "Loaded configuration: ", options.config
     except: # look in home directory for config file
-        home_directory = os.path.expanduser( rospy.get_param('multi_tracker/home_directory') )
-        config_file = os.path.join(home_directory, options.config)
-        configuration = imp.load_source('configuration', config_file)
-        print "Loaded configuration: ", config_file
+        if rospy.get_param('multi_tracker/explicit_directories', False):
+            home_directory = os.path.expanduser( rospy.get_param('multi_tracker/home_directory') )
+            config_file = os.path.join(home_directory, options.config)
+            configuration = imp.load_source('configuration', config_file)
+            print "Loaded configuration: ", config_file
+        else:
+            raise IOError(config_path + ' not found. Try launching tracking' + \
+                ' from a directory with all required configuration files with ROS_HOME=`pwd`,' + \
+                ' or set the multi_tracker/explicit_directories parameter in ' + \
+                'tracker_parameters.yaml to true.')
     
     config = configuration.Config()
 

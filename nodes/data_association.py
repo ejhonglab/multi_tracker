@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 from __future__ import division
 from optparse import OptionParser
 import rospy
@@ -19,17 +20,26 @@ import threading
 
 class DataAssociator(object):
     def __init__(self):
-        kalman_parameter_py_file = os.path.expanduser( rospy.get_param('multi_tracker/data_association/kalman_parameters_py_file') )
+        kalman_parameter_py_file = rospy.get_param('multi_tracker/data_association/kalman_parameters_py_file')
+        
         self.lockBuffer = threading.Lock()
 
         try:
             self.kalman_parameters = imp.load_source('kalman_parameters', kalman_parameter_py_file)
             print 'Kalman py file: ', kalman_parameter_py_file
-        except: # look in home directory for kalman parameter file
-            home_directory = os.path.expanduser( rospy.get_param('multi_tracker/home_directory') )
-            kalman_parameter_py_file = os.path.join(home_directory, kalman_parameter_py_file)
-            self.kalman_parameters = imp.load_source('kalman_parameters', kalman_parameter_py_file)
-            print 'Kalman py file: ', kalman_parameter_py_file
+        except:
+            if rospy.get_param('multi_tracker/explicit_directories', False):
+                # look in home directory for kalman parameter file
+                home_directory = os.path.expanduser(rospy.get_param('multi_tracker/home_directory'))
+                kalman_parameter_py_file = os.path.join(home_directory, kalman_parameter_py_file)
+                self.kalman_parameters = imp.load_source('kalman_parameters', \
+                    kalman_parameter_py_file)
+                print 'Kalman py file: ', kalman_parameter_py_file
+            else:
+                raise IOError(kalman_parameter_py_file + ' not found. Try launching tracking' + \
+                    ' from a directory with all required configuration files with ROS_HOME=`pwd`' + \
+                    ', or set the multi_tracker/explicit_directories parameter in ' + \
+                    'tracker_parameters.yaml to true.')
 
         self.association_matrix = self.kalman_parameters.association_matrix
         self.association_matrix /= np.linalg.norm(self.association_matrix)

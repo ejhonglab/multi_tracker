@@ -1,7 +1,6 @@
 <launch>
 
 # set up src and data directories and define prefix name
-<rosparam command="load" file="home_directory.yaml"/>
 <node name="set_exp_basename" pkg="multi_tracker" type="set_basename.py" output="screen" />
 
 # TODO way to load these from current directory (rather than directory in which package resides)?
@@ -14,6 +13,8 @@
 
 # load parameters for, process, and save, delta video bag file
 <rosparam command="load" file="delta_video_parameters.yaml"/>
+
+<node name="snapshot_params" pkg="multi_tracker" type="snapshot_params.py" output="screen" />
 
 # may later want to use pass_all_args argument
 <include file="$(find multi_tracker)/launch/single_tracking_pipeline.launch" />

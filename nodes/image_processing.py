@@ -241,15 +241,15 @@ def reset_background(self):
     # the variables under self are defined in the tracker_simplebuffer.py that this code is glued into
     self.backgroundImage = copy.copy(np.float32(self.imgScaled))
     print self.imgScaled.shape, self.backgroundImage.shape
-    # TODO was this behaving correctly? if so, did i break it?
-    '''
-    filename = self.experiment_basename + '_' + time.strftime("%Y%m%d_%H%M%S_bgimg_N1", time.localtime(rospy.Time.now())) + '.png'
-    home_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
-    filename = os.path.join(home_directory, filename)
-    '''
     # TODO share with other place that generates these
-    background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%.png', time.localtime(rospy.Time.now().to_sec()))
-    data_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
+    # is this the timestamp i want to use? maybe just count from 0? count time from 0?
+    # TODO don't use ROStime if that param isn't set
+    background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M.png', time.localtime(rospy.Time.now().to_sec()))
+    
+    if self.explicit_directories:
+        data_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
+    else:
+        data_directory = os.path.join(os.getcwd(), self.experiment_basename)
     filename = os.path.join(data_directory, background_img_filename)
     
     if self.save_data:
@@ -267,8 +267,14 @@ def add_image_to_background(self, color='dark'):
         self.backgroundImage = np.min([self.backgroundImage, tmp_backgroundImage], axis=0)
     # TODO get nodenum from parent namespace
     filename = self.experiment_basename + '_' + time.strftime("%Y%m%d_%H%M%S_bgimg_N1", time.localtime(rospy.Time.now().to_sec())) + '.png'
-    home_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
-    filename = os.path.join(home_directory, filename)
+    
+    if self.explicit_directories:
+        directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
+    else:
+        # expects a directory named by the experiment_basename, in the directory with the 
+        # configuration files (from which everything is run)
+        directory = os.path.join(os.getcwd(), self.experiment_basename)
+    filename = os.path.join(directory, filename)
     
     if self.save_data:
         try:

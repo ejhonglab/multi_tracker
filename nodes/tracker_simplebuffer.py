@@ -83,6 +83,9 @@ class Tracker:
                 ' Run the set_basename.py node along with others to fix this.')
             self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N1", time.localtime())
 
+        # used by image_processing code that is spliced in with imp
+        self.explicit_directories = rospy.get_param('multi_tracker/explicit_directories', False)
+        
         # initialize the node
         self.time_start = rospy.Time.now().to_sec()
         

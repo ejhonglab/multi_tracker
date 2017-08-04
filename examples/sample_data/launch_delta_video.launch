@@ -6,6 +6,8 @@
 <arg name="file" default="20170711_150010_N1_delta_video.bag" />
 <node name="set_original_basename" pkg="multi_tracker" type="set_original_basename.py" args="$(arg path)/$(arg file)" />
 
+<param name="source_directory" type="str" value="$(arg path)" />
+
 # TODO wrap the player so i dont need to explicitly specify bag file name (only one per directory)
 # see http://answers.ros.org/question/244960/shell-bash-used-in-a-roslaunchsolved/
 <node name="rosbag_player" pkg="rosbag" type="play" output="screen" args="$(arg path)/$(arg file) --clock --pause --rate=2 --start=0" >
