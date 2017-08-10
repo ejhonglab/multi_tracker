@@ -1,28 +1,14 @@
 #!/usr/bin/env python
+
 from __future__ import division
-import roslib
-import rospy
-import rosparam
 import copy
-import cv2
-import numpy as np
-import threading
-import dynamic_reconfigure.server
-from cv_bridge import CvBridge, CvBridgeError
-from sensor_msgs.msg import Image
-from std_msgs.msg import Float32, Header, String
 import imp
-
-from multi_tracker.msg import Contourinfo, Contourlist, DeltaVid
-from multi_tracker.msg import Trackedobject, Trackedobjectlist
-from multi_tracker.srv import resetBackgroundService
 import os
-
 from optparse import OptionParser
-
-import image_processing
-
-import matplotlib.pyplot as plt
+import rospy
+import cv2
+from cv_bridge import CvBridge, CvBridgeError
+from multi_tracker.msg import DeltaVid
 
 # for basler ace cameras, use camera_aravis
 # https://github.com/ssafarik/camera_aravis
@@ -53,8 +39,6 @@ class DeCompressor:
             Basler ace cameras with camera_aravis driver: camera/image_raw
             Pt Grey Firefly cameras with pt grey driver : camera/image_mono
         '''
-        # default parameters (parameter server overides them)
-                        
         # initialize the node
         rospy.init_node('delta_decompressor')
         
@@ -62,10 +46,9 @@ class DeCompressor:
         self.pubDeltaVid = rospy.Publisher(topic_out, Image, queue_size=30)
         self.subDeltaVid = rospy.Subscriber(topic_in, DeltaVid, self.delta_image_callback, queue_size=30)
         
-        self.directory = directory #rospy.get_param('multi_tracker/delta_video/directory', default='')
-        
         self.cvbridge = CvBridge()
         
+        self.directory = directory #rospy.get_param('multi_tracker/delta_video/directory', default='')
         self.backgroundImage = None
         self.background_img_filename = 'none'
         
@@ -97,6 +80,7 @@ class DeCompressor:
             self.backgroundImage = cv2.imread(directory_with_basename, cv2.CV_8UC1)
             try:
                 self.backgroundImage = self.backgroundImage.reshape([self.backgroundImage.shape[0], self.backgroundImage[1], 1]) # for hydro
+            # TODO handle cases by version explicitly or at least specify expected error
             except:
                 pass # for indigo
                 
@@ -119,6 +103,7 @@ class DeCompressor:
                 self.config.draw(new_image, t)
                 
             if self.saveto is not None:
+                # TODO why not move this to init?
                 if self.videowriter is not None:
                     self.videowriter.write(new_image)
                 else:
@@ -132,9 +117,11 @@ class DeCompressor:
                 image_message = self.cvbridge.cv2_to_imgmsg(new_image, encoding="mono8")
             elif self.mode == 'color':
                 image_message = self.cvbridge.cv2_to_imgmsg(new_image, encoding="bgr8")
+            
             image_message.header = delta_vid.header
             self.pubDeltaVid.publish(image_message)
             
+    
     def Main(self):
         rospy.spin()
         if self.videowriter is not None:
@@ -150,6 +137,7 @@ if __name__ == '__main__':
                         help="output topic name")
     parser.add_option("--directory", type="str", dest="directory", default='',
                         help="directory where background images can be found")
+    # TODO --draw or something less generic than config? previous uses?
     parser.add_option("--config", type="str", dest="config", default='',
                         help="configuration file, which should describe a class that has a method draw")
     parser.add_option("--mode", type="str", dest="mode", default='mono',

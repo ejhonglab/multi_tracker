@@ -78,6 +78,8 @@ class Compressor:
         self.save_data = rospy.get_param('multi_tracker/delta_video/save_data', True)
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
 
+        self.debug = rospy.get_param('multi_tracker/delta_video/debug', False)
+
         self.use_original_timestamp = rospy.get_param('multi_tracker/retracking_original_timestamp', False)
         self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', None)
         if self.experiment_basename is None:
@@ -103,7 +105,11 @@ class Compressor:
         
         # background reset service
         self.reset_background_flag = False
-        self.reset_background_service = rospy.Service('multi_tracker/reset_background', resetBackgroundService, self.reset_background)
+        # TODO was this supposed to be triggered every time tracker was?
+        # any reasons not to?
+
+        # TODO TODO refactor so that all background resets go through this node?
+        self.reset_background_service = rospy.Service('multi_tracker/delta_video/reset_background', resetBackgroundService, self.reset_background)
         
         self.cvbridge = CvBridge()
         self.imgScaled      = None
@@ -134,7 +140,9 @@ class Compressor:
         if self.framestamp is not None:
             self.dtCamera = (rosimg.header.stamp - self.framestamp).to_sec()
         else:
+            # TODO warn if falling back to this? potential to cause problems?
             self.dtCamera = 0.03
+        
         self.framenumber = rosimg.header.seq
         self.framestamp = rosimg.header.stamp
         
@@ -169,8 +177,9 @@ class Compressor:
             
             return os.path.join(data_directory, background_img_filename)
         
-########### image processing function ##############################################################
+        ### image processing function ##############################################################
         
+        # TODO it doesn't seem like self.current_background_img counter is used? was it ever? remove?
         # If there is no background image, grab one, and move on to the next frame
         if self.backgroundImage is None:
             self.backgroundImage = copy.copy(self.imgScaled)
@@ -211,19 +220,33 @@ class Compressor:
             delta_msg.ypixels = changed_pixels[1].tolist()
             delta_msg.values = self.imgScaled[changed_pixels].reshape(len(changed_pixels[0])).tolist()
         else:
+            # TODO why preferable for first two fields but not the values?
             delta_msg.xpixels = [0]
             delta_msg.ypixels = [0]
             #delta_msg.values = [0]
         self.pubDeltaVid.publish(delta_msg)
         
-        # if the thresholded absolute difference is too large, reset the background
-        if len(changed_pixels[0]) / (self.diff.shape[0] * self.diff.shape[1]) > self.params['max_change_in_frame']:
+        '''
+        if the fraction of the frame that changed is too large, reset the background
+          -if this is small, it the background will reset more often, in the limit maybe
+           only saving the edges of the flies
+          -if this is large, the background may never reset, probably losing flies when
+           they cross their original positions, and likely storing more data than necessary
+           (particularly if something gets bumped or lighting changes)
+        '''
+        changed_fraction = len(changed_pixels[0]) / (self.diff.shape[0] * self.diff.shape[1])
+        if changed_fraction > self.params['max_change_in_frame']:
+            rospy.logwarn(__file__ + ': resetting background image for # changed ' + \
+                'pixels > max_change_in_frame (' + self.params[max_change_in_frame] + ')')
             self.reset_background_flag = True
 
-        #self.backgroundImage[delta_msg.xpixels, delta_msg.ypixels] = delta_msg.values 
-    
+        elif self.debug:
+            # TODO logdebug
+            rospy.loginfo('delta_video: fraction change in frame is ' + changed_fraction)
+            
+     
     def Main(self):
-        while (not rospy.is_shutdown()):
+        while not rospy.is_shutdown():
             t = rospy.Time.now().to_sec() - self.time_start
             if t > self.record_length_seconds:
                 cv2.destroyAllWindows()
@@ -234,9 +257,10 @@ class Compressor:
                 if len(self.image_buffer) > 0:
                     self.process_image_buffer(self.image_buffer.pop(0))
                 
-                pt = (rospy.Time.now() - time_now).to_sec()
                 if len(self.image_buffer) > 3:
-                    rospy.logwarn("Delta video processing time exceeds acquisition rate. Processing time: %f, Buffer: %d", pt, len(self.image_buffer))
+                    pt = (rospy.Time.now() - time_now).to_sec()
+                    rospy.logwarn("Delta video processing time exceeds acquisition rate. " + \
+                        "Processing time: %f, Buffer: %d", pt, len(self.image_buffer))
             
         # TODO why here?
         cv2.destroyAllWindows()

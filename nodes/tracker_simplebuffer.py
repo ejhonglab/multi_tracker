@@ -92,12 +92,15 @@ class Tracker:
         # background reset service
         self.reset_background_flag = False
         self.add_image_to_background_flag = False
+
+        # TODO is this taking the right reset_background?
+        # another function of similar name is loaded in here
+        # with imp...
         self.reset_background_service = rospy.Service('multi_tracker/tracker/reset_background', \
             resetBackgroundService, self.reset_background)
         self.add_image_to_background_service = \
             rospy.Service('multi_tracker/tracker/add_image_to_background', \
             addImageToBackgroundService, self.add_image_to_background)
-        
         # init cvbridge
         self.cvbridge = CvBridge()
         self.imgScaled      = None
@@ -132,15 +135,19 @@ class Tracker:
         with self.lockBuffer:
             self.image_buffer.append(rosimg)
 
+    # TODO get rid of argument if not using them? or necessary
+    # for rospy service callback? (return too?)
     def reset_background(self, service_call):
         self.reset_background_flag = True
         return 1
     
+    # same thing about arg?
     def add_image_to_background(self, service_call):
         self.add_image_to_background_flag = True
         return 1
         
     def process_image_buffer(self, rosimg):
+        # TODO check for problems this dtCamera stuff might cause
         if self.framestamp is not None:
             self.dtCamera = (rosimg.header.stamp - self.framestamp).to_sec()
         else:
@@ -163,6 +170,8 @@ class Tracker:
         
         if self.backgroundImage is not None:
             if self.backgroundImage.shape != self.imgScaled.shape:
+                # TODO why would this happen in one run?
+                # i might be in favor of an error here?
                 self.backgroundImage = None
                 self.reset_background_flag = True
         

@@ -14,7 +14,7 @@ from std_msgs.msg import Float32, Header, String
 
 from multi_tracker.msg import Contourinfo, Contourlist
 from multi_tracker.msg import Trackedobject, Trackedobjectlist
-from multi_tracker.srv import resetBackgroundService, addImageToBackgroundService
+from multi_tracker.srv import addImageToBackgroundService
 
 import image_processing
 
@@ -115,8 +115,9 @@ class LiveViewer:
         rospy.wait_for_service(add_image_to_background_service_name)
         try:
             self.add_image_to_background = rospy.ServiceProxy(add_image_to_background_service_name, addImageToBackgroundService)
+        
         except:
-            print 'could not connect to add image to background service - is tracker running?'
+            rospy.logerr('could not connect to add image to background service - is tracker running?')
 
     def reset_background(self, service_call):
         self.reset_background_flag = True
@@ -240,7 +241,7 @@ class LiveViewer:
         key = chr(ascii_key)
         if key == 'a':
             resp = self.add_image_to_background()
-            print 'added image to background'
+            rospy.loginfo('added imaging to background (on keypress in liveviewer)')
             
     def Main(self):
         while (not rospy.is_shutdown()):

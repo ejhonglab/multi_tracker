@@ -35,16 +35,15 @@ else:
 def incredibly_basic(self):
     # If there is no background image, grab one, and move on to the next frame
     if self.backgroundImage is None:
-        reset_background(self)
+        self.reset_background()
         return
     if self.reset_background_flag:
-        reset_background(self)
+        self.reset_background()
         self.reset_background_flag = False
         return
       
     self.absdiff = cv2.absdiff(np.float32(self.imgScaled), self.backgroundImage)
     self.imgproc = copy.copy(self.imgScaled)
-    
     retval, self.threshed = cv2.threshold(self.absdiff, self.params['threshold'], 255, 0)
     
     # convert to gray if necessary
@@ -94,9 +93,9 @@ def incredibly_basic(self):
     self.pubContours.publish( Contourlist(header = header, contours=contour_info) )  
 
 
-###########################################################################################################
+###############################################################################
 # General use functions
-#######################
+###############################################################################
 
 def is_point_below_line(point, slope, intercept):
     x = point[0]
@@ -164,7 +163,7 @@ def extract_and_publish_contours(self):
         # Large objects are approximated by an ellipse
         # TODO break fitting into func and make recursive?
         if len(contour) > 5:
-            x, y, ecc, area, angle = fit_ellipse_to_contour(self, contour)
+            x, y, ecc, area, angle = self.fit_ellipse_to_contour(contour)
             
             # if object is too large, split it in two, this helps with colliding objects, but is not 100% correct
             if area > self.params['max_expected_area']:
@@ -182,13 +181,13 @@ def extract_and_publish_contours(self):
                 c2 = np.array(c2)
                 
                 if len(c1) > 5:
-                    x, y, ecc, area, angle = fit_ellipse_to_contour(self, np.array(c1))
+                    x, y, ecc, area, angle = self.fit_ellipse_to_contour(np.array(c1))
                     if area < self.params['max_size'] and area > self.params['min_size']:
                         data = add_data_to_contour_info(x,y,ecc,area,angle,self.dtCamera,header)
                         contour_info.append(data)
                 
                 if len(c2) > 5:
-                    x, y, ecc, area, angle = fit_ellipse_to_contour(self, np.array(c2))
+                    x, y, ecc, area, angle = self.fit_ellipse_to_contour(np.array(c2))
                     if area < self.params['max_size'] and area > self.params['min_size']:
                         data = add_data_to_contour_info(x,y,ecc,area,angle,self.dtCamera,header)
                         contour_info.append(data)
@@ -226,131 +225,108 @@ def erode_and_dialate(self):
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
         self.pubEroded.publish(img)
     
-def reset_background_if_difference_is_very_large(self, color='dark'):
-    if color == 'dark':
-        # if the thresholded absolute difference is too large, reset the background
-        if np.sum(self.threshed>0) / float(self.shapeImage[0]*self.shapeImage[1]) > self.params['max_change_in_frame']:
-            reset_background(self)
-            return
-    elif color == 'light':
-        # NOT IMPLEMENTED
-        pass
 
-# TODO is this one being called? are all places that save pngs?
-def reset_background(self):
-    # the variables under self are defined in the tracker_simplebuffer.py that this code is glued into
-    self.backgroundImage = copy.copy(np.float32(self.imgScaled))
-    print self.imgScaled.shape, self.backgroundImage.shape
+def reset_background_if_difference_is_very_large(self, color='dark'):
+    # if the fraction of changed pixels (in direction of interest) 
+    # is above threshold, reset the background
+    if color == 'dark' and np.sum(self.threshed>0) / (self.shapeImage[0] * \
+        self.shapeImage[1]) > self.params['max_change_in_frame']:
+        self.reset_background()
+        
+    elif color == 'light':
+        raise NotImplementedError
+
+
+def save_png(self):
     # TODO share with other place that generates these
     # is this the timestamp i want to use? maybe just count from 0? count time from 0?
     # TODO don't use ROStime if that param isn't set
-    background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M.png', time.localtime(rospy.Time.now().to_sec()))
+    # TODO get nodenum from parent namespace
+    background_img_filename = self.experiment_basename + \
+        time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M.png', time.localtime(rospy.Time.now().to_sec()))
     
     if self.explicit_directories:
-        data_directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
+        data_directory = os.path.expanduser(rospy.get_param('multi_tracker/data_directory'))
     else:
         data_directory = os.path.join(os.getcwd(), self.experiment_basename)
     filename = os.path.join(data_directory, background_img_filename)
     
     if self.save_data:
         try:
+            # TODO TODO but are these saved images actually used?
+            # when would they be loaded if not referenced in that
+            # field of a DeltaVid message in the decompressor??
+            # anything else loading the bgimgs?
             cv2.imwrite(filename, self.backgroundImage) # requires opencv > 2.4.9
-            print 'Background reset: ', filename
+            rospy.loginfo('Background reset: ' + filename)
         except:
-            print 'failed to save background image, might need opencv 2.4.9?'
+            rospy.logerr('failed to save background image, might need opencv 2.4.9?')
+    
+
+# TODO TODO fix. saved images are likely not used.
+# but i guess this is maybe only called from the live_viewer?
+def reset_background(self):
+    self.backgroundImage = copy.copy(np.float32(self.imgScaled))
+    self.save_png()
+
 
 def add_image_to_background(self, color='dark'):
+    # why copy just for this?
     tmp_backgroundImage = copy.copy(np.float32(self.imgScaled))
+    # TODO do i really want to take the max / min?
     if color == 'dark':
         self.backgroundImage = np.max([self.backgroundImage, tmp_backgroundImage], axis=0)
     elif color == 'light':
         self.backgroundImage = np.min([self.backgroundImage, tmp_backgroundImage], axis=0)
-    # TODO get nodenum from parent namespace
-    filename = self.experiment_basename + '_' + time.strftime("%Y%m%d_%H%M%S_bgimg_N1", time.localtime(rospy.Time.now().to_sec())) + '.png'
+    # TODO note potential problems caused by naming files same in add_image_...?
+    self.save_png()
     
-    if self.explicit_directories:
-        directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
-    else:
-        # expects a directory named by the experiment_basename, in the directory with the 
-        # configuration files (from which everything is run)
-        directory = os.path.join(os.getcwd(), self.experiment_basename)
-    filename = os.path.join(directory, filename)
     
-    if self.save_data:
-        try:
-            cv2.imwrite(filename, self.backgroundImage) # requires opencv > 2.4.9
-            print 'Background reset: ', filename
-        except:
-            print 'failed to save background image, might need opencv 2.4.9?'
-    
-###########################################################################################################
+###############################################################################
 
-###########################################################################################################
-# Simple background subtraction
-###############################
-
-def background_subtraction(self):
-    # If there is no background image, grab one, and move on to the next frame
-    if self.backgroundImage is None:
-        reset_background(self)
-        return
-    if self.reset_background_flag:
-        reset_background(self)
-        self.reset_background_flag = False
-        return
-      
-    # Absdiff, threshold, and contours       
-    # cv2.RETR_EXTERNAL only extracts the outer most contours - good for speed, and most simple objects 
-    self.absdiff = cv2.absdiff(np.float32(self.imgScaled), self.backgroundImage)
-    self.imgproc = copy.copy(self.imgScaled)
-    # running background update
-    cv2.accumulateWeighted(np.float32(self.imgScaled), self.backgroundImage, self.params['backgroundupdate']) # this needs to be here, otherwise there's an accumulation of something in the background
-    
-    retval, self.threshed = cv2.threshold(self.absdiff, self.params['threshold'], 255, 0)
-
-    convert_to_gray_if_necessary(self)
-    erode_and_dialate(self)
-    extract_and_publish_contours(self)
-    reset_background_if_difference_is_very_large(self)
         
-###########################################################################################################
+###############################################################################
 # Only track dark or light objects
-#########################
+###############################################################################
 
 def dark_objects_only(self):
-    dark_or_light_objects_only(self, color='dark')
+    self.dark_or_light_objects_only(color='dark')
 
 def light_objects_only(self):
-    dark_or_light_objects_only(self, color='light')
+    self.dark_or_light_objects_only(color='light')
 
 def dark_or_light_objects(self):
-    dark_or_light_objects_only(self, color='darkorlight')
+    self.dark_or_light_objects_only(color='darkorlight')
 
 def dark_or_light_objects_only(self, color='dark'):
     if self.params['circular_mask_x'] != 'none':
         if self.image_mask is None:
             self.image_mask = np.zeros_like(self.imgScaled)
-            cv2.circle(self.image_mask,(self.params['circular_mask_x'], self.params['circular_mask_y']),int(self.params['circular_mask_r']),[1,1,1],-1)
-        self.imgScaled = self.image_mask*self.imgScaled
+            cv2.circle(self.image_mask,(self.params['circular_mask_x'], \
+                self.params['circular_mask_y']),int(self.params['circular_mask_r']),[1,1,1],-1)
         
-    # If there is no background image, grab one, and move on to the next frame
-    if self.backgroundImage is None:
-        reset_background(self)
-        return
-    if self.reset_background_flag:
-        reset_background(self)
+        self.imgScaled = self.image_mask*self.imgScaled
+    
+    # TODO do i want to return in both of these cases? might cause more discontinuity
+    # than necessary
+    # If we need to reset background image, grab one, and move on to the next frame
+    if self.backgroundImage is None or self.reset_background_flag:
+        self.reset_background()
         self.reset_background_flag = False
         return
+    
     if self.add_image_to_background_flag:
-        add_image_to_background(self, color)
+        self.add_image_to_background(color)
         self.add_image_to_background_flag = False
         return 
     
-    
+    # TODO TODO fix
+    # TODO is this actually nonzero? warn if it's not?
     if self.params['backgroundupdate'] != 0:
         cv2.accumulateWeighted(np.float32(self.imgScaled), self.backgroundImage, self.params['backgroundupdate']) # this needs to be here, otherwise there's an accumulation of something in the background
     if self.params['medianbgupdateinterval'] != 0:
         t = rospy.Time.now().to_sec()
+        # TODO TODO used?
         if not self.__dict__.has_key('medianbgimages'):
             self.medianbgimages = [self.imgScaled]
             self.medianbgimages_times = [t]
@@ -372,8 +348,10 @@ def dark_or_light_objects_only(self, color='dark'):
     
     if color == 'dark':
         self.threshed = cv2.compare(np.float32(self.imgScaled), self.backgroundImage-self.params['threshold'], cv2.CMP_LT) # CMP_LT is less than
+    
     elif color == 'light':
         self.threshed = cv2.compare(np.float32(self.imgScaled), self.backgroundImage+self.params['threshold'], cv2.CMP_GT) # CMP_GT is greater than
+    
     elif color == 'darkorlight':
         #absdiff = cv2.absdiff(np.float32(self.imgScaled), self.backgroundImage)
         #retval, self.threshed = cv2.threshold(absdiff, self.params['threshold'], 255, 0)
@@ -382,7 +360,7 @@ def dark_or_light_objects_only(self, color='dark'):
         light = cv2.compare(np.float32(self.imgScaled), self.backgroundImage+self.params['threshold'], cv2.CMP_GT) # CMP_GT is greater than
         self.threshed = dark+light
     
-    convert_to_gray_if_necessary(self)
+    self.convert_to_gray_if_necessary()
 
     if self.debug and self.pubThreshed.get_num_connections() > 0:
         c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
@@ -396,19 +374,7 @@ def dark_or_light_objects_only(self, color='dark'):
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
         self.pubDenoised.publish(img)
     
-    # sure background area
-    #sure_bg = cv2.dilate(opening,kernel,iterations=3)
-
-    # Finding sure foreground area
-    #dist_transform = cv2.distanceTransform(opening,cv.CV_DIST_L2,3)
-    #dist_transform = dist_transform / (np.max(dist_transform)) * 255
-    #ret, sure_fg = cv2.threshold(dist_transform,0.2*dist_transform.max(),255,0)
-
-    # Finding unknown region
-    #sure_fg = np.uint8(sure_fg)
-    
-    #self.threshed = sure_fg
-    erode_and_dialate(self)
+    self.erode_and_dialate()
 
     # publish the processed image
     # for troubleshooting image processing pipeline
@@ -419,6 +385,6 @@ def dark_or_light_objects_only(self, color='dark'):
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
         self.pubProcessedImage.publish(img)
 
-    extract_and_publish_contours(self)
-    #reset_background_if_difference_is_very_large(self, color)
+    self.extract_and_publish_contours()
+    self.reset_background_if_difference_is_very_large(color)
         
