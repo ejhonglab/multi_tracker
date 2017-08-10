@@ -2,25 +2,22 @@
 
 from __future__ import division
 import rospy
-from optparse import OptionParser
-import tf
-import sys
 import time, os, subprocess
-import threading
-import numpy as np
-
-from sensor_msgs.msg import Image
-from cv_bridge import CvBridge, CvBridgeError
-
-import imp
 
 ###############################################################################
 #
 class SaveBag:
-    def __init__(self, config):
-        # TODO configure this from ros yaml as well
-        # TODO rename basename since we use basename so much elsewhere, to avoid confusion
-        self.topics = config.topics
+    def __init__(self):
+        # TODO maybe default to saving all?
+        self.topics = rospy.get_param('multi_tracker/delta_video/topics', [])
+        if len(self.topics) == 0:
+            # TODO maybe just fail? (reason for not is so this node can be 
+            # left required in launch files)
+            rospy.logwarn('NOT SAVING ANY TOPICS TO BAGFILE! You must ' + \ 
+                'specify a list of topics as a parameter called ' + \
+                'multi_tracker/delta_video/topics, if you wish to save ' + \
+                'data, otherwise, there is no point in this node.')
+        
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
         
         # TODO break into utility function?
@@ -54,7 +51,7 @@ class SaveBag:
         self.StopRecordingBag()
         
     def StartRecordingBag(self):
-        rospy.logwarn('Saving bag file: %s' % (self.bag_filename))
+        rospy.loginfo('Saving bag file: %s' % (self.bag_filename))
         cmdline = ['rosbag', 'record','-O', self.bag_filename]
         # TODO how to pass a list of something with ros params? type for that?
         cmdline.extend(self.topics)
@@ -63,7 +60,7 @@ class SaveBag:
     
     def StopRecordingBag(self):
         subprocess.os.killpg(self.processRosbag.pid, subprocess.signal.SIGINT)
-        rospy.logwarn('Closed bag file.')
+        rospy.loginfo('Closed bag file.')
                 
     def Main(self):
         savebag.StartRecordingBag()
@@ -76,33 +73,10 @@ class SaveBag:
         
 
 if __name__ == '__main__':
-    parser = OptionParser()
-    # TODO centralize config and get rid of option
-    parser.add_option("--config", type="str", dest="config", default='',
-                        help="filename of configuration file")
-    (options, args) = parser.parse_args()
-    
-    try:
-        configuration = imp.load_source('configuration', options.config)
-        print "Loaded configuration: ", options.config
-    except: # look in home directory for config file
-        if rospy.get_param('multi_tracker/explicit_directories', False):
-            home_directory = os.path.expanduser( rospy.get_param('multi_tracker/home_directory') )
-            config_file = os.path.join(home_directory, options.config)
-            configuration = imp.load_source('configuration', config_file)
-            print "Loaded configuration: ", config_file
-        else:
-            raise IOError(config_path + ' not found. Try launching tracking' + \
-                ' from a directory with all required configuration files with ROS_HOME=`pwd`,' + \
-                ' or set the multi_tracker/explicit_directories parameter in ' + \
-                'tracker_parameters.yaml to true.')
-    
-    config = configuration.Config()
-
     # TODO why is this not init_node-d in __init__ of the class?
     # tracker does it that way; havent checked elsewhere yet.
     rospy.init_node('save_delta_video', log_level=rospy.INFO)
     rospy.sleep(1)
-    savebag = SaveBag(config)
+    savebag = SaveBag()
     savebag.Main()
     

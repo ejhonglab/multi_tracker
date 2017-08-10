@@ -56,14 +56,13 @@ class SaveParams:
         # that would be cleaner
         rospy.sleep(10.)
 
-        # TODO not warn
-        rospy.logwarn('Saving parameters to : %s' % (self.filename))
+        rospy.loginfo('Saving parameters to : %s' % (self.filename))
         cmdline = ['rosparam', 'dump', self.filename]
         self.processRosparam = subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)
         
         rospy.sleep(2.)
         subprocess.os.killpg(self.processRosparam.pid, subprocess.signal.SIGINT)
-        rospy.logwarn('Closed process for saving ROS params.')
+        rospy.loginfo('Closed process for saving ROS params.')
         
     
 if __name__ == '__main__':
