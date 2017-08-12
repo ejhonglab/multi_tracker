@@ -4,11 +4,13 @@ from __future__ import division
 import copy
 import imp
 import os
+import traceback
 from optparse import OptionParser
 import rospy
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 from multi_tracker.msg import DeltaVid
+from sensor_msgs.msg import Image
 
 # for basler ace cameras, use camera_aravis
 # https://github.com/ssafarik/camera_aravis
@@ -69,13 +71,18 @@ class DeCompressor:
             basename = os.path.basename(self.background_img_filename)
             directory_with_basename = os.path.join(self.directory, basename)
             
-            if not os.path.exists(directory_with_basename):
-                raise IOError('background image file ' + directory_with_basename + \
-                    ' did not exist')
+            try:
+                if not os.path.exists(directory_with_basename):
+                    raise IOError('background image file ' + directory_with_basename + ' did not exist')
 
-            if not os.path.getsize(directory_with_basename) > 0:
-                raise IOError('background image file ' + directory_with_basename + \
-                    ' was empty')
+                if not os.path.getsize(directory_with_basename) > 0:
+                    raise IOError('background image file ' + directory_with_basename + ' was empty')
+            
+            except IOError:
+                traceback.print_exc()
+                # this (should) just shutdown the current node, which can be marked as required
+                # in the launch file (bringing everything down if it goes down)
+                rospy.signal_shutdown('cannot proceed without background images.')
             
             self.backgroundImage = cv2.imread(directory_with_basename, cv2.CV_8UC1)
             try:
@@ -98,7 +105,7 @@ class DeCompressor:
                 new_image = cv2.cvtColor(new_image, cv2.COLOR_GRAY2RGB)
 
             if self.config is not None:
-                #print delta_vid.header.stamp.secs + delta_vid.header.stamp.nsecs*1e-9
+                # just use ros time conversion func
                 t = delta_vid.header.stamp.secs + delta_vid.header.stamp.nsecs*1e-9
                 self.config.draw(new_image, t)
                 
@@ -144,9 +151,9 @@ if __name__ == '__main__':
                         help="color if desired to convert to color image")
     parser.add_option("--saveto", type="str", dest="saveto", default='',
                         help="filename where to save video, default is none. Note: use this command to make a mac / quicktime friendly video: avconv -i test.avi -c:v libx264 -c:a copy outputfile.mp4")
-    
+
     (options, args) = parser.parse_args()
-    
+
     if len(options.config) > 0: 
         config = imp.load_source('config', options.config)
         c = config.Config(options.config)

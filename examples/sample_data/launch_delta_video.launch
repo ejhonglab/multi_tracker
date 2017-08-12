@@ -1,9 +1,9 @@
 <launch>
 <param name="use_sim_time" type="bool" value="true" />
 
-<arg name="path" default="/media/remy/storage/tracking_data/20170711_150010_N1" />
+<arg name="path" default="/home/tom/catkin/src/multi_tracker/examples/sample_data" />
 # TODO infer
-<arg name="file" default="20170711_150010_N1_delta_video.bag" />
+<arg name="file" default="20160412_134708_N1_delta_video.bag" />
 <node name="set_original_basename" pkg="multi_tracker" type="set_original_basename.py" args="$(arg path)/$(arg file)" />
 
 <param name="source_directory" type="str" value="$(arg path)" />
@@ -18,7 +18,7 @@
 
 # TODO make camera/image_raw the default / changeable via remapping?
 # likewise with input topic? (this is what all the other nodes do)
-<node name="delta_video_player" pkg="multi_tracker" type="delta_video_player.py" args="--in='original_delta_video' --out='camera/image_raw' --directory=$(arg path)" />
+<node name="delta_video_player" pkg="multi_tracker" type="delta_video_player.py" args="--in='original_delta_video' --out='camera/image_raw' --directory=$(arg path)" required="true"/>
 <node name="image_viewer" pkg="image_view" type="image_view" args="image:=camera/image_raw" />
 
 # TODO call set_exp_basename_and_path with directory (and retracking_original_timestamp somehow)
