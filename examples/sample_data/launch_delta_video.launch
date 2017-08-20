@@ -4,8 +4,11 @@
 <arg name="path" default="/home/tom/catkin/src/multi_tracker/examples/sample_data" />
 # TODO infer
 <arg name="file" default="20160412_134708_N1_delta_video.bag" />
+
+<!-- TODO should this just be set_basename passed an argument? -->
 <node name="set_original_basename" pkg="multi_tracker" type="set_original_basename.py" args="$(arg path)/$(arg file)" />
 
+<!-- TODO TODO what is this used for? -->
 <param name="source_directory" type="str" value="$(arg path)" />
 
 # TODO wrap the player so i dont need to explicitly specify bag file name (only one per directory)
@@ -20,11 +23,5 @@
 # likewise with input topic? (this is what all the other nodes do)
 <node name="delta_video_player" pkg="multi_tracker" type="delta_video_player.py" args="--in='original_delta_video' --out='camera/image_raw' --directory=$(arg path)" required="true"/>
 <node name="image_viewer" pkg="image_view" type="image_view" args="image:=camera/image_raw" />
-
-# TODO call set_exp_basename_and_path with directory (and retracking_original_timestamp somehow)
-# so it is actually the same (and not a few seconds after)
-
-# TODO copy the original parameters and retracking parameters to output directory, so all information
-# relavant to current data is in one place
 
 </launch>
