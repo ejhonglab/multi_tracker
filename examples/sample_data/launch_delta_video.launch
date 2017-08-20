@@ -1,27 +1,23 @@
 <launch>
 <param name="use_sim_time" type="bool" value="true" />
 
-<arg name="path" default="/home/tom/catkin/src/multi_tracker/examples/sample_data" />
-# TODO infer
-<arg name="file" default="20160412_134708_N1_delta_video.bag" />
-
 <!-- TODO should this just be set_basename passed an argument? -->
-<node name="set_original_basename" pkg="multi_tracker" type="set_original_basename.py" args="$(arg path)/$(arg file)" />
-
-<!-- TODO TODO what is this used for? -->
-<param name="source_directory" type="str" value="$(arg path)" />
+<!-- also sets source_directory parameter that snapshot_params uses to copy over any old params -->
+<node name="set_original_basename" pkg="multi_tracker" type="set_original_basename.py" />
 
 # TODO wrap the player so i dont need to explicitly specify bag file name (only one per directory)
 # see http://answers.ros.org/question/244960/shell-bash-used-in-a-roslaunchsolved/
-<node name="rosbag_player" pkg="rosbag" type="play" output="screen" args="$(arg path)/$(arg file) --clock --pause --rate=2 --start=0" >
+<node name="rosbag_player" pkg="multi_tracker" type="rosbag_play_wrapper.py" output="screen" args="--clock --pause --rate=2 --start=0" >
   # TODO this won't currently play video recorded on multi_tracker/delta_video.
-  # fix so that it does. check for both?
-  <remap from="multi_tracker/1/delta_video" to="original_delta_video" />
+  # fix so that it does. check for both? (the other being the original multi_tracker/1/delta_video)
+  <remap from="multi_tracker/delta_video" to="original_delta_video" />
 </node>
 
 # TODO make camera/image_raw the default / changeable via remapping?
 # likewise with input topic? (this is what all the other nodes do)
-<node name="delta_video_player" pkg="multi_tracker" type="delta_video_player.py" args="--in='original_delta_video' --out='camera/image_raw' --directory=$(arg path)" required="true"/>
-<node name="image_viewer" pkg="image_view" type="image_view" args="image:=camera/image_raw" />
+<node name="delta_video_player" pkg="multi_tracker" type="delta_video_player.py" args="--in='original_delta_video' --out='camera/image_raw'" required="true"/>
 
+<!-- TODO arg for starting viewer node?
+<node name="image_viewer" pkg="image_view" type="image_view" args="image:=camera/image_raw" />
+-->
 </launch>

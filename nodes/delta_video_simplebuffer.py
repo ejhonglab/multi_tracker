@@ -18,6 +18,7 @@ from multi_tracker.srv import resetBackgroundService
 
 import time
 import os
+import sys
 import image_processing
 
 import matplotlib.pyplot as plt
@@ -76,6 +77,9 @@ class Compressor:
             self.time_start = rospy.Time.now().to_sec()
         
         self.save_data = rospy.get_param('multi_tracker/delta_video/save_data', True)
+        if not self.save_data:
+            rospy.logwarn('delta_video not saving data! multi_tracker/delta_video/save_data was False')
+        
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
 
         self.debug = rospy.get_param('multi_tracker/delta_video/debug', False)
@@ -185,7 +189,21 @@ class Compressor:
             self.backgroundImage = copy.copy(self.imgScaled)
             self.background_img_filename = background_png_name()
             if self.save_data:
-                cv2.imwrite(self.background_img_filename, self.backgroundImage)
+                rospy.loginfo('delta_video saving first background image to ' + self.background_img_filename)
+                # TODO fix offset (indices probably shifted to left, up one)
+                #rospy.logwarn(self.backgroundImage)
+                #rospy.logwarn(self.backgroundImage.shape)
+
+                success = cv2.imwrite(self.background_img_filename, self.backgroundImage)
+
+                # restarting seemed to fix this for me once, unclear why
+                if not success or not (os.path.exists(self.background_img_filename) and \
+                    os.path.getsize(self.background_img_filename) > 8):
+                    # TODO i'd rather do without he sys.exit call, but logfatal didn't seem
+                    # to kill the node... why wouldnt it?
+                    rospy.logfatal('background image png was not saved correctly. reason unknown. you may consider restarting.')
+                    sys.exit()
+                
             self.current_background_img += 1
             return
 
@@ -235,15 +253,13 @@ class Compressor:
            (particularly if something gets bumped or lighting changes)
         '''
         changed_fraction = len(changed_pixels[0]) / (self.diff.shape[0] * self.diff.shape[1])
+
+        # TODO TODO this was printed several times but no new png. what gives? flag ever effecting?
         if changed_fraction > self.params['max_change_in_frame']:
             rospy.logwarn(os.path.split(__file__)[-1] + ': resetting background image for # ' + \
                 'changed fraction of pixels (' + str(changed_fraction) + ') > max_change_in_frame '+\
                 '(' + str(self.params['max_change_in_frame']) + ')')
             self.reset_background_flag = True
-
-        elif self.debug:
-            # TODO logdebug
-            rospy.loginfo('delta_video: fraction change in frame is ' + changed_fraction)
             
      
     def Main(self):

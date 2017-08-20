@@ -142,7 +142,7 @@ if __name__ == '__main__':
                         help="input topic name")
     parser.add_option("--out", type="str", dest="output", default='camera/image_decompressed',
                         help="output topic name")
-    parser.add_option("--directory", type="str", dest="directory", default='',
+    parser.add_option("--directory", type="str", dest="directory", default=os.getcwd(),
                         help="directory where background images can be found")
     # TODO --draw or something less generic than config? previous uses?
     parser.add_option("--config", type="str", dest="config", default='',

@@ -59,12 +59,14 @@ class SaveBag:
         self.processRosbag = subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)
     
     def StopRecordingBag(self):
-        subprocess.os.killpg(self.processRosbag.pid, subprocess.signal.SIGINT)
-        rospy.loginfo('Closed bag file.')
+        # TODO faced error where self.processRosbag was still None when this was called
+        # that indicative of other problem?
+        if not self.processRosbag is None:
+            subprocess.os.killpg(self.processRosbag.pid, subprocess.signal.SIGINT)
+            rospy.loginfo('Closed bag file.')
                 
     def Main(self):
-        savebag.StartRecordingBag()
-        rate = rospy.Rate(0.01)
+        self.StartRecordingBag()
         while not rospy.is_shutdown():
             t = (rospy.Time.now() - self.time_start).to_sec()
             if t > self.record_length_seconds:
@@ -76,7 +78,6 @@ if __name__ == '__main__':
     # TODO why is this not init_node-d in __init__ of the class?
     # tracker does it that way; havent checked elsewhere yet.
     rospy.init_node('save_delta_video', log_level=rospy.INFO)
-    rospy.sleep(1)
     savebag = SaveBag()
     savebag.Main()
     

@@ -22,4 +22,5 @@ multi_tracker/tracker/circular_mask_x: 'none'
 multi_tracker/tracker/circular_mask_y: 'none'
 multi_tracker/tracker/circular_mask_r: 'none'
 multi_tracker/record_length_hours: 24
-multi_tracker/retracking_original_timestamp: true
+# TODO fix so doesn't matter if not retracking, then set true
+multi_tracker/retracking_original_timestamp: false

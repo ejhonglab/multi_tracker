@@ -15,6 +15,7 @@
 </include>
 
 # TODO fix package here after moving this file to metatools
+# TODO equivalent of required, but just for process to finish cleanly?
 <node name="snapshot_params" pkg="multi_tracker" type="snapshot_params.py" output="screen" />
 
 </launch>

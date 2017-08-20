@@ -11,3 +11,6 @@ link to checkerboard or make a local copy.
  python package?
 
 -transition .py config files to .yaml?
+
+-fix delta video / rosbag save nodes so bagfile size doesnt blow up even if nothing is being published?
+
