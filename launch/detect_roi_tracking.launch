@@ -1,0 +1,6 @@
+<launch>
+<!-- TODO move / get rid of this one? -->
+<node name="set_exp_basename" pkg="multi_tracker" type="set_basename_and_path.py" output="screen" />
+<!-- maybe i want different basenames anyway? -->
+<node name="roi_finder" pkg="multi_tracker" type="roi_finder.py" output="screen" required="True" />
+</launch>

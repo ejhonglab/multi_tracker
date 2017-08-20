@@ -31,6 +31,8 @@ class RoiFinder:
         # TODO idiomatic ROS way to get package path? use python script location + relative path?
         THIS_PACKAGE = 'multi_tracker'
         # TODO shorter call for this package path?
+        # TODO TODO still valid once installed / using that path?
+        # TODO TODO test parameters are still accessible / valid across ROIs?
         self.tracking_launch_file = rospy.get_param('roi_finder/tracking_launch_file', \
                 rospkg.RosPack().get_path(THIS_PACKAGE) + '/launch/single_tracking_pipeline.launch')
         #        os.path.join(os.environ['HOME'], \

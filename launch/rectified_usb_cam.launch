@@ -9,7 +9,8 @@
 	<!-- TODO make path generic somehow, or have other
 	          scripts replace it when installing -->
 	<param name="camera_info_url" value="file:///home/tom/.ros/camera_info/head_camera.yaml" />
-
+   
+    <!-- TODO TODO what will this do if not calibrated? it should fail i think... -->
 </node>
 
 <node name="image_proc" pkg="image_proc" type="image_proc" output="screen" ns="usb_cam" />
