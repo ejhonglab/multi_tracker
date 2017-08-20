@@ -1,0 +1,4 @@
+multi_tracker/data_association/kalman_parameters_py_file: 'kalman_parameters.py'
+multi_tracker/data_association/max_tracked_objects: 40
+# TODO maybe just make a (-1) setting to indicate not rejecting?
+multi_tracker/data_association/n_covariances_to_reject_data: 100

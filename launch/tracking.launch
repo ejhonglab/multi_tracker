@@ -1,0 +1,20 @@
+<launch>
+
+<arg name="camera_topic" default="/camera/image_raw" />
+
+<include file="$(find multi_tracker)/launch/load_tracking_parameter_yamls.launch" />
+
+# TODO maybe refactor this into pipeline below
+# set up src and data directories and define prefix name
+<node name="set_exp_basename" pkg="multi_tracker" type="set_basename.py" output="screen" />
+
+# may later want to use pass_all_args argument
+<include file="$(find multi_tracker)/launch/single_tracking_pipeline.launch">
+  <!-- this does not seem to produce a name conflict, and allows consistency -->
+  <arg name="camera_topic" value="$(arg camera_topic)" />
+</include>
+
+# TODO fix package here after moving this file to metatools
+<node name="snapshot_params" pkg="multi_tracker" type="snapshot_params.py" output="screen" />
+
+</launch>

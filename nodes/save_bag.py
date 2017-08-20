@@ -13,7 +13,7 @@ class SaveBag:
         if len(self.topics) == 0:
             # TODO maybe just fail? (reason for not is so this node can be 
             # left required in launch files)
-            rospy.logwarn('NOT SAVING ANY TOPICS TO BAGFILE! You must ' + \ 
+            rospy.logwarn('NOT SAVING ANY TOPICS TO BAGFILE! You must ' + \
                 'specify a list of topics as a parameter called ' + \
                 'multi_tracker/delta_video/topics, if you wish to save ' + \
                 'data, otherwise, there is no point in this node.')

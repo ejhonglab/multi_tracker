@@ -5,7 +5,6 @@
   <rosparam command="load" file="tracker_parameters.yaml"/>
   <rosparam command="load" file="data_association_parameters.yaml"/>
   <rosparam command="load" file="liveviewer_parameters.yaml"/>
+  <!-- TODO validate all parameters together! -->
   <rosparam command="load" file="delta_video_parameters.yaml"/>
-  <!-- set up src and data directories and define prefix name -->
-  <rosparam command="load" file="home_directory.yaml"/>
 </launch>
