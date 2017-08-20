@@ -236,8 +236,9 @@ class Compressor:
         '''
         changed_fraction = len(changed_pixels[0]) / (self.diff.shape[0] * self.diff.shape[1])
         if changed_fraction > self.params['max_change_in_frame']:
-            rospy.logwarn(__file__ + ': resetting background image for # changed ' + \
-                'pixels > max_change_in_frame (' + self.params[max_change_in_frame] + ')')
+            rospy.logwarn(os.path.split(__file__)[-1] + ': resetting background image for # ' + \
+                'changed fraction of pixels (' + str(changed_fraction) + ') > max_change_in_frame '+\
+                '(' + str(self.params['max_change_in_frame']) + ')')
             self.reset_background_flag = True
 
         elif self.debug:
