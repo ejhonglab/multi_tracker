@@ -14,3 +14,4 @@ link to checkerboard or make a local copy.
 
 -fix delta video / rosbag save nodes so bagfile size doesnt blow up even if nothing is being published?
 
+-install node files?
