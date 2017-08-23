@@ -9,7 +9,7 @@ import glob
 
 class SaveParams:
     def __init__(self):
-        rospy.init_node('SaveParams', log_level=rospy.INFO)
+        rospy.init_node('save_params', log_level=rospy.INFO)
         rospy.sleep(1)
         
         self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', None)

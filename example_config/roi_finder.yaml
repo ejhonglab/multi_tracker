@@ -1,0 +1,3 @@
+roi_finder/roi_type: 'polygon'
+roi_finder/automatic_roi_detection: False
+roi_finder/toss_first_n_frames: 0

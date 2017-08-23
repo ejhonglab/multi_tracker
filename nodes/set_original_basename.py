@@ -36,6 +36,9 @@ filename = os.path.split(filename_or_fullpath)[-1]
 original_basename = filename[:-1 * len(bagfile_suffix)]
 # further down?
 rospy.set_param('original_basename', original_basename)
-# TODO test
-rospy.set_param('source_directory', os.path.join(os.path.split(filename_or_fullpath)[:-1]))
+
+# split only splits between deepest directory and the file to the right of the separator
+# [0] is everything on the left of that separator
+retracking_input_directory = os.path.split(filename_or_fullpath)[0]
+rospy.set_param('source_directory', retracking_input_directory)
 

@@ -1,27 +1,29 @@
 <launch>
-
-<arg name="camera_topic" default="/camera/image_raw" />
-
-# TODO use global parameters? (or remap global to local externally, where this is launched?)
-
-# launch tracking and data association nodes
-<node name="tracker" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" />
-<node name="data_association" pkg="multi_tracker" type="data_association.py" output="screen" />
-
-# launch node to save data to hdf5
-<node name="save_hdf5_data" pkg="multi_tracker" type="save_data_to_hdf5.py" output="screen" />
-
-# load parameters for, and show live tracking
-<node name="liveview" pkg="multi_tracker" type="liveviewer.py" output="screen" /> 
-
-<node name="delta_video" pkg="multi_tracker" type="delta_video_simplebuffer.py" output="screen">
-  <!-- TODO how to not remap if default? or does it not matter? any performance cost (probably not)? -->
-  <!-- TODO TODO are any other nodes subscribing to this topic directly? -->
-  <remap from="/camera/image_raw" to="$(arg camera_topic)" />
-</node>
-
-# TODO move this config here? or make all that stuff arguments so I can load it globally like others?
-# TODO TODO get rid of delta_video_config.py now?
-<node name="save_delta_video" pkg="multi_tracker" type="save_bag.py" args="--config=delta_video_config.py" output="screen" />
-
+  <arg name="ns" default="/" />
+  <!-- TODO can i change to camera/image_raw? that remappable? -->
+  <arg name="camera" default="/camera/image_raw" />
+  
+  <group ns="$(arg ns)">
+    # TODO use global parameters? (or remap global to local externally, where this is launched?)
+    
+    # launch tracking and data association nodes
+    <node name="tracker" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" />
+    <node name="data_association" pkg="multi_tracker" type="data_association.py" output="screen" />
+    
+    # launch node to save data to hdf5
+    <node name="save_hdf5_data" pkg="multi_tracker" type="save_data_to_hdf5.py" output="screen" />
+    
+    # load parameters for, and show live tracking
+    <node name="liveview" pkg="multi_tracker" type="liveviewer.py" output="screen" /> 
+    
+    <node name="delta_video" pkg="multi_tracker" type="delta_video_simplebuffer.py" output="screen">
+      <!-- TODO how to not remap if default? or does it not matter? any performance cost (probably not)? -->
+      <!-- TODO TODO are any other nodes subscribing to this topic directly? -->
+      <remap from="/camera/image_raw" to="$(arg camera)" />
+    </node>
+    
+    # TODO move this config here? or make all that stuff arguments so I can load it globally like others?
+    # TODO TODO get rid of delta_video_config.py now?
+    <node name="save_delta_video" pkg="multi_tracker" type="save_bag.py" args="--config=delta_video_config.py" output="screen" />
+  </group>
 </launch>

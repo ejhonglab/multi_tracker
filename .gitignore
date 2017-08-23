@@ -2,6 +2,8 @@ include/
 build/
 data/
 dist/
+log/
+*_N1/
 *.egg-info/
 .ipynb_checkpoints
 *.pyc

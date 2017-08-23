@@ -1,6 +1,6 @@
 <launch>
 
-<arg name="camera_topic" default="/camera/image_raw" />
+<arg name="camera" default="/camera/image_raw" />
 
 <include file="$(find multi_tracker)/launch/load_tracking_parameter_yamls.launch" />
 
@@ -11,7 +11,7 @@
 # may later want to use pass_all_args argument
 <include file="$(find multi_tracker)/launch/single_tracking_pipeline.launch">
   <!-- this does not seem to produce a name conflict, and allows consistency -->
-  <arg name="camera_topic" value="$(arg camera_topic)" />
+  <arg name="camera" value="$(arg camera)" />
 </include>
 
 # TODO fix package here after moving this file to metatools

@@ -127,6 +127,10 @@ include_directories(
 ## Install ##
 #############
 
+# TODO check for pip (/ other requirements for installation?)? and make a target to just call
+# the setup.py. some reason this would be incompatible w/ ros install / devel targets?
+# obviously not all dependencies are managed through rosdep, but so what? build farm no-go?
+
 # all install targets should use catkin DESTINATION variables
 # See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
 

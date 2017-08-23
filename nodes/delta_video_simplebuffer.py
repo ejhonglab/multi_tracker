@@ -55,14 +55,17 @@ class Compressor:
                         'roi_r'                     : -1,
                         'roi_b'                     : 0,
                         'roi_t'                     : -1,
-                        'circular_mask_x'           : 'none',
-                        'circular_mask_y'           : 'none',
-                        'circular_mask_r'           : 'none',
+                        'circular_mask_x'           : None,
+                        'circular_mask_y'           : None,
+                        'circular_mask_r'           : None,
+                        'roi_points'                : None
                         }
         for parameter, value in self.params.items():
             try:
                 p = 'multi_tracker/delta_video/' + parameter
                 self.params[parameter] = rospy.get_param(p)
+
+            # TODO catch specific error
             except:
                 print 'Using default parameter: ', parameter, ' = ', value
         
@@ -118,7 +121,7 @@ class Compressor:
         self.cvbridge = CvBridge()
         self.imgScaled      = None
         self.backgroundImage = None
-        self.background_img_filename = 'none'
+        self.background_img_filename = None
         
         # buffer locking
         self.lockBuffer = threading.Lock()
@@ -157,14 +160,29 @@ class Compressor:
             rospy.logwarn ('Exception converting background image from ROS to opencv:  %s' % e)
             img = np.zeros((320,240))
 
+        # TODO i guess i could see a case for this not being mutually exclusive w/ the circular mask?
         self.imgScaled = img[self.params['roi_b']:self.params['roi_t'], self.params['roi_l']:self.params['roi_r']]
         self.shapeImage = self.imgScaled.shape # (height,width)
         
-        if self.params['circular_mask_x'] != 'none':
-            if self.image_mask is None:
+        # define a self var in init that dictates whether we should mask?
+        if self.image_mask is None:
+            fill_color = [1,1,1]
+            if not self.params['circular_mask_x'] is None:
                 self.image_mask = np.zeros_like(self.imgScaled)
-                cv2.circle(self.image_mask,(self.params['circular_mask_x'], self.params['circular_mask_y']), int(self.params['circular_mask_r']), [1,1,1], -1)
-            self.imgScaled = self.image_mask*self.imgScaled
+                # TODO i don't need the int cast do i?
+                cv2.circle(self.image_mask, (self.params['circular_mask_x'], self.params['circular_mask_y']), int(self.params['circular_mask_r']), fill_color, -1)
+
+            # TODO need to test their validity? order matter to some cv2 functions?
+            elif not self.params['roi_points'] is None:
+                self.image_mask = np.zeros_like(self.imgScaled)
+                # TODO effect of linetype here?
+                # may want to combine w/ offset if using rectangular roi as well (or select polygon points in cropped image)
+                # TODO TODO need to cast all points members to int?
+                cv2.fillPoly(self.image_mask, self.params['roi_points'], fill_color) # , -1)
+
+        # TODO just check if key is in dict?
+        elif self.params['circular_mask_x'] != None or self.params['roi_points'] != None:
+            self.imgScaled = self.image_mask * self.imgScaled
 
         def background_png_name():
             # TODO fix nodenum. derive from enclosing namespace if possible.
@@ -212,8 +230,10 @@ class Compressor:
         if self.reset_background_flag:
             self.backgroundImage = copy.copy(self.imgScaled)
             self.background_img_filename = background_png_name()
+            
             if self.save_data:
                 cv2.imwrite(self.background_img_filename, self.backgroundImage)
+            
             self.current_background_img += 1
             self.reset_background_flag = False
             return

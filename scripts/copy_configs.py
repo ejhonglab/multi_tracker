@@ -7,6 +7,9 @@ from os import getcwd
 import glob
 from shutil import copy2
 
+# TODO can i just import this from the correct directory to call it?
+# TODO package into function to avoid this hack
+
 if len(sys.argv) == 1:
     dst_dir = getcwd()
 

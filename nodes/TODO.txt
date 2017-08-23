@@ -1,0 +1,4 @@
+rename save_* to be more descriptive of which information they are saving
+
+!! supply roi_finder with manual methods to identify regions of interest, where user clicks 
+   defining points

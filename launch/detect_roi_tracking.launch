@@ -1,6 +1,21 @@
 <launch>
+
+<arg name="camera" default="/camera/image_raw" />
+
+<rosparam command="load" file="roi_finder.yaml" />
+<include file="$(find multi_tracker)/launch/load_tracking_parameter_yamls.launch" />
+
 <!-- TODO move / get rid of this one? -->
-<node name="set_exp_basename" pkg="multi_tracker" type="set_basename_and_path.py" output="screen" />
 <!-- maybe i want different basenames anyway? -->
-<node name="roi_finder" pkg="multi_tracker" type="roi_finder.py" output="screen" required="True" />
+<node name="set_exp_basename" pkg="multi_tracker" type="set_basename.py" output="screen" />
+
+<node name="roi_finder" pkg="multi_tracker" type="roi_finder.py" output="screen" required="True">
+  <!-- TODO is order correct here? -->
+  <remap from="/camera/image_raw" to="$(arg camera)" />
+</node>
+
+<!-- TODO fix package here after moving this file to metatools -->
+<!-- TODO equivalent of required, but just for process to finish cleanly? -->
+<node name="snapshot_params" pkg="multi_tracker" type="snapshot_params.py" output="screen" />
+
 </launch>
