@@ -60,7 +60,11 @@ class Compressor:
                         '~circular_mask_r'           : None,
                         '~roi_points'                : None
                         }
+        
         for parameter, value in self.params.items():
+            # TODO shrink this try / except so it is just around
+            # get_param (and so regular self.param[key] calls
+            # could also be producing this error)?
             try:
                 p = 'multi_tracker/delta_video/' + parameter
 
@@ -70,29 +74,35 @@ class Compressor:
                 # this signifies private parameters
                 if parameter[0] == '~':
                     value = rospy.get_param(parameter)
-                    parameter = parameter[1:]
 
                 else:
                     value = rospy.get_param(p)
 
                 # TODO maybe change back to 'none' so we can specify in yamls they dont exist, while not just commenting those lines out?
                 # or should i just comment the lines / not include them?
+                # assumes strings like 'none' floris used
+                # should not be overwriting defaults of None.
+                # may not always be true.
                 if self.params[parameter] is None:
-                    if isinstance(rospy.get_param(p), str):
+                    if isinstance(value, str):
                         # to go to the except block
                         raise ValueError()
-                
-                self.params[parameter] = value
 
-            # TODO catch specific error
-            except:
+            except KeyError:
                 print 'Using default parameter: ', parameter, ' = ', value
+            if parameter[0] == '~':
+                del self.params[parameter]
+                parameter = parameter[1:]
+            
+            self.params[parameter] = value
 
+        # TODO TODO is logging still working correctly with subprocess launch file?
+        # IT IS NOT! FIX!
+        #rospy.logwarn('self.params in delta_video_simplebuffer: ' + str(self.params))
+        #print('self.params in delta_video_simplebuffer: ' + str(self.params))
         
         # initialize the node
         rospy.init_node('delta_compressor')
-        # TODO the self.nodename variable that used to be here wasnt something used by rospy
-        # under the hood is it?
         # TODO why does rospy.Time.now() jump from 0 to ~149998...???
         # this solution seems hacky and i wish i didn't have to do it...
         self.time_start = 0
@@ -112,12 +122,26 @@ class Compressor:
         if self.experiment_basename is None:
             rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
                 ' Run the set_basename.py node along with others to fix this.')
-            self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N1", time.localtime())
+            self.experiment_basename = time.strftime('%Y%m%d_%H%M%S_N' + self.pipeline_num, time.localtime())
 
         self.explicit_directories = rospy.get_param('multi_tracker/explicit_directories', False)
         
+        # TODO break into util function?
+        node_name = rospy.get_name()
+        last_name_component = node_name.split('_')[-1]
+        try:
+            self.pipeline_num = int(last_name_component)
+            remap_topics = True
+        except ValueError:
+            remap_topics = False
+
+        delta_video_topic = 'multi_tracker/delta_video'
+        
+        if remap_topics:
+            delta_video_topic = delta_video_topic + '_' + str(self.pipeline_num)
+        
         # Publishers - publish pixel changes
-        self.pubDeltaVid = rospy.Publisher('multi_tracker/delta_video', DeltaVid, queue_size=30)
+        self.pubDeltaVid = rospy.Publisher(delta_video_topic, DeltaVid, queue_size=30)
 
         # determine what kind of differences from background frame we are interested in
         tracking_fn = rospy.get_param('multi_tracker/tracker/image_processor')

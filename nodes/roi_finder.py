@@ -189,11 +189,8 @@ class RoiFinder:
 
 
     def get_pixel_coords(self, event, x, y, flags, param):
-        # TODO are any of the globals in example necessary? drawing?
         # TODO draw a marker too?
         if event == cv2.EVENT_LBUTTONDOWN:
-            rospy.logwarn('adding point [' + str(x) + ', ' + \
-                str(y) + ']')
             self.points.append([x, y])
 
 

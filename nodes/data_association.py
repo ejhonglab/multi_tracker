@@ -64,7 +64,6 @@ class DataAssociator(object):
 
         node_name = rospy.get_name()
         last_name_component = node_name.split('_')[-1]
-        # TODO see discussion in this portion in save_bag.py
         try:
             self.pipeline_num = int(last_name_component)
             remap_topics = True
@@ -292,7 +291,7 @@ class DataAssociator(object):
                 # check dimensionality of this and above
                 ncov = self.n_covariances_to_reject_data * np.sqrt(tracked_object_covariances)
                     
-                # TODO reasons this would be innappropriate?
+                # TODO reasons this would be inappropriate?
                 # uncomment me. just temporarily using floris's
                 # TODO shouldn't this threshold be wrt the current estimates (centered)?
                 mask = costs[c,:] >= ncov.flatten()
