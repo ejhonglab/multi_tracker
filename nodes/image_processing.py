@@ -170,7 +170,7 @@ def extract_and_publish_contours(self):
         # Large objects are approximated by an ellipse
         # TODO break fitting into func and make recursive?
         if len(contour) > 5:
-            x, y, ecc, area, angle = self.fit_ellipse_to_contour(contour)
+            x, y, ecc, area, angle = fit_ellipse_to_contour(self, contour)
             
             # if object is too large, split it in two, this helps with colliding objects, but is not 100% correct
             if area > self.params['max_expected_area']:
@@ -188,15 +188,16 @@ def extract_and_publish_contours(self):
                 c2 = np.array(c2)
                 
                 if len(c1) > 5:
-                    x, y, ecc, area, angle = self.fit_ellipse_to_contour(np.array(c1))
+                    x, y, ecc, area, angle = fit_ellipse_to_contour(self, np.array(c1))
                     if area < self.params['max_size'] and area > self.params['min_size']:
                         data = add_data_to_contour_info(x,y,ecc,area,angle,self.dtCamera,header)
                         contour_info.append(data)
                 
                 if len(c2) > 5:
-                    x, y, ecc, area, angle = self.fit_ellipse_to_contour(np.array(c2))
+                    x, y, ecc, area, angle = fit_ellipse_to_contour(self, np.array(c2))
                     if area < self.params['max_size'] and area > self.params['min_size']:
-                        data = add_data_to_contour_info(x,y,ecc,area,angle,self.dtCamera,header)
+                        data = add_data_to_contour_info(x, y, ecc , area, angle, \
+                            self.dtCamera, header)
                         contour_info.append(data)
             else:
                 if area < self.params['max_size'] and area > self.params['min_size']:
@@ -238,7 +239,7 @@ def reset_background_if_difference_is_very_large(self, color='dark'):
     # if the fraction of changed pixels (in direction of interest)    # is above threshold, reset the background
     if color == 'dark' and np.sum(self.threshed>0) / (self.shapeImage[0] * \
         self.shapeImage[1]) > self.params['max_change_in_frame']:
-        self.reset_background()
+        reset_background(self)
         
     elif color == 'light':
         raise NotImplementedError
@@ -274,7 +275,7 @@ def save_png(self):
 # but i guess this is maybe only called from the live_viewer?
 def reset_background(self):
     self.backgroundImage = copy.copy(np.float32(self.imgScaled))
-    self.save_png()
+    save_png(self)
 
 
 # TODO TODO add a debug topic for the background image
@@ -291,31 +292,35 @@ def add_image_to_background(self, color='dark'):
     self.save_png()
     
     
+# TODO it seems that floris' older syntax (that i mostly got rid of in 9c8b92db) was 
+# necessary to properly load these functions. why? revert all self.f( to f(self, ?
+# or test all?
 def dark_objects_only(self):
-    self.dark_or_light_objects_only(color='dark')
+    dark_or_light_objects_only(self, color='dark')
 
 
 def light_objects_only(self):
-    self.dark_or_light_objects_only(color='light')
+    dark_or_light_objects_only(self, color='light')
 
 
 def dark_or_light_objects(self):
-    self.dark_or_light_objects_only(color='darkorlight')
+    dark_or_light_objects_only(self, color='darkorlight')
 
 
 def dark_or_light_objects_only(self, color='dark'):
     if self.params['circular_mask_x'] != 'none':
         if self.image_mask is None:
             self.image_mask = np.zeros_like(self.imgScaled)
+            # TODO fix these params
             cv2.circle(self.image_mask,(self.params['circular_mask_x'], \
-                self.params['circular_mask_y']),int(self.params['circular_mask_r']),[1,1,1],-1)
+                self.params['circular_mask_y']), int(self.params['circular_mask_r']), [1,1,1], -1)
         self.imgScaled = self.image_mask*self.imgScaled
     
     # TODO do i want to return in both of these cases? might cause more discontinuity
     # than necessary
     # If we need to reset background image, grab one, and move on to the next frame
     if self.backgroundImage is None or self.reset_background_flag:
-        self.reset_background()
+        reset_background(self)
         self.reset_background_flag = False
         return
     
@@ -368,7 +373,7 @@ def dark_or_light_objects_only(self, color='dark'):
         light = cv2.compare(np.float32(self.imgScaled), self.backgroundImage+self.params['threshold'], cv2.CMP_GT) # CMP_GT is greater than
         self.threshed = dark+light
     
-    self.convert_to_gray_if_necessary()
+    convert_to_gray_if_necessary(self)
 
     if self.debug and self.pub_threshed.get_num_connections() > 0:
         c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
@@ -382,7 +387,7 @@ def dark_or_light_objects_only(self, color='dark'):
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
         self.pub_denoised.publish(img)
     
-    self.erode_and_dialate()
+    erode_and_dialate(self)
 
     # publish the processed image
     # for troubleshooting image processing pipeline
@@ -393,6 +398,6 @@ def dark_or_light_objects_only(self, color='dark'):
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
         self.pub_processed.publish(img)
 
-    self.extract_and_publish_contours()
-    self.reset_background_if_difference_is_very_large(color)
+    extract_and_publish_contours(self)
+    reset_background_if_difference_is_very_large(self, color)
         
