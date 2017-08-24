@@ -7,6 +7,11 @@ import subprocess
 import shutil
 import glob
 
+# TODO TODO TODO wait for input parameter node to die (roi_finder) so i can 
+# save all private parameters set after it takes an arbitrary amount of time 
+# for the user to input the rois or some other mechanism? service? 
+# flag topics / param?
+
 class SaveParams:
     def __init__(self):
         rospy.init_node('save_params', log_level=rospy.INFO)

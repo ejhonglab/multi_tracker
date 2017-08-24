@@ -11,6 +11,8 @@ from sensor_msgs.msg import Image
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import os
+from subprocess import Popen
+import Queue
 # import dynamic_reconfigure.server
 
 """
@@ -86,16 +88,40 @@ class RoiFinder:
             rospy.Subscriber(camera, Image, self.manual_roi_callback, \
                     queue_size=queue_size, buff_size=buff_size)
 
-        # spin just until rois detected?
-        rospy.spin()
+        # can't just rospy.spin() here because the main thread
+        # is the only one that can call launch files (a sequence
+        # of functions beginning with a callback can't start
+        # a launch file because it can't register signals)
+        self.launch_queue = Queue.Queue()
+        self.to_kill = []
+        self.main()
 
+    def launch_tracking_common(self, param_dict):
+        extra_params = []
+        for k, v in param_dict.items():
+            if isinstance(k, str) and isinstance(v, str):
+                extra_params.append(k + ':=' + v)
+            else:
+                raise ValueError('param_dict must have all keys and values be strings')
+        
+        params = ['roslaunch', 'multi_tracker', 'single_tracking_pipeline.launch', \
+            'num:=' + str(self.current_node_num)] + extra_params
+        rospy.logwarn(params)
+        p = Popen(params)
+        self.to_kill.append(p)
+        
 
+    # any support there might have been before for setting arguments via roslaunch api
+    # seems to have disappeared... will need to use subprocess for now
+    """
     def launch_tracking_common(self):
         # TODO could maybe rospy.get_namespace() to get prefix for child nodes?
         # TODO how exactly do private ("~" prefix) names work?
         # TODO condense these calls into some helper function?
         # rospy.on_shutdown(self.shutdown) isn't necessary is it?
         # TODO this doesnt make a second master or anything does it?
+        # TODO maybe set is_child=True if exposed somewhere?
+        # see roslaunchrunner api
         uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
         roslaunch.configure_logging(uuid)
         launch = roslaunch.parent.ROSLaunchParent(uuid, [self.tracking_launch_file])
@@ -106,6 +132,8 @@ class RoiFinder:
         # TODO problems with shutting down elsewhere?
         #launch.shutdown()
         # decrement current_node_num when shuts down / whenever we manually shutdown?
+        self.to_stop.append(launch)
+    """
 
     """
     def get_topics(self):
@@ -137,33 +165,19 @@ class RoiFinder:
         return this_node_namespace + str(self.current_node_num) + '/'
 
 
-    def set_param(self, param, value):
-        rospy.set_param(param, value)
-
-
     def launch_a_tracking_pipeline_polygons(self, points):
-        # TODO would ideally make a new namespace for each tracker, and populate that
-        # with the correct ROI parameters
-        prefix = self.new_tracker_namespace()
-        rospy.logwarn('prefix from new_tracker_namespace=' + prefix)
-        # TODO if inputs are arbitrary corners, will need to do some min / maxing to
-        # use the roi_* parameters as is
-        self.set_param(prefix + 'multi_tracker/roi_points', points)
-        self.launch_tracking_common()
+        # TODO test repr here works
+        param_dict = {'polygonal_roi': 'True', 'roi_points': repr(points)}
+        self.launch_tracking_common(param_dict)
 
 
     # TODO would only work for rectangle oriented to axes... couldn't find rotatedrectangle in python cv2 dir
     def launch_a_tracking_pipeline_rectangles(self, left, right, top, bottom):
-        # TODO would ideally make a new namespace for each tracker, and populate that
-        # with the correct ROI parameters
-        prefix = self.new_tracker_namespace()
         # TODO if inputs are arbitrary corners, will need to do some min / maxing to
-        # use the roi_* parameters as is
-        self.set_param(prefix + 'multi_tracker/roi_b', bottom)
-        self.set_param(prefix + 'multi_tracker/roi_t', top)
-        self.set_param(prefix + 'multi_tracker/roi_l', left)
-        self.set_param(prefix + 'multi_tracker/roi_r', right)
-        self.launch_tracking_common()
+        # use the roi_* parameters as is (or just cv2 boundingBox / rect)
+        param_dict = {'rectangular_roi': 'True', 'roi_b': str(bottom), \
+            'roi_t': str(top), 'roi_l': str(left), 'roi_r': str(right)}
+        self.launch_tracking_common(param_dict)
         
 
     def launch_a_tracking_pipeline_circles(self, x, y, radius):
@@ -178,11 +192,9 @@ class RoiFinder:
         # TODO are any of the globals in example necessary? drawing?
         # TODO draw a marker too?
         if event == cv2.EVENT_LBUTTONDOWN:
+            rospy.logwarn('adding point [' + str(x) + ', ' + \
+                str(y) + ']')
             self.points.append([x, y])
-
-        # TODO can i poll while this window is up, outside of the callback?
-        # (do i need waitKey? if it's blocking, it seems like it will prevent me from polling
-        #  if i need it)
 
 
     def show_frame_for_selecting(self, frame):
@@ -207,21 +219,32 @@ class RoiFinder:
             # whether or not things like num-lock are pressed
             # TODO (maybe i want to know some of the other control keys though?)
             # waitKey delays for >= milliseconds equal to the argument
-            key = cv2.waitKey(1) & 0xFF
+
+            # TODO idk why people said it was -1... maybe in 2s
+            # complement, but not as far as python seems to care
+            # it seems to return 255 when no key pressed
+            key = cv2.waitKey(100)
+            # adds invariance to things like the state of the num-lock key
+            # supposedly
+            masked_key = key & 0xFF
             # 27 is the escape key
             # TODO prompt key to press to exit. ctrl-s? z/y?
-            if key == 27:
+            if masked_key == 27:
                 break
-            
+
             #if len(self.points) == 4:
             # TODO prompt to press any / specific key to move to next roi
-            elif key != -1:
+            elif masked_key != 255:
                 polygon = []
                 # this won't get cleared will it?
                 for p in self.points:
                     polygon.append(p)
                 # TODO draw?
-                polygons.append(polygon)
+                if len(polygon) < 3:
+                    rospy.logerr('key press with less than 3 points in buffer. need at least 3 points for a polygon. points still in buffer.')
+                else:
+                    polygons.append(polygon)
+                
                 self.points = []
         
         if len(self.points) != 0:
@@ -300,8 +323,14 @@ class RoiFinder:
             if 'launch_a_tracking_pipeline_' in attr and self.roi_type in attr:
                 f = getattr(self.__class__, attr)
                 if callable(f):
+                    # TODO put behind debug flags
+                    #rospy.logwarn('ROIS = ' + str(rois))
                     for r in rois:
+                        #rospy.logwarn('THIS ROI = ' + str(r))
+                        rospy.logwarn('starting one tracking pipeline launch file')
                         f(self, r)
+                        # TODO remove me? longer?
+                        rospy.sleep(1)
                     found_launch = True
                     break
         if not found_launch:
@@ -350,7 +379,8 @@ class RoiFinder:
         Manually select ROIs of specified type and launch an instance of tracking pipeline appropriately.
         """
         rois = self.find_and_call_function(frame, 'manual_', 'manual selection')
-        self.launch_tracking_pipelines(rois)
+        self.launch_queue.put(rois)
+        #self.launch_tracking_pipelines(rois)
 
 
     # TODO what does Ctrax use to detect the ROIs?
@@ -359,7 +389,22 @@ class RoiFinder:
         Detect ROIs of specified type and launch an instance of tracking pipeline appropriately.
         """
         rois = self.find_and_call_funcion(frame, 'detect_', 'roi detection')
-        self.launch_tracking_pipelines(rois)
+        self.launch_queue.put(rois)
+        #self.launch_tracking_pipelines(rois)
+
+
+    # TODO are the threads of callbacks really different though?
+    def main(self):
+        """
+        Checks for launch requests and executes them.
+        """
+        while not rospy.is_shutdown():
+            if not self.launch_queue.empty():
+                rois = self.launch_queue.get()
+                self.launch_tracking_pipelines(rois)
+
+        for p in self.to_kill:
+            p.kill()
 
 
 if __name__ == '__main__':

@@ -18,6 +18,7 @@ multi_tracker/tracker/roi_l: 0
 multi_tracker/tracker/roi_r: -1
 multi_tracker/tracker/roi_b: 0
 multi_tracker/tracker/roi_t: -1
+# TODO just comment when not using?
 multi_tracker/tracker/circular_mask_x: 'none'
 multi_tracker/tracker/circular_mask_y: 'none'
 multi_tracker/tracker/circular_mask_r: 'none'

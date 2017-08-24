@@ -61,12 +61,29 @@ class DataAssociator(object):
         # initialize the node
         rospy.init_node('data_associator')
         self.time_start = rospy.Time.now()
+
+        node_name = rospy.get_name()
+        last_name_component = node_name.split('_')[-1]
+        # TODO see discussion in this portion in save_bag.py
+        try:
+            self.pipeline_num = int(last_name_component)
+            remap_topics = True
+        except ValueError:
+            remap_topics = False
+
+        tracked_object_topic = 'multi_tracker/tracked_objects'
+        contour_topic = 'multi_tracker/contours'
+        
+        if remap_topics:
+            tracked_object_topic = tracked_object_topic + '_' + str(self.pipeline_num)
+            contour_topic = contour_topic + '_' + str(self.pipeline_num)
         
         # Publishers.
-        self.pubTrackedObjects = rospy.Publisher('multi_tracker/tracked_objects', Trackedobjectlist, queue_size=300)
+        self.pubTrackedObjects = rospy.Publisher(tracked_object_topic, Trackedobjectlist, queue_size=300)
         
         # Subscriptions.
-        self.subImage = rospy.Subscriber('multi_tracker/contours', Contourlist, self.contour_callback, queue_size=300)
+        self.subImage = rospy.Subscriber(contour_topic, Contourlist, self.contour_callback, queue_size=300)
+ 
 
     def new_tracked_object(self, contour):
         obj_state = np.matrix([contour.x, 0, contour.y, 0, 0, 0, contour.area, 0, contour.angle, 0]).T # pretending 3-d tracking (z and zvel) for now
@@ -458,7 +475,7 @@ class DataAssociator(object):
                 time_now = rospy.Time.now()
                 if len(self.contour_buffer) > 0:
                     if self.debug:
-                        print 'LENGTH OF CONTOUR_BUFFER', len(self.contour_buffer)
+                        rospy.loginfo('LENGTH OF CONTOUR_BUFFER' + str(len(self.contour_buffer)))
                     
                     self.contour_identifier(self.contour_buffer.pop(0))
                 

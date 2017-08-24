@@ -55,7 +55,7 @@ class Tracker:
                         'max_size'                  : 200,
                         'max_expected_area'         : 500,
                         'liveview'                  : False,
-                        'roi_l'                     : 0,
+                        'roi_l'                     : 0, # TODO TODO fix or move to level of pipeline
                         'roi_r'                     : -1,
                         'roi_b'                     : 0,
                         'roi_t'                     : -1,
@@ -70,7 +70,7 @@ class Tracker:
                 p = 'multi_tracker/tracker/' + parameter
                 self.params[parameter] = rospy.get_param(p)
             except:
-                print 'Using default parameter: ', parameter, ' = ', value
+                rospy.loginfo('Using default parameter: ' + parameter + ' = ' + str(value))
 	
         # TODO maybe just reduce to debug flag and not save data in that case?
         self.save_data = rospy.get_param('multi_tracker/tracker/save_data', True)
@@ -111,6 +111,24 @@ class Tracker:
         self.image_buffer = []
         self.framestamp = None
         
+        node_name = rospy.get_name()
+        last_name_component = node_name.split('_')[-1]
+        # TODO see discussion in this portion in save_bag.py
+        try:
+            self.pipeline_num = int(last_name_component)
+            remap_topics = True
+        except ValueError:
+            remap_topics = False
+
+        tracked_object_topic = 'multi_tracker/tracked_objects'
+        
+        if remap_topics:
+            suffix = '_' + str(self.pipeline_num)
+            tracked_object_topic = tracked_object_topic + suffix
+
+        else:
+            suffix = ''
+
         # Publishers - publish contours
         self.pubContours = rospy.Publisher('multi_tracker/contours', Contourlist, queue_size=300)
         
@@ -118,17 +136,18 @@ class Tracker:
         self.image_mask = None 
         # TODO define dynamically?
         sizeImage = 128+1024*1024*3 # Size of header + data.
-        # TODO remove this variable (it doesn't seem to be used. somewhat misleading.)
+        
+        # TODO have delta_video also publish a cropped version for this pipeline?
         self.subImage = rospy.Subscriber(self.params['image_topic'], Image, self.image_callback, queue_size=60, buff_size=2*sizeImage, tcp_nodelay=True)
         
         # TODO launch from within a python script so i can actually conditionally open their
         # viewers (based on debug settings)?
         if self.debug:
-            self.pubThreshed = rospy.Publisher('multi_tracker/1_thresholded', Image, queue_size=5)
-            self.pubDenoised = rospy.Publisher('multi_tracker/2_denoised', Image, queue_size=5)
-            self.pubDilated = rospy.Publisher('multi_tracker/3_dilated', Image, queue_size=5)
-            self.pubEroded = rospy.Publisher('multi_tracker/4_eroded', Image, queue_size=5)
-            self.pubProcessedImage = rospy.Publisher('multi_tracker/processed_image', Image, \
+            self.pub_threshed = rospy.Publisher('multi_tracker/1_thresholded' + suffix, Image, queue_size=5)
+            self.pub_denoised = rospy.Publisher('multi_tracker/2_denoised' + suffix, Image, queue_size=5)
+            self.pub_dilated = rospy.Publisher('multi_tracker/3_dilated' + suffix, Image, queue_size=5)
+            self.pub_eroded = rospy.Publisher('multi_tracker/4_eroded' + suffix, Image, queue_size=5)
+            self.pub_processed = rospy.Publisher('multi_tracker/processed_image' + suffix, Image, \
                 queue_size=5)
         
     def image_callback(self, rosimg):

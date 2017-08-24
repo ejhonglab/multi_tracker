@@ -222,16 +222,16 @@ def erode_and_dialate(self):
     kernel = np.ones((3,3), np.uint8)
 
     self.threshed = cv2.dilate(self.threshed, kernel, iterations=self.params['dilate'])
-    if self.debug and self.pubDilated.get_num_connections() > 0:
+    if self.debug and self.pub_dilated.get_num_connections() > 0:
         c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
-        self.pubDilated.publish(img)
+        self.pub_dilated.publish(img)
 
     self.threshed = cv2.erode(self.threshed, kernel, iterations=self.params['erode'])
-    if self.debug and self.pubEroded.get_num_connections() > 0:
+    if self.debug and self.pub_eroded.get_num_connections() > 0:
         c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
-        self.pubEroded.publish(img)
+        self.pub_eroded.publish(img)
     
 
 def reset_background_if_difference_is_very_large(self, color='dark'):
@@ -370,28 +370,28 @@ def dark_or_light_objects_only(self, color='dark'):
     
     self.convert_to_gray_if_necessary()
 
-    if self.debug and self.pubThreshed.get_num_connections() > 0:
+    if self.debug and self.pub_threshed.get_num_connections() > 0:
         c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
-        self.pubThreshed.publish(img)
+        self.pub_threshed.publish(img)
     
     # noise removal
     self.threshed = cv2.morphologyEx(self.threshed,cv2.MORPH_OPEN, kernel, iterations = 1)
-    if self.debug and self.pubDenoised.get_num_connections() > 0:
+    if self.debug and self.pub_denoised.get_num_connections() > 0:
         c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
-        self.pubDenoised.publish(img)
+        self.pub_denoised.publish(img)
     
     self.erode_and_dialate()
 
     # publish the processed image
     # for troubleshooting image processing pipeline
-    if self.debug and self.pubProcessedImage.get_num_connections() > 0:
+    if self.debug and self.pub_processed.get_num_connections() > 0:
         c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
         # TODO test whether this works in OpenCV 2 and 3 (i think it works in 3 for me, despite
         # Floris's comment
         img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
-        self.pubProcessedImage.publish(img)
+        self.pub_processed.publish(img)
 
     self.extract_and_publish_contours()
     self.reset_background_if_difference_is_very_large(color)

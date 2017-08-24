@@ -13,19 +13,37 @@ import h5py
 
 import atexit
 
+# TODO maybe save roi information here to not require snapshot_params to delay until rois are set?
+# or just for redundancy?
+
 class DataListener:
     def __init__(self, info='data information'):
         rospy.init_node('save_hdf5_data', log_level=rospy.INFO)
         rospy.sleep(0.5)
+
+        node_name = rospy.get_name()
+        last_name_component = node_name.split('_')[-1]
+        # TODO see discussion in this portion in save_bag.py
+        try:
+            self.pipeline_num = int(last_name_component)
+            remap_topics = True
+        except ValueError:
+            remap_topics = False
+
+        tracked_object_topic = 'multi_tracker/tracked_objects'
+        if remap_topics:
+            tracked_object_topic = tracked_object_topic + '_' + str(self.pipeline_num)
+
+        self.subTrackedObjects = rospy.Subscriber(tracked_object_topic, Trackedobjectlist, \
+            self.tracked_object_callback, queue_size=300)
         
-        self.subTrackedObjects = rospy.Subscriber('multi_tracker/tracked_objects', Trackedobjectlist, self.tracked_object_callback, queue_size=300)
-        
+        # TODO maybe append _<n> to this?
         self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', None)
         generated_basename = False
         if self.experiment_basename is None:
             rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
                 ' Run the set_basename.py node along with others to fix this.')
-            self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N1", time.localtime())
+            self.experiment_basename = time.strftime('%Y%m%d_%H%M%S_N' + self.pipeline_num, time.localtime())
             generated_basename = True
         
         if rospy.get_param('multi_tracker/explicit_directories', False):
@@ -39,7 +57,7 @@ class DataListener:
                 rospy.set_param('multi_tracker/experiment_basename', self.experiment_basename)
 
         filename = os.path.join(directory, self.experiment_basename + '_trackedobjects.hdf5')
-        print 'Saving hdf5 data to: ', filename
+        rospy.loginfo('Saving hdf5 data to: ' + filename)
         
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
         self.time_start = rospy.Time.now()

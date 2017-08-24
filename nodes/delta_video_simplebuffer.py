@@ -51,23 +51,43 @@ class Compressor:
                         'threshold'         : 10,
                         'camera_encoding'   : 'mono8', # fireflies are bgr8, basler gige cams are mono8
                         'max_change_in_frame'       : 0.2,
-                        'roi_l'                     : 0,
-                        'roi_r'                     : -1,
-                        'roi_b'                     : 0,
-                        'roi_t'                     : -1,
-                        'circular_mask_x'           : None,
-                        'circular_mask_y'           : None,
-                        'circular_mask_r'           : None,
-                        'roi_points'                : None
+                        '~roi_l'                     : 0,
+                        '~roi_r'                     : -1,
+                        '~roi_b'                     : 0,
+                        '~roi_t'                     : -1,
+                        '~circular_mask_x'           : None,
+                        '~circular_mask_y'           : None,
+                        '~circular_mask_r'           : None,
+                        '~roi_points'                : None
                         }
         for parameter, value in self.params.items():
             try:
                 p = 'multi_tracker/delta_video/' + parameter
-                self.params[parameter] = rospy.get_param(p)
+
+                # TODO do i need all the pipelines in their own namespaces regardless, to avoid topic conflicts?
+                # seems like i do... (or remap all topic names or something, but this seems like what pushing down
+                # was made for...)
+                # this signifies private parameters
+                if parameter[0] == '~':
+                    value = rospy.get_param(parameter)
+                    parameter = parameter[1:]
+
+                else:
+                    value = rospy.get_param(p)
+
+                # TODO maybe change back to 'none' so we can specify in yamls they dont exist, while not just commenting those lines out?
+                # or should i just comment the lines / not include them?
+                if self.params[parameter] is None:
+                    if isinstance(rospy.get_param(p), str):
+                        # to go to the except block
+                        raise ValueError()
+                
+                self.params[parameter] = value
 
             # TODO catch specific error
             except:
                 print 'Using default parameter: ', parameter, ' = ', value
+
         
         # initialize the node
         rospy.init_node('delta_compressor')

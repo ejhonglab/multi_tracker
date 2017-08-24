@@ -17,6 +17,27 @@ class SaveBag:
                 'specify a list of topics as a parameter called ' + \
                 'multi_tracker/delta_video/topics, if you wish to save ' + \
                 'data, otherwise, there is no point in this node.')
+
+        node_name = rospy.get_name()
+        last_name_component = node_name.split('_')[-1]
+
+        # but bewarned that this will also get the integer appended via anonymous flag
+        # which will cause this to not save anything, because no topics will have
+        # this random number appended to them upstream of this node...
+        
+        # TODO prepend the integer instead?
+        try:
+            self.pipeline_num = int(last_name_component)
+            remap_topics = True
+        except ValueError:
+            remap_topics = False
+        
+        if remap_topics:
+            # maybe needs to be converted to list for later extend call
+            self.topics = map(lambda x: x + '_' + str(self.pipeline_num), self.topics)
+
+        # TODO delete me
+        rospy.logwarn('topics being saved in node ' + rospy.get_name() + ': ' + str(self.topics))
         
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
         
@@ -26,7 +47,7 @@ class SaveBag:
         if self.experiment_basename is None:
             rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
                 ' Run the set_basename.py node along with others to fix this.')
-            self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N1", time.localtime())
+            self.experiment_basename = time.strftime('%Y%m%d_%H%M%S_N' + str(self.pipeline_num), time.localtime())
             generated_basename = True
 
         filename = self.experiment_basename + '_delta_video.bag'
@@ -53,7 +74,6 @@ class SaveBag:
     def StartRecordingBag(self):
         rospy.loginfo('Saving bag file: %s' % (self.bag_filename))
         cmdline = ['rosbag', 'record','-O', self.bag_filename]
-        # TODO how to pass a list of something with ros params? type for that?
         cmdline.extend(self.topics)
         print cmdline
         self.processRosbag = subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)
