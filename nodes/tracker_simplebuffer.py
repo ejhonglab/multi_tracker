@@ -71,7 +71,9 @@ class Tracker:
                 self.params[parameter] = rospy.get_param(p)
             except:
                 rospy.loginfo('Using default parameter: ' + parameter + ' = ' + str(value))
-	
+
+        self.load_image_processing_func()
+
         # TODO maybe just reduce to debug flag and not save data in that case?
         self.save_data = rospy.get_param('multi_tracker/tracker/save_data', True)
         self.debug = rospy.get_param('multi_tracker/tracker/debug', False)
@@ -149,6 +151,35 @@ class Tracker:
             self.pub_eroded = rospy.Publisher('multi_tracker/4_eroded' + suffix, Image, queue_size=5)
             self.pub_processed = rospy.Publisher('multi_tracker/processed_image' + suffix, Image, \
                 queue_size=5)
+
+    
+    # TODO TODO how were dependency image_processing.py functions also loaded in before?
+    # i don't feel like i changed much, but now they don't seem to be...
+    def load_image_processing_func(self):
+        pass
+        """
+        # TODO fix?
+        tracker_node_basename = 'multi_tracker/tracker'
+        image_processing_function = rospy.get_param(tracker_node_basename + '/image_processor')
+        image_processing_module = rospy.get_param(tracker_node_basename + '/image_processing_module')
+        
+        if image_processing_module == 'default':
+            catkin_node_directory = os.path.dirname(os.path.realpath(__file__))
+            image_processing_module = os.path.join(catkin_node_directory, 'image_processing.py')
+
+        # put behind debug flags
+        rospy.logwarn('looking for image_processing module: ' + image_processing_module)
+        rospy.logwarn('trying to load: ' + image_processing_function)
+
+        image_processing = imp.load_source('image_processing', image_processing_module)
+        
+        image_processor = image_processing.__getattribute__(image_processing_function)
+        # changed the class function previously, but I don't see advtage over patching in
+        # to the instance... is there one?
+        # TODO ohh, was it to make it a ~static function or whatever (no self arg)?
+        Tracker.process_image = image_processor
+        """
+        
         
     def image_callback(self, rosimg):
         with self.lockBuffer:
@@ -217,17 +248,23 @@ class Tracker:
 #####################################################################################################
     
 if __name__ == '__main__':
-    catkin_node_directory = os.path.dirname(os.path.realpath(__file__))
-    
     tracker_node_basename = 'multi_tracker/tracker'
     image_processing_function = rospy.get_param(tracker_node_basename + '/image_processor')
     image_processing_module = rospy.get_param(tracker_node_basename + '/image_processing_module')
     
     if image_processing_module == 'default':
+        catkin_node_directory = os.path.dirname(os.path.realpath(__file__))
         image_processing_module = os.path.join(catkin_node_directory, 'image_processing.py')
+
+    # put behind debug flags
+    print('looking for image_processing module: ' + image_processing_module)
+    print('trying to load: ' + image_processing_function)
+
     image_processing = imp.load_source('image_processing', image_processing_module)
     
     image_processor = image_processing.__getattribute__(image_processing_function)
+    # changed the class function previously, but I don't see advtage over patching in
+    # to the instance... is there one?
     Tracker.process_image = image_processor
     tracker = Tracker()
     tracker.Main()

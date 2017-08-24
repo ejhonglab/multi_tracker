@@ -42,6 +42,9 @@ class Compressor:
             Basler ace cameras with camera_aravis driver: camera/image_raw
             Pt Grey Firefly cameras with pt grey driver : camera/image_mono
         '''
+        # initialize the node
+        rospy.init_node('delta_compressor')
+        
         # default parameters (parameter server overides them)
         # TODO set via default yaml?
         # share this default setting code?
@@ -61,10 +64,11 @@ class Compressor:
                         '~roi_points'                : None
                         }
         
-        for parameter, value in self.params.items():
+        for parameter, default_value in self.params.items():
             # TODO shrink this try / except so it is just around
             # get_param (and so regular self.param[key] calls
             # could also be producing this error)?
+            use_default = False
             try:
                 p = 'multi_tracker/delta_video/' + parameter
 
@@ -85,24 +89,21 @@ class Compressor:
                 # may not always be true.
                 if self.params[parameter] is None:
                     if isinstance(value, str):
-                        # to go to the except block
-                        raise ValueError()
+                        use_default = True
 
             except KeyError:
-                print 'Using default parameter: ', parameter, ' = ', value
+                use_default = True
+
+            if use_default:
+                rospy.loginfo('Using default parameter: ' + parameter + ' = ' + str(default_value))
+                value = default_value
+            
             if parameter[0] == '~':
                 del self.params[parameter]
                 parameter = parameter[1:]
             
             self.params[parameter] = value
 
-        # TODO TODO is logging still working correctly with subprocess launch file?
-        # IT IS NOT! FIX!
-        #rospy.logwarn('self.params in delta_video_simplebuffer: ' + str(self.params))
-        #print('self.params in delta_video_simplebuffer: ' + str(self.params))
-        
-        # initialize the node
-        rospy.init_node('delta_compressor')
         # TODO why does rospy.Time.now() jump from 0 to ~149998...???
         # this solution seems hacky and i wish i didn't have to do it...
         self.time_start = 0
@@ -132,6 +133,7 @@ class Compressor:
         try:
             self.pipeline_num = int(last_name_component)
             remap_topics = True
+        
         except ValueError:
             remap_topics = False
 
