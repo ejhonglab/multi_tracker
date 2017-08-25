@@ -3,6 +3,7 @@ from __future__ import division
 import roslib
 import rospy
 import rosparam
+import rosnode
 import copy
 import cv2
 import numpy as np
@@ -54,6 +55,32 @@ def draw_trajectory(img, pts, color, thickness):
         except:
             rospy.logwarn('could not draw trajectory line, length pts: ' + \
                 str(len(pts)) + 'i: ' + str(i))
+
+
+# taken from pyimagesearch blog
+def order_points_clockwise(points):
+    # initialize a list of coordinates that will be ordered
+    # such that the first entry in the list is the top-left,
+    # the second entry is the top-right, the third is the
+    # bottom-right, and the fourth is the bottom-left
+    rect = np.zeros((4, 2), dtype="float32")
+ 
+    # the top-left point will have the smallest sum, whereas
+    # the bottom-right point will have the largest sum
+    s = pts.sum(axis=1)
+    rect[0] = pts[np.argmin(s)]
+    rect[2] = pts[np.argmax(s)]
+ 
+    # now, compute the difference between the points, the
+    # top-right point will have the smallest difference,
+    # whereas the bottom-left will have the largest difference
+    diff = np.diff(pts, axis=1)
+    rect[1] = pts[np.argmin(diff)]
+    rect[3] = pts[np.argmax(diff)]
+ 
+    # return the ordered coordinates
+    return rect
+
             
 # The main tracking class, a ROS node
 class LiveViewer:
@@ -124,8 +151,6 @@ class LiveViewer:
             if any(map(lambda x: self.params[x] != None, roi_params)):
                 rospy.logfatal('liveviewer: roi parameters other than rectangular roi_[l/r/b/t] ' + \
                     'are not supported when detect_tracking_pipelines is set to True')
-            else:
-                import rosnode
 
         # TODO add single rois defined in params to instance variables for consistency later
         # roi_* are still handled differently, and can be set alongside tracker roi_*'s
@@ -231,7 +256,11 @@ class LiveViewer:
                         int(r['circular_mask_r']), fill_color, -1) # need to cast? TODO
 
                 for r in self.polygonal_rois:
-                    cv2.fillPoly(self.image_mask, r['roi_points'], fill_color) # , -1)
+                    # criteria in doc. way to test?
+                    #ordered_points = order_points_clockwise(np.array(r['roi_points'], dtype=np.int32))
+                    hull = cv2.convexHull(np.array(r['roi_points'], dtype=np.int32))
+                    rospy.logwarn('liveviewer filling hull ' + str(hull))
+                    cv2.fillConvexPoly(self.image_mask, hull, fill_color)
 
                 for r in self.rectangular_rois:
                     # TODO correct? shape?
@@ -325,19 +354,21 @@ class LiveViewer:
     
     # TODO make less convoluted
     def add_roi_dict(self, store, param_names, get_fn=None):
-        have_params = list(map(lambda x: self.params[x] != None, param_names))
-        if any(have_params):
-            if all(have_params):
-                r = dict()
-                for p in param_names:
-                    if get_fn is None:
+        r = dict()
+        if get_fn is None:
+            have_params = list(map(lambda x: self.params[x] != None, param_names))
+            if any(have_params):
+                if all(have_params):
+                    for p in param_names:
                         r[p] = self.params[p]
-                    else:
-                        r[p] = get_fn(p)
-                store.append(r)
-            else:
-                rospy.logfatal('liveviewer: incomplete definition of roi type. ' + \
-                    'need all of : ' + str(param_names))
+                else:
+                    rospy.logfatal('liveviewer: incomplete definition of roi type. ' + \
+                        'need all of : ' + str(param_names))
+        else:
+            # TODO lead to same error either way...
+            for p in param_names:
+                r[p] = get_fn(p)
+        store.append(r)
     
     
     def add_any_pipeline_rois(self):
@@ -345,25 +376,50 @@ class LiveViewer:
         ns = rospy.get_namespace()
         nodes = rosnode.get_node_names(namespace=ns)
         # TODO delete me
-        rospy.logwarn('nodes w/ namespace=' + ns + ':' + str(nodes))
-        rospy.logwarn('nodes w/o namespace specified:' + str(rosnode.get_node_names()))
+        #rospy.logwarn('nodes w/ namespace=' + ns + ':' + str(nodes))
+        #rospy.logwarn('nodes w/o namespace specified:' + str(rosnode.get_node_names()))
 
         roi_params = [['circular_mask_x', 'circular_mask_y', 'circular_mask_r'], \
             ['roi_points'], ['roi_l', 'roi_r', 'roi_b', 'roi_t']]
+        # seems that these don't resolve here, so this should work
         roi_stores = [self.circular_rois, self.polygonal_rois, self.rectangular_rois]
-        
+
+        # TODO TODO fix
+        #rospy.logwarn('roi_store before clearing ' + str(roi_stores))
+        # TODO will this work to clear them?
+        for store in roi_stores:
+            store = []
+        #rospy.logwarn('roi_store after clearing ' + str(roi_stores))
+
         # TODO test!
         for n in nodes:
+            if 'delta_video_'  in n and not '_player' in n and not 'save_' in n:
+                def getter(p):
+                    #rospy.logwarn(n + '/' + p)
+                    return rospy.get_param(n + '/' + p)
+            else:
+                continue
+
+            # TODO fix. dont want to keep growing.
+            #rospy.logwarn('roi_params = ' + str(roi_params))
+            #rospy.logwarn('roi_stores = ' + str(roi_stores))
+            
             for params, store in zip(roi_params, roi_stores):
+                #rospy.logwarn('params = ' + str(params))
+                #rospy.logwarn('store = ' + str(store))
+                # may want to replace with rosnode API instrospection at some point
+                # provided it is stable / well documented enough
+                #node_num = int(n.split('_')[-1])
                 try:
                     # TODO need to prepend namespace?
-                    self.add_roi_dict(store, params, get_fn=lambda p: rospy.get_param(n + '/' + p))
+                    # TODO TODO fix whatever causing roi_points get to be unreachable
+                    # that is the one that is set, but it just tries for roi_l!
+                    self.add_roi_dict(store, params, get_fn=getter)
                     #for p in params:
                     #    rospy.get_param(n + '/' + p)
                 except KeyError:
-                    continue
-        
-        # TODO check to see whether any rois have changed? or just redefine?
+                    #rospy.logwarn('skipping params ' + str(params) + ' because of KeyError')
+                    pass
         
         if any(map(lambda x: len(x) > 0, roi_stores)):
             self.have_rois = True

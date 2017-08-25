@@ -34,6 +34,39 @@ import matplotlib.pyplot as plt
 # rosrun pointgrey_camera_driver camera_node
 # default image: /camera/image_mono
 
+
+'''
+def order_points_clockwise(points):
+    # alternative that uses numpy funcs?
+    # TODO appropriate dimension
+    center = np.mean(points, dim=1)
+    rospy.logwarn('center.shape=' + str(center.shape))
+
+    # use numpy det fn?
+    def det(a, b):
+        return (a[0] - center[0]) * (b[1] - center.y) - (b[0] - center[0]) * (a[1] - center[1])
+
+    # see https://stackoverflow.com/questions/6989100/sort-points-in-clockwise-order
+    # TODO can i get rid of the special case code at the top
+    # TODO can det be used as a key directly? or need to just compare pointwise?
+    def less(a, b):
+        if a[0] - center[0] >= 0 and b[0] - center[0] < 0:
+            return 1
+
+        elif a[0] - center[0] < 0 and b[0] - center[0] >= 0:
+            return 1
+
+        elif a[0] - center[0] >= 0 and b[0] - center[0] < 0:
+            return 1
+
+        # not handling cases where points are colinear wrt center
+        # see SO link if you want to
+        return 1
+
+    
+    return rect
+'''
+
 # The main tracking class, a ROS node
 class Compressor:
     def __init__(self):
@@ -250,7 +283,12 @@ class Compressor:
                 # TODO effect of linetype here?
                 # may want to combine w/ offset if using rectangular roi as well (or select polygon points in cropped image)
                 # TODO TODO need to cast all points members to int?
-                cv2.fillPoly(self.image_mask, self.params['roi_points'], fill_color) # , -1)
+                rospy.logwarn('roi_points = ' + str(self.params['roi_points']))
+                # TODO transpose from creation?
+                #ordered_points = order_points_clockwise(np.array(self.params['roi_points'], dtype=np.int32))
+                hull = cv2.convexHull(np.array(self.params['roi_points'], dtype=np.int32))
+                rospy.logwarn('hull = ' + str(hull))
+                cv2.fillConvexPoly(self.image_mask, hull, fill_color) # , -1)
 
         # TODO just check if key is in dict?
         elif self.params['circular_mask_x'] != None or self.params['roi_points'] != None:

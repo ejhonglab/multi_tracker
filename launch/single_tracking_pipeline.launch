@@ -27,7 +27,9 @@
     <node name="tracker_$(arg num)" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" required="true">
       <!-- TODO maybe condense all this loading into another launch file somehow?
            w/ arg passthrough syntax maybe? -->
-      <param name="roi_points" value="$(arg roi_points)" if="$(arg polygonal_roi)" />
+      <rosparam param="roi_points" subst_value="True" if="$(arg polygonal_roi)">
+        $(arg roi_points)
+      </rosparam>
 
       <param name="roi_l" value="$(arg roi_l)" if="$(arg rectangular_roi)" />
       <param name="roi_r" value="$(arg roi_r)" if="$(arg rectangular_roi)" />
@@ -54,6 +56,8 @@
       <param name="circular_mask_x" value="$(arg circular_mask_x)" if="$(arg circular_roi)" />
       <param name="circular_mask_y" value="$(arg circular_mask_y)" if="$(arg circular_roi)" />
       <param name="circular_mask_r" value="$(arg circular_mask_r)" if="$(arg circular_roi)" />
+
+      <!-- TODO include support for polygonal rois in standalone tracking instances? -->
       
       <!-- This won't be true any time we want a liveviewer here.
            We will call the liveviewer from the calling launch file
@@ -66,7 +70,9 @@
       <!-- TODO TODO are any other nodes subscribing to this topic directly? -->
       <remap from="/camera/image_raw" to="$(arg camera)" />
 
-      <param name="roi_points" value="$(arg roi_points)" if="$(arg polygonal_roi)" />
+      <rosparam param="roi_points" subst_value="True" if="$(arg polygonal_roi)">
+        $(arg roi_points)
+      </rosparam>
 
       <param name="roi_l" value="$(arg roi_l)" if="$(arg rectangular_roi)" />
       <param name="roi_r" value="$(arg roi_r)" if="$(arg rectangular_roi)" />
