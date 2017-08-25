@@ -54,26 +54,50 @@ class Tracker:
                         'min_size'                  : 5,
                         'max_size'                  : 200,
                         'max_expected_area'         : 500,
-                        'liveview'                  : False,
-                        'roi_l'                     : 0, # TODO TODO fix or move to level of pipeline
-                        'roi_r'                     : -1,
-                        'roi_b'                     : 0,
-                        'roi_t'                     : -1,
-                        'circular_mask_x'           : 'none',
-                        'circular_mask_y'           : 'none',
-                        'circular_mask_r'           : 'none',
+                        'liveview'                  : False, # TODO what does this do? remove?
+                        '~roi_l'                     : 0, # see notes in delta_video_simplebuffer
+                        '~roi_r'                     : -1,
+                        '~roi_b'                     : 0,
+                        '~roi_t'                     : -1,
+                        '~circular_mask_x'           : None,
+                        '~circular_mask_y'           : None,
+                        '~circular_mask_r'           : None,
+                        '~roi_points'                : None, # TODO implement
                         'use_moments'               : True, # use moments for x,y,area instead of fitted ellipse
                         'record_length_hours'       : 24
                         }
-        for parameter, value in self.params.items():
+        # TODO break this code out into a utility function
+        for parameter, default_value in self.params.items():
+            use_default = False
             try:
-                p = 'multi_tracker/tracker/' + parameter
-                self.params[parameter] = rospy.get_param(p)
-            except:
-                rospy.loginfo('Using default parameter: ' + parameter + ' = ' + str(value))
+                if parameter[0] == '~':
+                    value = rospy.get_param(parameter)
+                else:
+                    p = 'multi_tracker/tracker/' + parameter
+                    value = rospy.get_param(p)
+
+                # for maintaining backwards compatibility w/ Floris' config files that
+                # would use 'none' to signal default should be used.
+                # may break some future use cases.
+                if self.params[parameter] is None:
+                    if isinstance(value, str):
+                        use_default = True
+
+            except KeyError:
+                use_default = True
+                
+            if use_default:
+                rospy.loginfo(rospy.get_name() + ' using default parameter: ' + \
+                    parameter + ' = ' + str(default_value))
+                value = default_value
+            
+            if parameter[0] == '~':
+                del self.params[parameter]
+                parameter = parameter[1:]
+            
+            self.params[parameter] = value
 
         self.load_image_processing_func()
-
         # TODO maybe just reduce to debug flag and not save data in that case?
         self.save_data = rospy.get_param('multi_tracker/tracker/save_data', True)
         self.debug = rospy.get_param('multi_tracker/tracker/debug', False)

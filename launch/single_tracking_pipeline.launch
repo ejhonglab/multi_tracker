@@ -2,6 +2,8 @@
   <arg name="ns" default="/" />
   <arg name="num" default="1" />
 
+  <arg name="viewer" default="True" />
+
   <arg name="polygonal_roi" default="False" />
   <arg name="roi_points" default="[]" />
 
@@ -22,16 +24,44 @@
   <!-- TODO remove slight redundancy between ns and num now? (ns is set w/ that num in roi_finder.py) -->
   <group ns="$(arg ns)">
     # launch tracking and data association nodes
-    <node name="tracker_$(arg num)" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" />
-    <node name="data_association_$(arg num)" pkg="multi_tracker" type="data_association.py" output="screen" />
+    <node name="tracker_$(arg num)" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" required="true">
+      <!-- TODO maybe condense all this loading into another launch file somehow?
+           w/ arg passthrough syntax maybe? -->
+      <param name="roi_points" value="$(arg roi_points)" if="$(arg polygonal_roi)" />
+
+      <param name="roi_l" value="$(arg roi_l)" if="$(arg rectangular_roi)" />
+      <param name="roi_r" value="$(arg roi_r)" if="$(arg rectangular_roi)" />
+      <param name="roi_t" value="$(arg roi_t)" if="$(arg rectangular_roi)" />
+      <param name="roi_b" value="$(arg roi_b)" if="$(arg rectangular_roi)" />
+
+      <param name="circular_mask_x" value="$(arg circular_mask_x)" if="$(arg circular_roi)" />
+      <param name="circular_mask_y" value="$(arg circular_mask_y)" if="$(arg circular_roi)" />
+      <param name="circular_mask_r" value="$(arg circular_mask_r)" if="$(arg circular_roi)" />
+    </node>
+
+    <node name="data_association_$(arg num)" pkg="multi_tracker" type="data_association.py" output="screen" required="true" />
     
     # launch node to save data to hdf5
-    <node name="save_hdf5_data_$(arg num)" pkg="multi_tracker" type="save_data_to_hdf5.py" output="screen" />
+    <node name="save_hdf5_data_$(arg num)" pkg="multi_tracker" type="save_data_to_hdf5.py" output="screen" required="true" />
     
     # load parameters for, and show live tracking
-    <node name="liveview_$(arg num)" pkg="multi_tracker" type="liveviewer.py" output="screen" /> 
+    <node name="liveview_$(arg num)" pkg="multi_tracker" type="liveviewer.py" output="screen" if="$(arg viewer)"> 
+      <param name="roi_l" value="$(arg roi_l)" if="$(arg rectangular_roi)" />
+      <param name="roi_r" value="$(arg roi_r)" if="$(arg rectangular_roi)" />
+      <param name="roi_t" value="$(arg roi_t)" if="$(arg rectangular_roi)" />
+      <param name="roi_b" value="$(arg roi_b)" if="$(arg rectangular_roi)" />
+
+      <param name="circular_mask_x" value="$(arg circular_mask_x)" if="$(arg circular_roi)" />
+      <param name="circular_mask_y" value="$(arg circular_mask_y)" if="$(arg circular_roi)" />
+      <param name="circular_mask_r" value="$(arg circular_mask_r)" if="$(arg circular_roi)" />
+      
+      <!-- This won't be true any time we want a liveviewer here.
+           We will call the liveviewer from the calling launch file
+           (see detect_roi_tracking.launch). -->
+      <param name="detect_tracking_pipelines" value="False" />
+    </node>
     
-    <node name="delta_video_$(arg num)" pkg="multi_tracker" type="delta_video_simplebuffer.py" output="screen">
+    <node name="delta_video_$(arg num)" pkg="multi_tracker" type="delta_video_simplebuffer.py" output="screen" required="true">
       <!-- TODO how to not remap if default? or does it not matter? any performance cost (probably not)? -->
       <!-- TODO TODO are any other nodes subscribing to this topic directly? -->
       <remap from="/camera/image_raw" to="$(arg camera)" />
@@ -50,6 +80,6 @@
     
     # TODO move this config here? or make all that stuff arguments so I can load it globally like others?
     # TODO TODO get rid of delta_video_config.py now?
-    <node name="save_delta_video_$(arg num)" pkg="multi_tracker" type="save_bag.py" output="screen" />
+    <node name="save_delta_video_$(arg num)" pkg="multi_tracker" type="save_bag.py" output="screen" required="true" />
   </group>
 </launch>

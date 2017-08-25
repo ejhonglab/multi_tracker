@@ -2,12 +2,16 @@
 
 from __future__ import division
 import rospy
-import time, os, subprocess
+import time
+import os
+import subprocess
 
 ###############################################################################
 #
 class SaveBag:
     def __init__(self):
+        rospy.init_node('save_delta_video', log_level=rospy.INFO)
+        
         # TODO maybe default to saving all?
         self.topics = rospy.get_param('multi_tracker/delta_video/topics', [])
         if len(self.topics) == 0:
@@ -66,7 +70,7 @@ class SaveBag:
         # TODO does this need to go back to python time?
         self.time_start = rospy.Time.now()
         self.processRosbag = None
-        rospy.on_shutdown(self.OnShutdown_callback)
+        #rospy.on_shutdown(self.OnShutdown_callback)
 
     def OnShutdown_callback(self):
         self.StopRecordingBag()
@@ -95,9 +99,6 @@ class SaveBag:
         
 
 if __name__ == '__main__':
-    # TODO why is this not init_node-d in __init__ of the class?
-    # tracker does it that way; havent checked elsewhere yet.
-    rospy.init_node('save_delta_video', log_level=rospy.INFO)
     savebag = SaveBag()
     savebag.Main()
     

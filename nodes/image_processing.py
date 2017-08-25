@@ -308,7 +308,7 @@ def dark_or_light_objects(self):
 
 
 def dark_or_light_objects_only(self, color='dark'):
-    if self.params['circular_mask_x'] != 'none':
+    if self.params['circular_mask_x'] != None:
         if self.image_mask is None:
             self.image_mask = np.zeros_like(self.imgScaled)
             # TODO fix these params

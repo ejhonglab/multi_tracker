@@ -63,6 +63,31 @@ class Compressor:
                         '~circular_mask_r'           : None,
                         '~roi_points'                : None
                         }
+
+        # TODO TODO parameter alternative between rois as private parameters for each node and 
+        # having delta_video_simplebuffer publishing a cropped / masked version?
+        # TODO TODO i guess i already broke backwards compatibility with Floris's configuration
+        # files by making these parameters private? way my version can work with Floris' original
+        # configuration files?
+        # TODO so how did his parameter sharing work across pipeline instances w/ different
+        # node nums? oh... he manually sets the nodenum in the yaml files
+        #shared_params = {'': ''}
+
+        # possible solutions:
+        # -publish private params for rois to each of subs
+        # -public w/ pipeline num (pre/ap)pended?
+        
+        # reasons to not do either of the above: user shouldn't have to specify more than once
+        # because there is no reason for them to differ across steps in pipeline
+        # (except *maybe* viewer)
+
+        # -delta_video_simplebuffer.py publish image topic to downstream tracker node, which
+        #  would no longer subscribe to camera (nor need roi info)
+        #    -though may need to send offset to tracker to have tracker output globally 
+        #     correct coordinates?
+        #  argument for this approach is the work of computing ROI masks and blanking images
+        #  won't have to be done three times over.
+        
         
         for parameter, default_value in self.params.items():
             # TODO shrink this try / except so it is just around
@@ -70,8 +95,6 @@ class Compressor:
             # could also be producing this error)?
             use_default = False
             try:
-                p = 'multi_tracker/delta_video/' + parameter
-
                 # TODO do i need all the pipelines in their own namespaces regardless, to avoid topic conflicts?
                 # seems like i do... (or remap all topic names or something, but this seems like what pushing down
                 # was made for...)
@@ -80,6 +103,7 @@ class Compressor:
                     value = rospy.get_param(parameter)
 
                 else:
+                    p = 'multi_tracker/delta_video/' + parameter
                     value = rospy.get_param(p)
 
                 # TODO maybe change back to 'none' so we can specify in yamls they dont exist, while not just commenting those lines out?
@@ -95,7 +119,8 @@ class Compressor:
                 use_default = True
 
             if use_default:
-                rospy.loginfo('Using default parameter: ' + parameter + ' = ' + str(default_value))
+                rospy.loginfo(rospy.get_name() + ' using default parameter: ' + \
+                    parameter + ' = ' + str(default_value))
                 value = default_value
             
             if parameter[0] == '~':
@@ -106,6 +131,7 @@ class Compressor:
 
         # TODO why does rospy.Time.now() jump from 0 to ~149998...???
         # this solution seems hacky and i wish i didn't have to do it...
+        # TODO also put in other nodes? utility func?
         self.time_start = 0
         while np.isclose(self.time_start, 0.0):
             self.time_start = rospy.Time.now().to_sec()

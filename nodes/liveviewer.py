@@ -52,8 +52,8 @@ def draw_trajectory(img, pts, color, thickness):
         try:
             cv2.line(img, (int(pts[i][0]), int(pts[i][1])), (int(pts[i+1][0]), int(pts[i+1][1])), color, thickness)
         except:
-            pass
-            print 'could not draw trajectory line, length pts: ', len(pts), 'i: ', i
+            rospy.logwarn('could not draw trajectory line, length pts: ' + \
+                str(len(pts)) + 'i: ' + str(i))
             
 # The main tracking class, a ROS node
 class LiveViewer:
@@ -63,50 +63,96 @@ class LiveViewer:
             Basler ace cameras with camera_aravis driver: camera/image_raw
             Pt Grey Firefly cameras with pt grey driver : camera/image_mono
         '''
+        # TODO fix old nodenum stuff, but derived from any enclosing namespace
+        # initialize the node
+        rospy.init_node('liveviewer')
+        
         # default parameters (parameter server overides them)
         self.params = { 'image_topic'               : 'camera/image_mono',
                         'min_persistence_to_draw'   : 10,
                         'max_frames_to_draw'        : 50,
                         'camera_encoding'           : 'mono8', # fireflies are bgr8, basler gige cams are mono8
-                        'roi_l'                     : 0,
-                        'roi_r'                     : -1,
-                        'roi_b'                     : 0,
-                        'roi_t'                     : -1,
-                        'circular_mask_x'           : 'none',
-                        'circular_mask_y'           : 'none',
-                        'circular_mask_r'           : 'none',
+                        '~roi_l'                     : 0,
+                        '~roi_r'                     : -1,
+                        '~roi_b'                     : 0,
+                        '~roi_t'                     : -1,
+                        '~circular_mask_x'           : None,
+                        '~circular_mask_y'           : None,
+                        '~circular_mask_r'           : None,
+                        '~roi_points'                : None,  # TODO implement
+                        '~detect_tracking_pipelines' : False # rename?
                         }
-        for parameter, value in self.params.items():
+        
+        for parameter, default_value in self.params.items():
+            use_default = False
             try:
-                # allows image processed view to be overlaid with tracked objects
-                p = 'multi_tracker/liveviewer/' + parameter
-                self.params[parameter] = rospy.get_param(p)
-            except:
-                try:
-                    p = 'multi_tracker/tracker/' + parameter
-                    self.params[parameter] = rospy.get_param(p)
-                except:
-                    print 'Using default parameter: ', parameter, ' = ', value
+                if parameter[0] == '~':
+                    value = rospy.get_param(parameter)
+                else:
+                    try:
+                        value = rospy.get_param('multi_tracker/liveviewer/' + parameter)
+                    except KeyError:
+                        value = rospy.get_param('multi_tracker/tracker/' + parameter)
+                
+                # for maintaining backwards compatibility w/ Floris' config files that
+                # would use 'none' to signal default should be used.
+                # may break some future use cases.
+                if self.params[parameter] is None:
+                    if isinstance(value, str):
+                        use_default = True
+            
+            except KeyError:
+                use_default = True
+            
+            if use_default:
+                rospy.loginfo(rospy.get_name() + ' using default parameter: ' + \
+                    parameter + ' = ' + str(default_value))
+                value = default_value
+            
+            if parameter[0] == '~':
+                del self.params[parameter]
+                parameter = parameter[1:]
+            self.params[parameter] = value
 
+        self.circular_rois = []
+        self.polygonal_rois = []
+        self.rectangular_rois = []
+
+        # should i allow both roi_* and detect_tracking_pipelines?
+        roi_params = ['circular_mask_x', 'circular_mask_y', 'circular_mask_r', 'roi_points']
+        if self.params['detect_tracking_pipelines']:
+            if any(map(lambda x: self.params[x] != None, roi_params)):
+                rospy.logfatal('liveviewer: roi parameters other than rectangular roi_[l/r/b/t] ' + \
+                    'are not supported when detect_tracking_pipelines is set to True')
+            else:
+                import rosnode
+
+        # TODO add single rois defined in params to instance variables for consistency later
+        # roi_* are still handled differently, and can be set alongside tracker roi_*'s
+        # which are now private (node specific) parameters
+        else:
+            circle_param_names = ['circular_mask_x', 'circular_mask_y', 'circular_mask_r'] 
+            self.add_roi_dict(self.circular_rois, circle_param_names)
+
+            poly_param_names = ['roi_points']
+            self.add_roi_dict(self.polygonal_rois, poly_param_names)
+
+        # TODO put in dict above? (& similar lines in other files)
         # displays extra information about trajectory predictions / associations if True
         self.debug = rospy.get_param('multi_tracker/liveviewer/debug', False)
-                
-        # TODO fix old nodenum stuff, but derived from any enclosing namespace
-        # initialize the node
-        rospy.init_node('liveviewer')
         
         # initialize display
         self.window_name = 'liveviewer'
         self.subTrackedObjects = rospy.Subscriber('multi_tracker/tracked_objects', Trackedobjectlist, self.tracked_object_callback)
         self.subContours = rospy.Subscriber('multi_tracker/contours', Contourlist, self.contour_callback)
-            
         self.cvbridge = CvBridge()
         self.tracked_trajectories = {}
         self.contours = None
         self.window_initiated = False
+        self.have_rois = False
+        self.image_mask = None 
         
         # Subscriptions - subscribe to images, and tracked objects
-        self.image_mask = None 
         sizeImage = 128+1024*1024*3 # Size of header + data.
         self.subImage = rospy.Subscriber(self.params['image_topic'], Image, self.image_callback, queue_size=5, buff_size=2*sizeImage, tcp_nodelay=True)
 
@@ -118,11 +164,13 @@ class LiveViewer:
         
         except:
             rospy.logerr('could not connect to add image to background service - is tracker running?')
+        
 
     def reset_background(self, service_call):
         self.reset_background_flag = True
         return 1
         
+    
     def tracked_object_callback(self, tracked_objects):
         for trajec in self.tracked_trajectories.values():
             trajec.popout = 1
@@ -158,22 +206,53 @@ class LiveViewer:
             img = self.cvbridge.imgmsg_to_cv2(rosimg, 'passthrough') # might need to change to bgr for color cameras
         except CvBridgeError, e:
             rospy.logwarn ('Exception converting background image from ROS to opencv:  %s' % e)
+            # TODO why do i want this? delete?
             img = np.zeros((320,240))
         
         self.imgScaled = img[self.params['roi_b']:self.params['roi_t'], self.params['roi_l']:self.params['roi_r']]
         self.shapeImage = self.imgScaled.shape # (height,width)
+
+        # TODO reformat old roi params in this format in __init__?
+        # TODO TODO will need to call this when self.image_mask is none, or when we add a new
+        # roi (might just reset image_mask to none if thats the case)
+        # TODO what about if rois go down?
+        # TODO maybe hold masks for each roi, and union in a separate step? / remove / add masks
+        # from another instance variable when roi definitions are removed / added?
         
-        if self.params['circular_mask_x'] != 'none':
+        # make a mask that is a union of all of the ROIs we are tracking
+        # if we have any rois
+        if self.have_rois:
+            if self.image_mask is None:
+                self.image_mask = np.zeros_like(self.imgScaled)
+                fill_color = [1,1,1]
+                
+                for r in self.circular_rois:
+                    cv2.circle(self.image_mask, (r['circular_mask_x'], r['circular_mask_y']), \
+                        int(r['circular_mask_r']), fill_color, -1) # need to cast? TODO
+
+                for r in self.polygonal_rois:
+                    cv2.fillPoly(self.image_mask, r['roi_points'], fill_color) # , -1)
+
+                for r in self.rectangular_rois:
+                    # TODO correct? shape?
+                    self.image_mask[r['roi_b']:r['roi_t'], r['roi_l']:r['roi_r']] = fill_color
+
+            self.imgScaled = self.image_mask*self.imgScaled
+        
+        # TODO handle in above
+        if self.params['circular_mask_x'] != None:
             if self.image_mask is None:
                 self.image_mask = np.zeros_like(self.imgScaled)
                 cv2.circle(self.image_mask,(self.params['circular_mask_x'], self.params['circular_mask_y']),int(self.params['circular_mask_r']),[1,1,1],-1)
-            self.imgScaled = self.image_mask*self.imgScaled
+            
         
         # Image for display
         if self.params['camera_encoding'] == 'mono8':
             self.imgOutput = cv2.cvtColor(self.imgScaled, cv2.COLOR_GRAY2RGB)
+        
         elif self.params['camera_encoding'] == 'binary':
             self.imgOutput = self.imgScaled
+        
         else:
             self.imgOutput = self.imgScaled
         
@@ -212,7 +291,6 @@ class LiveViewer:
                     offset_center = (int(trajec.positions[-1][0]) - 45, int(trajec.positions[-1][1]))
                     cv2.putText(self.imgOutput, str(objid), offset_center, \
                         cv2.FONT_HERSHEY_SIMPLEX, 0.65, trajec.color, 2, cv2.LINE_AA)
-                
                 '''
                 #if self.debug:
                     # TODO display predictions in same color (x w/ dashed line?)
@@ -222,7 +300,6 @@ class LiveViewer:
                     # TODO display (sorted? cost listed?) associations between trajectories 
                     # and contours
                 '''
-        
         cv2.imshow(self.window_name, self.imgOutput)
 
         if not self.window_initiated: # for some reason this approach works in opencv 3 instead of previous approach
@@ -233,23 +310,78 @@ class LiveViewer:
         if ascii_key != -1:
             self.on_key_press(ascii_key)
         
+
     def on_mouse_click(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONUP:
-            print 'clicked pixel: ', [x, y]
+            rospy.loginfo('clicked pixel: ' + str([x, y]))
     
+
     def on_key_press(self, ascii_key):
         key = chr(ascii_key)
         if key == 'a':
             resp = self.add_image_to_background()
             rospy.loginfo('added imaging to background (on keypress in liveviewer)')
-            
-    def Main(self):
-        while (not rospy.is_shutdown()):
-            rospy.spin()
+
+    
+    # TODO make less convoluted
+    def add_roi_dict(self, store, param_names, get_fn=None):
+        have_params = list(map(lambda x: self.params[x] != None, param_names))
+        if any(have_params):
+            if all(have_params):
+                r = dict()
+                for p in param_names:
+                    if get_fn is None:
+                        r[p] = self.params[p]
+                    else:
+                        r[p] = get_fn(p)
+                store.append(r)
+            else:
+                rospy.logfatal('liveviewer: incomplete definition of roi type. ' + \
+                    'need all of : ' + str(param_names))
+    
+    
+    def add_any_pipeline_rois(self):
+        # TODO does the namespace argument do what i want?
+        ns = rospy.get_namespace()
+        nodes = rosnode.get_node_names(namespace=ns)
+        # TODO delete me
+        rospy.logwarn('nodes w/ namespace=' + ns + ':' + str(nodes))
+        rospy.logwarn('nodes w/o namespace specified:' + str(rosnode.get_node_names()))
+
+        roi_params = [['circular_mask_x', 'circular_mask_y', 'circular_mask_r'], \
+            ['roi_points'], ['roi_l', 'roi_r', 'roi_b', 'roi_t']]
+        roi_stores = [self.circular_rois, self.polygonal_rois, self.rectangular_rois]
+        
+        # TODO test!
+        for n in nodes:
+            for params, store in zip(roi_params, roi_stores):
+                try:
+                    # TODO need to prepend namespace?
+                    self.add_roi_dict(store, params, get_fn=lambda p: rospy.get_param(n + '/' + p))
+                    #for p in params:
+                    #    rospy.get_param(n + '/' + p)
+                except KeyError:
+                    continue
+        
+        # TODO check to see whether any rois have changed? or just redefine?
+        
+        if any(map(lambda x: len(x) > 0, roi_stores)):
+            self.have_rois = True
+
+        else:
+            self.have_rois = False
+    
+    
+    def main(self):
+        # make parameter?
+        check_for_rois_rate = ropy.Rate(10)
+        while not rospy.is_shutdown():
+            self.add_any_pipeline_rois()
+            check_for_rois_rate.sleep()
         cv2.destroyAllWindows()
 
 #####################################################################################################
     
 if __name__ == '__main__':
     liveviewer = LiveViewer()
-    liveviewer.Main()
+    liveviewer.main()
