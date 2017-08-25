@@ -1,4 +1,5 @@
 rename save_* to be more descriptive of which information they are saving
 
-!! supply roi_finder with manual methods to identify regions of interest, where user clicks 
-   defining points
+make a node that just crops and masks roi (or at least masks) and republishes image?
+	-and then (at least optionally) delete the code that currently does that in
+	 all of tracker_..., delta_video_simplebuffer, and liveviewer

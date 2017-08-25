@@ -157,10 +157,10 @@ class LiveViewer:
         # which are now private (node specific) parameters
         else:
             circle_param_names = ['circular_mask_x', 'circular_mask_y', 'circular_mask_r'] 
-            self.add_roi_dict(self.circular_rois, circle_param_names)
+            self.add_roi(circle_param_names)
 
             poly_param_names = ['roi_points']
-            self.add_roi_dict(self.polygonal_rois, poly_param_names)
+            self.add_roi(poly_param_names)
 
         # TODO put in dict above? (& similar lines in other files)
         # displays extra information about trajectory predictions / associations if True
@@ -269,10 +269,13 @@ class LiveViewer:
             self.imgScaled = self.image_mask*self.imgScaled
         
         # TODO handle in above
+        """
         if self.params['circular_mask_x'] != None:
             if self.image_mask is None:
                 self.image_mask = np.zeros_like(self.imgScaled)
                 cv2.circle(self.image_mask,(self.params['circular_mask_x'], self.params['circular_mask_y']),int(self.params['circular_mask_r']),[1,1,1],-1)
+
+        """
             
         
         # Image for display
@@ -353,7 +356,7 @@ class LiveViewer:
 
     
     # TODO make less convoluted
-    def add_roi_dict(self, store, param_names, get_fn=None):
+    def add_roi(self, param_names, get_fn=None):
         r = dict()
         if get_fn is None:
             have_params = list(map(lambda x: self.params[x] != None, param_names))
@@ -368,7 +371,16 @@ class LiveViewer:
             # TODO lead to same error either way...
             for p in param_names:
                 r[p] = get_fn(p)
-        store.append(r)
+        
+        # TODO fix hack
+        if 'roi_points' in param_names:
+            self.polygonal_rois.append(r)
+        
+        elif 'circular_mask_x' in param_names:
+            self.circular_rois.append(r)
+
+        elif 'roi_l' in param_names:
+            self.rectangular_rois.append(r)
     
     
     def add_any_pipeline_rois(self):
@@ -381,32 +393,24 @@ class LiveViewer:
 
         roi_params = [['circular_mask_x', 'circular_mask_y', 'circular_mask_r'], \
             ['roi_points'], ['roi_l', 'roi_r', 'roi_b', 'roi_t']]
-        # seems that these don't resolve here, so this should work
-        roi_stores = [self.circular_rois, self.polygonal_rois, self.rectangular_rois]
 
-        # TODO TODO fix
-        #rospy.logwarn('roi_store before clearing ' + str(roi_stores))
-        # TODO will this work to clear them?
-        for store in roi_stores:
-            store = []
-        #rospy.logwarn('roi_store after clearing ' + str(roi_stores))
+        self.circular_rois = []
+        self.polygonal_rois = []
+        self.rectangular_rois = []
 
         # TODO test!
         for n in nodes:
             if 'delta_video_'  in n and not '_player' in n and not 'save_' in n:
                 def getter(p):
-                    #rospy.logwarn(n + '/' + p)
                     return rospy.get_param(n + '/' + p)
             else:
                 continue
 
             # TODO fix. dont want to keep growing.
             #rospy.logwarn('roi_params = ' + str(roi_params))
-            #rospy.logwarn('roi_stores = ' + str(roi_stores))
             
-            for params, store in zip(roi_params, roi_stores):
+            for params in roi_params:
                 #rospy.logwarn('params = ' + str(params))
-                #rospy.logwarn('store = ' + str(store))
                 # may want to replace with rosnode API instrospection at some point
                 # provided it is stable / well documented enough
                 #node_num = int(n.split('_')[-1])
@@ -414,14 +418,17 @@ class LiveViewer:
                     # TODO need to prepend namespace?
                     # TODO TODO fix whatever causing roi_points get to be unreachable
                     # that is the one that is set, but it just tries for roi_l!
-                    self.add_roi_dict(store, params, get_fn=getter)
+                    self.add_roi(params, get_fn=getter)
                     #for p in params:
                     #    rospy.get_param(n + '/' + p)
                 except KeyError:
                     #rospy.logwarn('skipping params ' + str(params) + ' because of KeyError')
                     pass
         
-        if any(map(lambda x: len(x) > 0, roi_stores)):
+            rospy.logwarn('self.polygonal_rois = ' + str(self.polygonal_rois))
+
+        if any(map(lambda x: len(x) > 0, [self.circular_rois, self.polygonal_rois, \
+            self.rectangular_rois])):
             self.have_rois = True
 
         else:

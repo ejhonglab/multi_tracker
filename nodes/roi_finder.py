@@ -105,7 +105,8 @@ class RoiFinder:
                 raise ValueError('param_dict must have all keys and values be strings')
         
         params = ['roslaunch', 'multi_tracker', 'single_tracking_pipeline.launch', \
-            'num:=' + str(self.current_node_num)] + extra_params
+            'viewer:=False', 'num:=' + str(self.current_node_num)] + extra_params
+        self.current_node_num += 1
         rospy.logwarn(params)
         p = Popen(params)
         self.to_kill.append(p)

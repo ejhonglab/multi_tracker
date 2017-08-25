@@ -20,6 +20,8 @@
   -->
 </node>
 
+<!-- TODO TODO should multi_tracker/delta_video here be original_delta_video?? if not, why not? -->
+
 # TODO make camera/image_raw the default / changeable via remapping?
 # likewise with input topic? (this is what all the other nodes do)
 # in was previously original_delta_video, but couldn't remap after using wrapper. want to fix.
