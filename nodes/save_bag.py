@@ -5,9 +5,8 @@ import rospy
 import time
 import os
 import subprocess
+import numpy as np
 
-###############################################################################
-#
 class SaveBag:
     def __init__(self):
         rospy.init_node('save_delta_video', log_level=rospy.INFO)
@@ -68,16 +67,21 @@ class SaveBag:
 
         self.bag_filename = os.path.join(directory, filename)
         # TODO does this need to go back to python time?
-        self.time_start = rospy.Time.now()
         self.processRosbag = None
-        rospy.on_shutdown(self.OnShutdown_callback)
+        rospy.on_shutdown(self.on_shutdown)
+        
+        # hacky. see TODOs in delta_video_simplebuffer.py
+        self.time_start = 0
+        # do w/o numpy?
+        while np.isclose(self.time_start, 0.0):
+            self.time_start = rospy.Time.now().to_sec()
 
     
-    def OnShutdown_callback(self):
-        self.StopRecordingBag()
+    def on_shutdown(self):
+        self.stop_recording()
         
     
-    def StartRecordingBag(self):
+    def start_recording(self):
         rospy.loginfo('Saving bag file: %s' % (self.bag_filename))
         cmdline = ['rosbag', 'record','-O', self.bag_filename]
         cmdline.extend(self.topics)
@@ -87,7 +91,7 @@ class SaveBag:
         self.processRosbag = subprocess.Popen(cmdline)
     
      
-    def StopRecordingBag(self):
+    def stop_recording(self):
         # TODO faced error where self.processRosbag was still None when this was called
         # that indicative of other problem?
         if not self.processRosbag is None:
@@ -96,16 +100,15 @@ class SaveBag:
             rospy.loginfo('Closed bag file.')
                 
     
-    def Main(self):
-        self.StartRecordingBag()
+    def main(self):
+        self.start_recording()
         while not rospy.is_shutdown():
-            t = (rospy.Time.now() - self.time_start).to_sec()
+            t = rospy.Time.now().to_sec() - self.time_start
             if t > self.record_length_seconds:
-                self.StopRecordingBag()      
-                return
+                self.stop_recording()      
         
 
 if __name__ == '__main__':
     savebag = SaveBag()
-    savebag.Main()
+    savebag.main()
     
