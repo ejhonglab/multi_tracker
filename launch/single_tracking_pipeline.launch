@@ -2,6 +2,8 @@
   <arg name="ns" default="/" />
   <arg name="num" default="1" />
 
+  <arg name="dump_roi_params" default="True" />
+
   <arg name="viewer" default="True" />
 
   <arg name="polygonal_roi" default="False" />
@@ -23,7 +25,6 @@
   
   <!-- TODO remove slight redundancy between ns and num now? (ns is set w/ that num in roi_finder.py) -->
   <group ns="$(arg ns)">
-    # launch tracking and data association nodes
     <node name="tracker_$(arg num)" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" required="true">
       <!-- TODO maybe condense all this loading into another launch file somehow?
            w/ arg passthrough syntax maybe? -->
@@ -82,6 +83,14 @@
       <param name="circular_mask_x" value="$(arg circular_mask_x)" if="$(arg circular_roi)" />
       <param name="circular_mask_y" value="$(arg circular_mask_y)" if="$(arg circular_roi)" />
       <param name="circular_mask_r" value="$(arg circular_mask_r)" if="$(arg circular_roi)" />
+    </node>
+
+    <!-- TODO will this work for getting roi params out of node (private) namespace? -->
+    <node name="snapshot_roi_params_$(arg num)" pkg="multi_tracker" type="snapshot_params.py" output="screen">
+      <!-- TODO will this work being only relative? resolve relative to snapshot params? -->
+      <param name="filename" value="rois_N$(arg num).yaml" type="str" />
+      <param name="namespace" value="delta_video_$(arg num)" type="str" />
+      <param name="wait_s" value="1" type="double" />
     </node>
     
     # TODO move this config here? or make all that stuff arguments so I can load it globally like others?
