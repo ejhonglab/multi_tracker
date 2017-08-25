@@ -27,7 +27,9 @@ class DataListener:
         try:
             self.pipeline_num = int(last_name_component)
             remap_topics = True
+        
         except ValueError:
+            self.pipeline_num = 1
             remap_topics = False
 
         tracked_object_topic = 'multi_tracker/tracked_objects'
@@ -43,7 +45,6 @@ class DataListener:
         if self.experiment_basename is None:
             rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
                 ' Run the set_basename.py node along with others to fix this.')
-            #self.experiment_basename = time.strftime('%Y%m%d_%H%M%S_N' + self.pipeline_num, time.localtime())
             self.experiment_basename = time.strftime('%Y%m%d_%H%M%S', time.localtime())
             generated_basename = True
         
@@ -57,7 +58,8 @@ class DataListener:
             if generated_basename:
                 rospy.set_param('multi_tracker/experiment_basename', self.experiment_basename)
 
-        filename = os.path.join(directory, self.experiment_basename + '_trackedobjects.hdf5')
+        filename = os.path.join(directory, self.experiment_basename + '_N' + str(self.pipeline_num) \
+            + '_trackedobjects.hdf5')
         rospy.loginfo('Saving hdf5 data to: ' + filename)
         
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)

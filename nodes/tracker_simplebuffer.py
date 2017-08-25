@@ -109,7 +109,10 @@ class Tracker:
         try:
             self.pipeline_num = int(last_name_component)
             remap_topics = True
+        
         except ValueError:
+            # warn if?
+            self.pipeline_num = 1
             remap_topics = False
 
         # TODO should the experiment_basename have the pipeline # in it? -> should each
@@ -118,7 +121,6 @@ class Tracker:
         if self.experiment_basename is None:
             rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
                 ' Run the set_basename.py node along with others to fix this.')
-            #self.experiment_basename = time.strftime('%Y%m%d_%H%M%S_N' + self.pipeline_num, \
             self.experiment_basename = time.strftime('%Y%m%d_%H%M%S', \
                 time.localtime())
 

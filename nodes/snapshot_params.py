@@ -18,13 +18,7 @@ class SaveParams:
             rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
                 ' Run the set_basename.py node along with others to fix this.')
         
-            try:
-                node_num = int(rospy.get_name().split('_')[-1])
-            except ValueError:
-                node_num =1
-            
             # break out node_num getting function into utility module
-            #self.experiment_basename = time.strftime('%Y%m%d_%H%M%S_N' + str(node_num), \
             self.experiment_basename = time.strftime('%Y%m%d_%H%M%S', \
                 time.localtime())
             generated_basename = True

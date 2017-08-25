@@ -249,9 +249,8 @@ def save_png(self):
     # TODO share with other place that generates these
     # is this the timestamp i want to use? maybe just count from 0? count time from 0?
     # TODO don't use ROStime if that param isn't set
-    # TODO get nodenum from parent namespace
     background_img_filename = self.experiment_basename + \
-        time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M.png', time.localtime(rospy.Time.now().to_sec()))
+        time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M_N' + str(self.pipeline_num) + '.png', time.localtime(rospy.Time.now().to_sec()))
     
     if self.explicit_directories:
         data_directory = os.path.expanduser(rospy.get_param('multi_tracker/data_directory'))
