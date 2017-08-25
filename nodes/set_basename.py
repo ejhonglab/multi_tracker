@@ -5,7 +5,6 @@ import time
 # TODO get rid of this?
 
 if __name__ == '__main__':
-    # TODO fix nodenum
     rospy.init_node('set_exp_basename', log_level=rospy.INFO)
     if rospy.get_param('multi_tracker/retracking_original_timestamp', False):
         experiment_basename = rospy.get_param('original_basename', None)
@@ -15,7 +14,8 @@ if __name__ == '__main__':
                 ' or you are not calling this node?')
         
     else:
-        # TODO make N# work via detecting the parent namespace
-        experiment_basename = time.strftime("%Y%m%d_%H%M%S_N1", time.localtime())
+        # TODO do i want the node number? i'm kind of inclined to put them all in same place
+        # else make N# work as other code
+        experiment_basename = time.strftime('%Y%m%d_%H%M%S', time.localtime())
      
     rospy.set_param('multi_tracker/experiment_basename', experiment_basename)

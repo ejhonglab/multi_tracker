@@ -103,11 +103,24 @@ class Tracker:
         self.debug = rospy.get_param('multi_tracker/tracker/debug', False)
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
         
+        node_name = rospy.get_name()
+        last_name_component = node_name.split('_')[-1]
+        # TODO see discussion in this portion in save_bag.py
+        try:
+            self.pipeline_num = int(last_name_component)
+            remap_topics = True
+        except ValueError:
+            remap_topics = False
+
+        # TODO should the experiment_basename have the pipeline # in it? -> should each
+        # fly's data be saved to a separate directory (probably not?)?
         self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', None)
         if self.experiment_basename is None:
             rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
                 ' Run the set_basename.py node along with others to fix this.')
-            self.experiment_basename = time.strftime("%Y%m%d_%H%M%S_N1", time.localtime())
+            #self.experiment_basename = time.strftime('%Y%m%d_%H%M%S_N' + self.pipeline_num, \
+            self.experiment_basename = time.strftime('%Y%m%d_%H%M%S', \
+                time.localtime())
 
         # used by image_processing code that is spliced in with imp
         self.explicit_directories = rospy.get_param('multi_tracker/explicit_directories', False)
@@ -137,15 +150,6 @@ class Tracker:
         self.image_buffer = []
         self.framestamp = None
         
-        node_name = rospy.get_name()
-        last_name_component = node_name.split('_')[-1]
-        # TODO see discussion in this portion in save_bag.py
-        try:
-            self.pipeline_num = int(last_name_component)
-            remap_topics = True
-        except ValueError:
-            remap_topics = False
-
         tracked_object_topic = 'multi_tracker/tracked_objects'
         
         if remap_topics:

@@ -24,7 +24,8 @@ class SaveParams:
                 node_num =1
             
             # break out node_num getting function into utility module
-            self.experiment_basename = time.strftime('%Y%m%d_%H%M%S_N' + str(node_num), \
+            #self.experiment_basename = time.strftime('%Y%m%d_%H%M%S_N' + str(node_num), \
+            self.experiment_basename = time.strftime('%Y%m%d_%H%M%S', \
                 time.localtime())
             generated_basename = True
 

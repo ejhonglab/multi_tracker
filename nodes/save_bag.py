@@ -50,7 +50,8 @@ class SaveBag:
         if self.experiment_basename is None:
             rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
                 ' Run the set_basename.py node along with others to fix this.')
-            self.experiment_basename = time.strftime('%Y%m%d_%H%M%S_N' + str(self.pipeline_num), time.localtime())
+            #self.experiment_basename = time.strftime('%Y%m%d_%H%M%S_N' + str(self.pipeline_num), time.localtime())
+            self.experiment_basename = time.strftime('%Y%m%d_%H%M%S', time.localtime())
             generated_basename = True
 
         filename = self.experiment_basename + '_delta_video.bag'

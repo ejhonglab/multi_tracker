@@ -35,38 +35,6 @@ import matplotlib.pyplot as plt
 # default image: /camera/image_mono
 
 
-'''
-def order_points_clockwise(points):
-    # alternative that uses numpy funcs?
-    # TODO appropriate dimension
-    center = np.mean(points, dim=1)
-    rospy.logwarn('center.shape=' + str(center.shape))
-
-    # use numpy det fn?
-    def det(a, b):
-        return (a[0] - center[0]) * (b[1] - center.y) - (b[0] - center[0]) * (a[1] - center[1])
-
-    # see https://stackoverflow.com/questions/6989100/sort-points-in-clockwise-order
-    # TODO can i get rid of the special case code at the top
-    # TODO can det be used as a key directly? or need to just compare pointwise?
-    def less(a, b):
-        if a[0] - center[0] >= 0 and b[0] - center[0] < 0:
-            return 1
-
-        elif a[0] - center[0] < 0 and b[0] - center[0] >= 0:
-            return 1
-
-        elif a[0] - center[0] >= 0 and b[0] - center[0] < 0:
-            return 1
-
-        # not handling cases where points are colinear wrt center
-        # see SO link if you want to
-        return 1
-
-    
-    return rect
-'''
-
 # The main tracking class, a ROS node
 class Compressor:
     def __init__(self):
@@ -102,9 +70,6 @@ class Compressor:
         # TODO TODO i guess i already broke backwards compatibility with Floris's configuration
         # files by making these parameters private? way my version can work with Floris' original
         # configuration files?
-        # TODO so how did his parameter sharing work across pipeline instances w/ different
-        # node nums? oh... he manually sets the nodenum in the yaml files
-        #shared_params = {'': ''}
 
         # possible solutions:
         # -publish private params for rois to each of subs
@@ -182,7 +147,8 @@ class Compressor:
         if self.experiment_basename is None:
             rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
                 ' Run the set_basename.py node along with others to fix this.')
-            self.experiment_basename = time.strftime('%Y%m%d_%H%M%S_N' + self.pipeline_num, time.localtime())
+            #self.experiment_basename = time.strftime('%Y%m%d_%H%M%S_N' + self.pipeline_num, time.localtime())
+            self.experiment_basename = time.strftime('%Y%m%d_%H%M%S', time.localtime())
 
         self.explicit_directories = rospy.get_param('multi_tracker/explicit_directories', False)
         
@@ -194,6 +160,7 @@ class Compressor:
             remap_topics = True
         
         except ValueError:
+            self.pipeline_num = 1
             remap_topics = False
 
         delta_video_topic = 'multi_tracker/delta_video'
@@ -277,17 +244,9 @@ class Compressor:
                 # TODO i don't need the int cast do i?
                 cv2.circle(self.image_mask, (self.params['circular_mask_x'], self.params['circular_mask_y']), int(self.params['circular_mask_r']), fill_color, -1)
 
-            # TODO need to test their validity? order matter to some cv2 functions?
             elif not self.params['roi_points'] is None:
                 self.image_mask = np.zeros_like(self.imgScaled)
-                # TODO effect of linetype here?
-                # may want to combine w/ offset if using rectangular roi as well (or select polygon points in cropped image)
-                # TODO TODO need to cast all points members to int?
-                rospy.logwarn('roi_points = ' + str(self.params['roi_points']))
-                # TODO transpose from creation?
-                #ordered_points = order_points_clockwise(np.array(self.params['roi_points'], dtype=np.int32))
                 hull = cv2.convexHull(np.array(self.params['roi_points'], dtype=np.int32))
-                rospy.logwarn('hull = ' + str(hull))
                 cv2.fillConvexPoly(self.image_mask, hull, fill_color) # , -1)
 
         # TODO just check if key is in dict?
@@ -295,12 +254,14 @@ class Compressor:
             self.imgScaled = self.image_mask * self.imgScaled
 
         def background_png_name():
-            # TODO fix nodenum. derive from enclosing namespace if possible.
-            nodenum = 1
             if self.use_original_timestamp:
-                background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M.png', time.localtime(rospy.Time.now().to_sec()))
+                background_img_filename = self.experiment_basename + \
+                    time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M_N' + self.pipeline_num + \
+                    '.png', time.localtime(rospy.Time.now().to_sec()))
             else:
-                background_img_filename = self.experiment_basename + time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M.png', time.localtime())
+                background_img_filename = self.experiment_basename + \
+                    time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M_N' + self.pipeline_num + \
+                    '.png', time.localtime())
 
             if self.explicit_directories:
                 data_directory = os.path.expanduser(rospy.get_param('multi_tracker/data_directory'))
