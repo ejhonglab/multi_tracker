@@ -70,25 +70,32 @@ class SaveBag:
         # TODO does this need to go back to python time?
         self.time_start = rospy.Time.now()
         self.processRosbag = None
-        #rospy.on_shutdown(self.OnShutdown_callback)
+        rospy.on_shutdown(self.OnShutdown_callback)
 
+    
     def OnShutdown_callback(self):
         self.StopRecordingBag()
         
+    
     def StartRecordingBag(self):
         rospy.loginfo('Saving bag file: %s' % (self.bag_filename))
         cmdline = ['rosbag', 'record','-O', self.bag_filename]
         cmdline.extend(self.topics)
         print cmdline
-        self.processRosbag = subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)
+        # TODO why did he take this approach w/ the preexec_fn?
+        #self.processRosbag = subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)
+        self.processRosbag = subprocess.Popen(cmdline)
     
+     
     def StopRecordingBag(self):
         # TODO faced error where self.processRosbag was still None when this was called
         # that indicative of other problem?
         if not self.processRosbag is None:
-            subprocess.os.killpg(self.processRosbag.pid, subprocess.signal.SIGINT)
+            #subprocess.os.killpg(self.processRosbag.pid, subprocess.signal.SIGINT)
+            self.processRosbag.kill()
             rospy.loginfo('Closed bag file.')
                 
+    
     def Main(self):
         self.StartRecordingBag()
         while not rospy.is_shutdown():

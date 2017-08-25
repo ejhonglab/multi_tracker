@@ -373,11 +373,13 @@ class LiveViewer:
     
     
     def main(self):
-        # make parameter?
-        check_for_rois_rate = ropy.Rate(10)
-        while not rospy.is_shutdown():
-            self.add_any_pipeline_rois()
-            check_for_rois_rate.sleep()
+        check_for_rois_rate = rospy.Rate(10)
+        if self.params['detect_tracking_pipelines']:
+            while not rospy.is_shutdown():
+                self.add_any_pipeline_rois()
+                check_for_rois_rate.sleep()
+        else:
+            rospy.spin()
         cv2.destroyAllWindows()
 
 #####################################################################################################
