@@ -141,9 +141,7 @@ class LiveViewer:
                 parameter = parameter[1:]
             self.params[parameter] = value
 
-        self.circular_rois = []
-        self.polygonal_rois = []
-        self.rectangular_rois = []
+        self.clear_rois()
 
         # should i allow both roi_* and detect_tracking_pipelines?
         roi_params = ['circular_mask_x', 'circular_mask_y', 'circular_mask_r', 'roi_points']
@@ -156,11 +154,16 @@ class LiveViewer:
         # roi_* are still handled differently, and can be set alongside tracker roi_*'s
         # which are now private (node specific) parameters
         else:
+            try:
+                node_num = int(n.split('_')[-1])
+            except ValueError:
+                node_num = 1
+            
             circle_param_names = ['circular_mask_x', 'circular_mask_y', 'circular_mask_r'] 
-            self.add_roi(circle_param_names)
+            self.add_roi(node_num, circle_param_names)
 
             poly_param_names = ['roi_points']
-            self.add_roi(poly_param_names)
+            self.add_roi(node_num, poly_param_names)
 
         # TODO put in dict above? (& similar lines in other files)
         # displays extra information about trajectory predictions / associations if True
@@ -247,17 +250,17 @@ class LiveViewer:
         # make a mask that is a union of all of the ROIs we are tracking
         # if we have any rois
         if self.have_rois:
+            #rospy.loginfo('have_rois')
             if self.image_mask is None:
+                #rospy.loginfo('image_mask is None')
                 self.image_mask = np.zeros_like(self.imgScaled)
                 fill_color = [1,1,1]
                 
-                for r in self.circular_rois:
+                for r in self.circular_rois.values():
                     cv2.circle(self.image_mask, (r['circular_mask_x'], r['circular_mask_y']), \
                         int(r['circular_mask_r']), fill_color, -1) # need to cast? TODO
 
-                for r in self.polygonal_rois:
-                    # criteria in doc. way to test?
-                    #ordered_points = order_points_clockwise(np.array(r['roi_points'], dtype=np.int32))
+                for r in self.polygonal_rois.values():
                     hull = cv2.convexHull(np.array(r['roi_points'], dtype=np.int32))
                     rospy.logwarn('liveviewer filling hull ' + str(hull))
                     cv2.fillConvexPoly(self.image_mask, hull, fill_color)
@@ -356,7 +359,7 @@ class LiveViewer:
 
     
     # TODO make less convoluted
-    def add_roi(self, param_names, get_fn=None):
+    def add_roi(self, node_num, param_names, get_fn=None):
         r = dict()
         if get_fn is None:
             have_params = list(map(lambda x: self.params[x] != None, param_names))
@@ -372,15 +375,23 @@ class LiveViewer:
             for p in param_names:
                 r[p] = get_fn(p)
         
-        # TODO fix hack
         if 'roi_points' in param_names:
-            self.polygonal_rois.append(r)
+            self.polygonal_rois[node_num] = r
         
         elif 'circular_mask_x' in param_names:
-            self.circular_rois.append(r)
+            self.circular_rois[node_num] = r
 
         elif 'roi_l' in param_names:
-            self.rectangular_rois.append(r)
+            self.rectangular_rois[node_num] = r
+
+
+    def clear_rois(self):
+        """
+        Does not clear mask.
+        """
+        self.circular_rois = dict()
+        self.polygonal_rois = dict()
+        self.rectangular_rois = dict()
     
     
     def add_any_pipeline_rois(self):
@@ -394,38 +405,48 @@ class LiveViewer:
         roi_params = [['circular_mask_x', 'circular_mask_y', 'circular_mask_r'], \
             ['roi_points'], ['roi_l', 'roi_r', 'roi_b', 'roi_t']]
 
-        self.circular_rois = []
-        self.polygonal_rois = []
-        self.rectangular_rois = []
-
-        # TODO test!
+        new_nodes = False
         for n in nodes:
             if 'delta_video_'  in n and not '_player' in n and not 'save_' in n:
                 def getter(p):
                     return rospy.get_param(n + '/' + p)
             else:
                 continue
+            node_num = int(n.split('_')[-1])
+            
+            if not any(map(lambda d: node_num in d, [self.circular_rois, self.polygonal_rois, \
+                self.rectangular_rois])):
+                new_nodes = True
+                break
 
-            # TODO fix. dont want to keep growing.
-            #rospy.logwarn('roi_params = ' + str(roi_params))
+        if not new_nodes:
+            return
+
+        self.clear_rois()
+
+        for n in nodes:
+            if 'delta_video_'  in n and not '_player' in n and not 'save_' in n:
+                def getter(p):
+                    return rospy.get_param(n + '/' + p)
+            else:
+                continue
             
             for params in roi_params:
-                #rospy.logwarn('params = ' + str(params))
                 # may want to replace with rosnode API instrospection at some point
                 # provided it is stable / well documented enough
-                #node_num = int(n.split('_')[-1])
                 try:
                     # TODO need to prepend namespace?
                     # TODO TODO fix whatever causing roi_points get to be unreachable
                     # that is the one that is set, but it just tries for roi_l!
-                    self.add_roi(params, get_fn=getter)
+                    node_num = int(n.split('_')[-1])
+                    self.add_roi(node_num, params, get_fn=getter)
                     #for p in params:
                     #    rospy.get_param(n + '/' + p)
                 except KeyError:
                     #rospy.logwarn('skipping params ' + str(params) + ' because of KeyError')
                     pass
         
-            rospy.logwarn('self.polygonal_rois = ' + str(self.polygonal_rois))
+        #rospy.logwarn('self.polygonal_rois = ' + str(self.polygonal_rois))
 
         if any(map(lambda x: len(x) > 0, [self.circular_rois, self.polygonal_rois, \
             self.rectangular_rois])):
@@ -433,6 +454,9 @@ class LiveViewer:
 
         else:
             self.have_rois = False
+
+        # TODO TODO do some caching / checking to not have to recompute this everytime
+        self.image_mask = None
     
     
     def main(self):
