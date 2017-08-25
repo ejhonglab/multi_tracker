@@ -51,19 +51,21 @@ class SaveParams:
     
         self.filename = os.path.join(directory, filename)
 
-        try:
-            source_dir = rospy.get_param('source_directory')
-            there = glob.glob(os.path.join(source_dir, '*' + suffix))
-        
-        except KeyError:
-            there = []
-            pass
+        copy_old_params = rospy.get_param('~copy_old_params', True)
+        if copy_old_params:
+            try:
+                source_dir = rospy.get_param('source_directory')
+                there = glob.glob(os.path.join(source_dir, '*' + suffix))
+            
+            except KeyError:
+                there = []
+                pass
 
-        if len(there) > 0:
-            here = glob.glob(os.path.join(directory, '*' + suffix))
-            for f in there:
-                if not f in here:
-                    shutil.copy(os.path.join(source_dir, f), directory)
+            if len(there) > 0:
+                here = glob.glob(os.path.join(directory, '*' + suffix))
+                for f in there:
+                    if not f in here:
+                        shutil.copy(os.path.join(source_dir, f), directory)
 
         self.wait_s = rospy.get_param('~wait_s', 10.)
         
@@ -87,6 +89,7 @@ class SaveParams:
             #rospy.loginfo('saving parameters in namespace ' + ns)
             cmdline += [ns]
 
+        # why the preexec_fn?
         self.processRosparam = subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)
         
         rospy.sleep(2.)

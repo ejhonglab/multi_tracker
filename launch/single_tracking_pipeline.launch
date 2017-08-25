@@ -2,7 +2,7 @@
   <arg name="ns" default="/" />
   <arg name="num" default="1" />
 
-  <arg name="dump_roi_params" default="True" />
+  <arg name="dump_roi_params" default="False" />
 
   <arg name="viewer" default="True" />
 
@@ -86,12 +86,14 @@
     </node>
 
     <!-- TODO will this work for getting roi params out of node (private) namespace? -->
-    <node name="snapshot_roi_params_$(arg num)" pkg="multi_tracker" type="snapshot_params.py" output="screen">
+    <node name="snapshot_roi_params_$(arg num)" pkg="multi_tracker" type="snapshot_params.py" output="screen" if="$(arg dump_roi_params)">
       <!-- TODO will this work being only relative? resolve relative to snapshot params? -->
-      <param name="filename" value="rois_N$(arg num).yaml" type="str" />
+      <param name="filename" value="roi_N$(arg num).yaml" type="str" />
       <param name="namespace" value="delta_video_$(arg num)" type="str" />
       <param name="wait_s" value="1" type="double" />
+      <param name="copy_old_params" value="False" type="bool" />
     </node>
+    <!-- TODO could make a another snapshot_params that saves every thing if that flag is false -->
     
     # TODO move this config here? or make all that stuff arguments so I can load it globally like others?
     # TODO TODO get rid of delta_video_config.py now?
