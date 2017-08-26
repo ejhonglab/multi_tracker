@@ -85,7 +85,8 @@ class RoiFinder:
                     queue_size=queue_size, buff_size=buff_size)
 
         else:
-            rospy.Subscriber(camera, Image, self.manual_roi_callback, \
+            self.manual_selection_done = False
+            self.manual_sub = rospy.Subscriber(camera, Image, self.manual_roi_callback, \
                     queue_size=queue_size, buff_size=buff_size)
 
         # can't just rospy.spin() here because the main thread
@@ -194,6 +195,7 @@ class RoiFinder:
         # TODO draw a marker too?
         if event == cv2.EVENT_LBUTTONDOWN:
             self.points.append([x, y])
+            rospy.loginfo('Added point ' + str([x, y]))
 
 
     def show_frame_for_selecting(self, frame):
@@ -211,7 +213,9 @@ class RoiFinder:
         (allow ctrl-z and ctrl-[(shift-z)/y]?)
         """
         self.show_frame_for_selecting(frame)
-        # TODO while something...
+        rospy.loginfo('Click corners of the polygonal ROI. Press any key to store the ' + \
+            'points added so far as an ROI. Press <Esc> to close manual selection and ' + \
+            'launch tracking pipelines.')
         polygons = []
         while True:
             # bitwise and to get the last 8 bytes, so that key states are considered the same
@@ -227,7 +231,7 @@ class RoiFinder:
             # supposedly
             masked_key = key & 0xFF
             # 27 is the escape key
-            # TODO prompt key to press to exit. ctrl-s? z/y?
+            # ctrl-s? z/y?
             if masked_key == 27:
                 break
 
@@ -242,9 +246,9 @@ class RoiFinder:
                 if len(polygon) < 3:
                     rospy.logerr('key press with less than 3 points in buffer. need at least 3 points for a polygon. points still in buffer.')
                 else:
+                    rospy.loginfo('Added polygon from current points. Resetting current points.')
                     polygons.append(polygon)
-                
-                self.points = []
+                    self.points = []
         
         if len(self.points) != 0:
             rospy.logwarn('had points in buffer when <Esc> key ended manual selection.')
@@ -252,6 +256,7 @@ class RoiFinder:
         # TODO how to only destroy one window? those from this node?
         # (don't want to screw with liveviewer or image_view windows...)
         cv2.destroyAllWindows()
+        self.manual_selection_done = True
         return polygons
 
 
@@ -397,10 +402,18 @@ class RoiFinder:
         """
         Checks for launch requests and executes them.
         """
+        rois = None
         while not rospy.is_shutdown():
             if not self.launch_queue.empty():
                 rois = self.launch_queue.get()
                 self.launch_tracking_pipelines(rois)
+
+            if self.manual_selection_done:
+                self.manual_sub.unregister()
+                if self.launch_queue.empty() and rois is None:
+                    # TODO why is this not being reached?
+                    rospy.logerr('Manual selection closed without selecting any ROIs!')
+                    break
 
         for p in self.to_kill:
             p.kill()

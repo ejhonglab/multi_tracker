@@ -243,13 +243,14 @@ class Compressor:
                 # TODO i don't need the int cast do i?
                 cv2.circle(self.image_mask, (self.params['circular_mask_x'], self.params['circular_mask_y']), int(self.params['circular_mask_r']), fill_color, -1)
 
+            # TODO test!
             elif not self.params['roi_points'] is None:
+                rospy.logwarn('filling hull in delta_video_simplebuffer!')
                 self.image_mask = np.zeros_like(self.imgScaled)
                 hull = cv2.convexHull(np.array(self.params['roi_points'], dtype=np.int32))
                 cv2.fillConvexPoly(self.image_mask, hull, fill_color) # , -1)
 
-        # TODO just check if key is in dict?
-        elif self.params['circular_mask_x'] != None or self.params['roi_points'] != None:
+        if not self.image_mask is None:
             self.imgScaled = self.image_mask * self.imgScaled
 
         def background_png_name():

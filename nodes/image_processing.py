@@ -307,13 +307,20 @@ def dark_or_light_objects(self):
 
 
 def dark_or_light_objects_only(self, color='dark'):
-    if self.params['circular_mask_x'] != None:
-        if self.image_mask is None:
+    if self.image_mask is None:
+        fill_color = [1,1,1]
+        if not self.params['circular_mask_x'] is None:
             self.image_mask = np.zeros_like(self.imgScaled)
-            # TODO fix these params
-            cv2.circle(self.image_mask,(self.params['circular_mask_x'], \
-                self.params['circular_mask_y']), int(self.params['circular_mask_r']), [1,1,1], -1)
-        self.imgScaled = self.image_mask*self.imgScaled
+            cv2.circle(self.image_mask, (self.params['circular_mask_x'], self.params['circular_mask_y']), int(self.params['circular_mask_r']), fill_color, -1)
+
+        # TODO test!
+        elif not self.params['roi_points'] is None:
+            self.image_mask = np.zeros_like(self.imgScaled)
+            hull = cv2.convexHull(np.array(self.params['roi_points'], dtype=np.int32))
+            cv2.fillConvexPoly(self.image_mask, hull, fill_color) # , -1)
+
+    if not self.image_mask is None:
+        self.imgScaled = self.image_mask * self.imgScaled
     
     # TODO do i want to return in both of these cases? might cause more discontinuity
     # than necessary
