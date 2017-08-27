@@ -73,7 +73,7 @@ class RoiFinder:
         # start node
         rospy.init_node('roi_finder')
 
-        camera = 'camera/image_raw'
+        self.camera = 'camera/image_raw'
         queue_size = 10
         # TODO determine automatically
         size_image = 128 + 1920 * 1080 * 3
@@ -81,12 +81,12 @@ class RoiFinder:
         buff_size = 2*size_image
 
         if automatic_roi_detection:
-            rospy.Subscriber(camera, Image, self.detect_roi_callback, \
+            rospy.Subscriber(self.camera, Image, self.detect_roi_callback, \
                     queue_size=queue_size, buff_size=buff_size)
 
         else:
             self.manual_selection_done = False
-            self.manual_sub = rospy.Subscriber(camera, Image, self.manual_roi_callback, \
+            self.manual_sub = rospy.Subscriber(self.camera, Image, self.manual_roi_callback, \
                     queue_size=queue_size, buff_size=buff_size)
 
         # can't just rospy.spin() here because the main thread
@@ -97,6 +97,7 @@ class RoiFinder:
         self.to_kill = []
         self.main()
 
+
     def launch_tracking_common(self, param_dict):
         extra_params = []
         for k, v in param_dict.items():
@@ -106,8 +107,8 @@ class RoiFinder:
                 raise ValueError('param_dict must have all keys and values be strings')
         
         params = ['roslaunch', 'multi_tracker', 'single_tracking_pipeline.launch', \
-            'dump_roi_params:=True', 'viewer:=False', 'num:=' + str(self.current_node_num)] \
-            + extra_params
+            'dump_roi_params:=True', 'viewer:=False', 'num:=' + str(self.current_node_num), \
+            'camera:=' + rospy.resolve_name(self.camera)] + extra_params
         self.current_node_num += 1
         rospy.logwarn(params)
         p = Popen(params)

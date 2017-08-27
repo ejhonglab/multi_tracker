@@ -161,7 +161,7 @@ class Tracker:
             suffix = ''
 
         # Publishers - publish contours
-        self.pubContours = rospy.Publisher('multi_tracker/contours', Contourlist, queue_size=300)
+        self.pubContours = rospy.Publisher('multi_tracker/contours_' + str(self.pipeline_num), Contourlist, queue_size=300)
         
         # Subscriptions - subscribe to images, and tracked objects
         self.image_mask = None 

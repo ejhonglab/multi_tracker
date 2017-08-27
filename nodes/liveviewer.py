@@ -164,7 +164,13 @@ class LiveViewer:
             self.add_roi(node_num, circle_param_names)
 
             poly_param_names = ['roi_points']
+            # TODO break roi stuff and subscription initiation
+            # into one function?
             self.add_roi(node_num, poly_param_names)
+            
+            # otherwise, we need to start subscriptions as we
+            # detect other pipelines in our namespace
+            self.start_subscribers(node_num)
 
         # TODO put in dict above? (& similar lines in other files)
         # displays extra information about trajectory predictions / associations if True
@@ -172,8 +178,6 @@ class LiveViewer:
         
         # initialize display
         self.window_name = 'liveviewer'
-        self.subTrackedObjects = rospy.Subscriber('multi_tracker/tracked_objects', Trackedobjectlist, self.tracked_object_callback)
-        self.subContours = rospy.Subscriber('multi_tracker/contours', Contourlist, self.contour_callback)
         self.cvbridge = CvBridge()
         self.tracked_trajectories = {}
         self.contours = None
@@ -194,6 +198,11 @@ class LiveViewer:
         except:
             rospy.logerr('could not connect to add image to background service - is tracker running?')
         
+
+    def start_subscribers(self, node_num):
+        rospy.Subscriber('multi_tracker/tracked_objects_' + str(node_num), Trackedobjectlist, self.tracked_object_callback)
+        rospy.Subscriber('multi_tracker/contours_' + str(node_num), Contourlist, self.contour_callback)
+    
 
     def reset_background(self, service_call):
         self.reset_background_flag = True
@@ -440,8 +449,11 @@ class LiveViewer:
                     # that is the one that is set, but it just tries for roi_l!
                     node_num = int(n.split('_')[-1])
                     self.add_roi(node_num, params, get_fn=getter)
-                    #for p in params:
-                    #    rospy.get_param(n + '/' + p)
+                    # if the above roi is added successfully
+                    # we will make it to this line, otherwise
+                    # we will end up in the except block
+                    self.start_subscribers(node_num)
+                     
                 except KeyError:
                     pass
         
