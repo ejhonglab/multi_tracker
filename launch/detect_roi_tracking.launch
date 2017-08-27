@@ -1,5 +1,6 @@
 <launch>
   <arg name="camera" default="/camera/image_raw" />
+  <arg name="viewer" default="True" />
   
   <rosparam command="load" file="roi_finder.yaml" />
   <include file="$(find multi_tracker)/launch/load_tracking_parameter_yamls.launch" />
@@ -16,7 +17,9 @@
   
   <!-- TODO try to keep this compatible w/ old code + configs while having it autodetect
        any trackers in this namespace -->
-  <node name="tracking_viewer" pkg="multi_tracker" type="liveviewer.py" output="screen">
+  <node name="tracking_viewer" pkg="multi_tracker" type="liveviewer.py" output="screen" required="$(arg viewer)">
+      <remap from="/camera/image_raw" to="$(arg camera)" />
+      
       <param name="detect_tracking_pipelines" value="True" />
       <!-- TODO also support passing through roi_* args if i'm going to continue to support 
            thos with the above flag -->

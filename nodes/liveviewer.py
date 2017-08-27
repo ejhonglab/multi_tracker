@@ -150,10 +150,11 @@ class LiveViewer:
                 rospy.logfatal('liveviewer: roi parameters other than rectangular roi_[l/r/b/t] ' + \
                     'are not supported when detect_tracking_pipelines is set to True')
 
-        # TODO add single rois defined in params to instance variables for consistency later
+        # add single rois defined in params to instance variables for consistency later
         # roi_* are still handled differently, and can be set alongside tracker roi_*'s
         # which are now private (node specific) parameters
         else:
+            n = rospy.get_name()
             try:
                 node_num = int(n.split('_')[-1])
             except ValueError:
@@ -262,7 +263,6 @@ class LiveViewer:
 
                 for r in self.polygonal_rois.values():
                     hull = cv2.convexHull(np.array(r['roi_points'], dtype=np.int32))
-                    rospy.logwarn('liveviewer filling hull ' + str(hull))
                     cv2.fillConvexPoly(self.image_mask, hull, fill_color)
 
                 for r in self.rectangular_rois:
@@ -443,11 +443,8 @@ class LiveViewer:
                     #for p in params:
                     #    rospy.get_param(n + '/' + p)
                 except KeyError:
-                    #rospy.logwarn('skipping params ' + str(params) + ' because of KeyError')
                     pass
         
-        #rospy.logwarn('self.polygonal_rois = ' + str(self.polygonal_rois))
-
         if any(map(lambda x: len(x) > 0, [self.circular_rois, self.polygonal_rois, \
             self.rectangular_rois])):
             self.have_rois = True

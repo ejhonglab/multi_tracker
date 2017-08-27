@@ -26,6 +26,8 @@
   <!-- TODO remove slight redundancy between ns and num now? (ns is set w/ that num in roi_finder.py) -->
   <group ns="$(arg ns)">
     <node name="tracker_$(arg num)" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" required="true">
+      <remap from="/camera/image_raw" to="$(arg camera)" />
+      
       <!-- TODO maybe condense all this loading into another launch file somehow?
            w/ arg passthrough syntax maybe? -->
       <rosparam param="roi_points" subst_value="True" if="$(arg polygonal_roi)">
@@ -49,6 +51,10 @@
     
     # load parameters for, and show live tracking
     <node name="liveview_$(arg num)" pkg="multi_tracker" type="liveviewer.py" output="screen" if="$(arg viewer)"> 
+      <!-- considering making only one node in the pipeline directly subscribe to this topic... 
+           delta_video_simplebuffer or a crop / roi node -->
+      <remap from="/camera/image_raw" to="$(arg camera)" />
+
       <param name="roi_l" value="$(arg roi_l)" if="$(arg rectangular_roi)" />
       <param name="roi_r" value="$(arg roi_r)" if="$(arg rectangular_roi)" />
       <param name="roi_t" value="$(arg roi_t)" if="$(arg rectangular_roi)" />
@@ -68,7 +74,6 @@
     
     <node name="delta_video_$(arg num)" pkg="multi_tracker" type="delta_video_simplebuffer.py" output="screen" required="true">
       <!-- TODO how to not remap if default? or does it not matter? any performance cost (probably not)? -->
-      <!-- TODO TODO are any other nodes subscribing to this topic directly? -->
       <remap from="/camera/image_raw" to="$(arg camera)" />
 
       <rosparam param="roi_points" subst_value="True" if="$(arg polygonal_roi)">
