@@ -1,6 +1,8 @@
 <launch>
   <arg name="camera" default="/camera/image_raw" />
   <arg name="viewer" default="True" />
+
+  <rosparam command="load" file="debug_flags.yaml" />
   
   <rosparam command="load" file="roi_finder.yaml" />
   <include file="$(find multi_tracker)/launch/load_tracking_parameter_yamls.launch" />

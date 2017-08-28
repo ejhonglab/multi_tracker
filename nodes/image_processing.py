@@ -321,6 +321,11 @@ def dark_or_light_objects_only(self, color='dark'):
 
     if not self.image_mask is None:
         self.imgScaled = self.image_mask * self.imgScaled
+
+    if self.debug and self.pub_mask.get_num_connections() > 0:
+        c = cv2.cvtColor(np.uint8(self.image_mask), cv2.COLOR_GRAY2BGR)
+        img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
+        self.pub_mask.publish(img)
     
     # TODO do i want to return in both of these cases? might cause more discontinuity
     # than necessary
@@ -353,8 +358,7 @@ def dark_or_light_objects_only(self, color='dark'):
             self.backgroundImage = copy.copy(np.float32(np.median(self.medianbgimages, axis=0)))
             self.medianbgimages.pop(0)
             self.medianbgimages_times.pop(0)
-            # log
-            print 'reset background with median image'
+            rospy.loginfo('reset background with median image')
 
     # TODO put in init?
     try:

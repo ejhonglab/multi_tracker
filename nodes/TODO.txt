@@ -3,3 +3,10 @@ rename save_* to be more descriptive of which information they are saving
 make a node that just crops and masks roi (or at least masks) and republishes image?
 	-and then (at least optionally) delete the code that currently does that in
 	 all of tracker_..., delta_video_simplebuffer, and liveviewer
+
+fix (what appears to be) data association across rois!
+	-show what available image looks like in cognate image processor
+	 (should be masked)
+	 -> so cognate contour topic should only correspond to roi
+	 + cognate data associator should only be subscribing to this contour topic, right?
+

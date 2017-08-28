@@ -18,3 +18,4 @@ link to checkerboard or make a local copy.
 
 -make configuration files immutable once data acquisition is launched (in another node?)
     -maybe in metatools?
+

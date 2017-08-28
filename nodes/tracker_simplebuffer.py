@@ -174,6 +174,7 @@ class Tracker:
         # TODO launch from within a python script so i can actually conditionally open their
         # viewers (based on debug settings)?
         if self.debug:
+            self.pub_mask = rospy.Publisher('multi_tracker/0_mask' + suffix, Image, queue_size=5)
             self.pub_threshed = rospy.Publisher('multi_tracker/1_thresholded' + suffix, Image, queue_size=5)
             self.pub_denoised = rospy.Publisher('multi_tracker/2_denoised' + suffix, Image, queue_size=5)
             self.pub_dilated = rospy.Publisher('multi_tracker/3_dilated' + suffix, Image, queue_size=5)

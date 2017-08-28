@@ -44,9 +44,9 @@ class Trajectory(object):
     def __init__(self, objid):
         self.objid = objid
         self.positions = []
-        self.color = np.random.randint(0,255,3).tolist()
         self.covariances = []
-        self.popout = 0
+        self.color = np.random.randint(0,255,3).tolist()
+        self.popout = False
 
 def draw_trajectory(img, pts, color, thickness):
     for i in range(len(pts)-3):
@@ -57,31 +57,6 @@ def draw_trajectory(img, pts, color, thickness):
                 str(len(pts)) + 'i: ' + str(i))
 
 
-# taken from pyimagesearch blog
-def order_points_clockwise(points):
-    # initialize a list of coordinates that will be ordered
-    # such that the first entry in the list is the top-left,
-    # the second entry is the top-right, the third is the
-    # bottom-right, and the fourth is the bottom-left
-    rect = np.zeros((4, 2), dtype="float32")
- 
-    # the top-left point will have the smallest sum, whereas
-    # the bottom-right point will have the largest sum
-    s = pts.sum(axis=1)
-    rect[0] = pts[np.argmin(s)]
-    rect[2] = pts[np.argmax(s)]
- 
-    # now, compute the difference between the points, the
-    # top-right point will have the smallest difference,
-    # whereas the bottom-left will have the largest difference
-    diff = np.diff(pts, axis=1)
-    rect[1] = pts[np.argmin(diff)]
-    rect[3] = pts[np.argmax(diff)]
- 
-    # return the ordered coordinates
-    return rect
-
-            
 # The main tracking class, a ROS node
 class LiveViewer:
     def __init__(self):
@@ -90,8 +65,6 @@ class LiveViewer:
             Basler ace cameras with camera_aravis driver: camera/image_raw
             Pt Grey Firefly cameras with pt grey driver : camera/image_mono
         '''
-        # TODO fix old nodenum stuff, but derived from any enclosing namespace
-        # initialize the node
         rospy.init_node('liveviewer')
         
         # default parameters (parameter server overides them)
@@ -106,7 +79,7 @@ class LiveViewer:
                         '~circular_mask_x'           : None,
                         '~circular_mask_y'           : None,
                         '~circular_mask_r'           : None,
-                        '~roi_points'                : None,  # TODO implement
+                        '~roi_points'                : None,
                         '~detect_tracking_pipelines' : False # rename?
                         }
         
@@ -200,7 +173,8 @@ class LiveViewer:
         
 
     def start_subscribers(self, node_num):
-        rospy.Subscriber('multi_tracker/tracked_objects_' + str(node_num), Trackedobjectlist, self.tracked_object_callback)
+        self.tracked_trajectories[node_num] = dict()
+        rospy.Subscriber('multi_tracker/tracked_objects_' + str(node_num), Trackedobjectlist, lambda x: self.tracked_object_callback(node_num, x))
         rospy.Subscriber('multi_tracker/contours_' + str(node_num), Contourlist, self.contour_callback)
     
 
@@ -209,35 +183,43 @@ class LiveViewer:
         return 1
         
     
-    def tracked_object_callback(self, tracked_objects):
-        for trajec in self.tracked_trajectories.values():
-            trajec.popout = 1
+    def tracked_object_callback(self, node_num, tracked_objects):
+        for trajec in self.tracked_trajectories[node_num].values():
+            trajec.popout = True
     
+        # TODO is tracked_objects.tracked_objects correct? why?
         for tracked_object in tracked_objects.tracked_objects:
             if tracked_object.persistence > self.params['min_persistence_to_draw']:
                 # create new object
-                if tracked_object.objid not in self.tracked_trajectories.keys():
-                    self.tracked_trajectories[tracked_object.objid] = Trajectory(tracked_object.objid)
+                if tracked_object.objid not in self.tracked_trajectories[node_num].keys():
+                    self.tracked_trajectories[node_num][tracked_object.objid] = Trajectory(tracked_object.objid)
+                
                 # update tracked objects
                 # TODO why multiple covariances? how used?
-                self.tracked_trajectories[tracked_object.objid].covariances.append(tracked_object.covariance)
-                self.tracked_trajectories[tracked_object.objid].positions.append([tracked_object.position.x, tracked_object.position.y])
+                self.tracked_trajectories[node_num][tracked_object.objid]\
+                    .covariances.append(tracked_object.covariance)
+                self.tracked_trajectories[node_num][tracked_object.objid].positions.append(\
+                    [tracked_object.position.x, tracked_object.position.y])
                 
                 # if it is a young object, let it grow to max length
-                if len(self.tracked_trajectories[tracked_object.objid].positions) < self.params['max_frames_to_draw']:
-                    self.tracked_trajectories[tracked_object.objid].popout = 0
+                if len(self.tracked_trajectories[node_num][tracked_object.objid].positions) \
+                    < self.params['max_frames_to_draw']:
+                    
+                    self.tracked_trajectories[node_num][tracked_object.objid].popout = False
         
         # cull old objects
-        for objid, trajec in self.tracked_trajectories.items():
+        for objid, trajec in self.tracked_trajectories[node_num].items():
             if trajec.popout:
                 trajec.positions.pop(0)
                 trajec.covariances.pop(0)
                 if len(trajec.positions) <= 1:
-                    del(self.tracked_trajectories[objid])
+                    del(self.tracked_trajectories[node_num][objid])
 
+    
     def contour_callback(self, contours):
         self.contours = contours
 
+    
     def image_callback(self, rosimg):
         # Convert the image.
         try:
@@ -271,24 +253,12 @@ class LiveViewer:
                         int(r['circular_mask_r']), fill_color, -1) # need to cast? TODO
 
                 for r in self.polygonal_rois.values():
-                    hull = cv2.convexHull(np.array(r['roi_points'], dtype=np.int32))
-                    cv2.fillConvexPoly(self.image_mask, hull, fill_color)
+                    cv2.fillConvexPoly(self.image_mask, r, fill_color)
 
                 for r in self.rectangular_rois:
                     # TODO correct? shape?
                     self.image_mask[r['roi_b']:r['roi_t'], r['roi_l']:r['roi_r']] = fill_color
-
             self.imgScaled = self.image_mask*self.imgScaled
-        
-        # TODO handle in above
-        """
-        if self.params['circular_mask_x'] != None:
-            if self.image_mask is None:
-                self.image_mask = np.zeros_like(self.imgScaled)
-                cv2.circle(self.image_mask,(self.params['circular_mask_x'], self.params['circular_mask_y']),int(self.params['circular_mask_r']),[1,1,1],-1)
-
-        """
-            
         
         # Image for display
         if self.params['camera_encoding'] == 'mono8':
@@ -324,26 +294,27 @@ class LiveViewer:
                         0.65, (0,255,0), 2, cv2.LINE_AA)
         
         # Display the image | Draw the tracked trajectories
-        for objid, trajec in self.tracked_trajectories.items():
-            if len(trajec.positions) > 5:
-                draw_trajectory(self.imgOutput, trajec.positions, trajec.color, 2)
-                trajec_center = (int(trajec.positions[-1][0]), int(trajec.positions[-1][1]))
-                cv2.circle(self.imgOutput, trajec_center, int(trajec.covariances[-1]), \
-                    trajec.color, 2)
-                
-                if self.debug:
-                    offset_center = (int(trajec.positions[-1][0]) - 45, int(trajec.positions[-1][1]))
-                    cv2.putText(self.imgOutput, str(objid), offset_center, \
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, trajec.color, 2, cv2.LINE_AA)
-                '''
-                #if self.debug:
-                    # TODO display predictions in same color (x w/ dashed line?)
-                    # should i just display pos + velocity * (frame / prediction) interval?
-                    # or also something about weight it will have? which kalman parameter?
+        for pipeline_num in self.tracked_trajectories:
+            for objid, trajec in self.tracked_trajectories[pipeline_num].items():
+                if len(trajec.positions) > 5:
+                    draw_trajectory(self.imgOutput, trajec.positions, trajec.color, 2)
+                    trajec_center = (int(trajec.positions[-1][0]), int(trajec.positions[-1][1]))
+                    cv2.circle(self.imgOutput, trajec_center, int(trajec.covariances[-1]), \
+                        trajec.color, 2)
                     
-                    # TODO display (sorted? cost listed?) associations between trajectories 
-                    # and contours
-                '''
+                    if self.debug:
+                        offset_center = (int(trajec.positions[-1][0]) - 45, int(trajec.positions[-1][1]))
+                        cv2.putText(self.imgOutput, str(objid), offset_center, \
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.65, trajec.color, 2, cv2.LINE_AA)
+                    '''
+                    #if self.debug:
+                        # TODO display predictions in same color (x w/ dashed line?)
+                        # should i just display pos + velocity * (frame / prediction) interval?
+                        # or also something about weight it will have? which kalman parameter?
+                        
+                        # TODO display (sorted? cost listed?) associations between trajectories 
+                        # and contours
+                    '''
         cv2.imshow(self.window_name, self.imgOutput)
 
         if not self.window_initiated: # for some reason this approach works in opencv 3 instead of previous approach
@@ -385,7 +356,8 @@ class LiveViewer:
                 r[p] = get_fn(p)
         
         if 'roi_points' in param_names:
-            self.polygonal_rois[node_num] = r
+            hull = cv2.convexHull(np.array(r['roi_points'], dtype=np.int32))
+            self.polygonal_rois[node_num] = hull
         
         elif 'circular_mask_x' in param_names:
             self.circular_rois[node_num] = r
