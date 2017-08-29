@@ -8,16 +8,11 @@
 <!-- also sets source_directory parameter that snapshot_params uses to copy over any old params -->
 <node name="set_original_basename" pkg="multi_tracker" type="set_original_basename.py" />
 
-# TODO wrap the player so i dont need to explicitly specify bag file name (only one per directory)
-# see http://answers.ros.org/question/244960/shell-bash-used-in-a-roslaunchsolved/
-<node name="rosbag_player" pkg="multi_tracker" type="rosbag_play_wrapper.py" output="screen" args="--clock --pause --rate=2 --start=0" >
-  # TODO this won't currently play video recorded on multi_tracker/delta_video.
-  # fix so that it does. check for both? (the other being the original multi_tracker/1/delta_video)
-  # TODO TODO i think the reason i cant remap is because i start the rosbag play node in a 
-  # subprocess. solution?
-  <!--
-  <remap from="multi_tracker/delta_video" to="original_delta_video" />
-  -->
+# TODO this won't currently play video recorded on multi_tracker/delta_video.
+# fix so that it does. check for both? (the other being the original multi_tracker/1/delta_video)
+<node name="rosbag_player" pkg="multi_tracker" type="rosbag_play_wrapper.py" 
+ output="screen" args="--clock --pause --rate=2 --start=0" >
+  <param name="topic_out" value="original_delta_video" />
 </node>
 
 <!-- TODO TODO should multi_tracker/delta_video here be original_delta_video?? if not, why not? -->
@@ -25,8 +20,10 @@
 # TODO make camera/image_raw the default / changeable via remapping?
 # likewise with input topic? (this is what all the other nodes do)
 # in was previously original_delta_video, but couldn't remap after using wrapper. want to fix.
-<node name="delta_video_player" pkg="multi_tracker" type="delta_video_player.py" args="--in='multi_tracker/delta_video' --out='camera/image_raw'" required="true"/>
+<node name="delta_video_player" pkg="multi_tracker" type="delta_video_player.py" 
+ args="--in='original_delta_video' --out='camera/image_raw'" required="true"/>
 
-<node name="image_viewer" pkg="image_view" type="image_view" args="image:=camera/image_raw" if="$(arg viewer)"/>
+<node name="image_viewer" pkg="image_view" type="image_view" 
+ args="image:=camera/image_raw" if="$(arg viewer)"/>
 
 </launch>

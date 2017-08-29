@@ -1,6 +1,7 @@
 <launch>
   <arg name="camera" default="/camera/image_raw" />
   <arg name="viewer" default="True" />
+  <arg name="video_only" default="False" />
 
   <rosparam command="load" file="debug_flags.yaml" />
   
@@ -10,16 +11,22 @@
   <!-- TODO move / get rid of this one? -->
   <!-- maybe i want different basenames anyway? -->
   <node name="set_exp_basename" pkg="multi_tracker" type="set_basename.py" output="screen" />
-  
+    
+  <include file="$(find multi_tracker)/launch/save_delta_video.launch">
+    <arg name="wait_for_rois" value="True"/>
+    <arg name="camera" value="$(arg camera)"/>
+  </include>
+
   <!-- This will identify relevant ROIs and start instances of the single_tracking_pipeline.launch,
        with appropriate parameters. -->
   <node name="roi_finder" pkg="multi_tracker" type="roi_finder.py" output="screen" required="True">
     <remap from="/camera/image_raw" to="$(arg camera)" />
+    
+    <!-- TODO TODO implement -->
+    <param name="video_only" value="$(arg video_only)" type="bool" />
   </node>
   
-  <!-- TODO try to keep this compatible w/ old code + configs while having it autodetect
-       any trackers in this namespace -->
-  <node name="tracking_viewer" pkg="multi_tracker" type="liveviewer.py" output="screen" required="$(arg viewer)">
+  <node name="tracking_viewer" pkg="multi_tracker" type="liveviewer.py" output="screen" required="$(arg viewer)" unless="$(arg video_only)">
       <remap from="/camera/image_raw" to="$(arg camera)" />
       
       <param name="detect_tracking_pipelines" value="True" />

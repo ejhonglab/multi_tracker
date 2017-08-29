@@ -29,11 +29,14 @@ class RosbagPlayWrapper:
             
             self.bag_filename = os.path.abspath(os.path.expanduser(bags_in_path[0]))
 
+        self.topic_out = rospy.get_param('~topic_out', 'multi_tracker/delta_video')
+
         # reformat remaining args into a list to be passed to Popen
         dict_args = vars(args)
         args_dict = dict((('--' + k, v) for k, v in dict_args.items() if k != 'path' and not v is None))
         pairs_list = [[k, v] for k, v in args_dict.items() if not isinstance(v, bool)]
         flags_list = [k for k, v in args_dict.items() if isinstance(v, bool) and v]
+        # TODO this doesn't seem to be working... couldn't seem to remap w/ it
         self.passthrough_args = flags_list + [item for sublist in pairs_list for item in sublist]
         
         self.rosbag_process = None
@@ -45,7 +48,10 @@ class RosbagPlayWrapper:
         
     def play(self):
         rospy.loginfo('starting process to play bag file: %s' % (self.bag_filename))
-        cmdline = ['rosbag', 'play', self.bag_filename]
+        # remapping will only work assuming that topic is in the bag
+        # TODO appropriate check / error message if topic not in bag
+        # need to remap from global?
+        cmdline = ['rosbag', 'play', self.bag_filename, 'multi_tracker/delta_video:=' + self.topic_out]
         cmdline.extend(self.passthrough_args)
         self.rosbag_process = subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)
         # TODO just spin until Popen finishes? maybe make a blocking call?

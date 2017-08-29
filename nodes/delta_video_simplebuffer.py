@@ -7,14 +7,14 @@ import cv2
 import numpy as np
 import threading
 # TODO
-import dynamic_reconfigure.server
+#import dynamic_reconfigure.server
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float32, Header, String
 
 from multi_tracker.msg import Contourinfo, Contourlist, DeltaVid
 from multi_tracker.msg import Trackedobject, Trackedobjectlist
-from multi_tracker.srv import resetBackgroundService
+from multi_tracker.srv import resetBackgroundService, RegisterROIs
 
 import time
 import os
@@ -34,6 +34,9 @@ import matplotlib.pyplot as plt
 # rosrun pointgrey_camera_driver camera_node
 # default image: /camera/image_mono
 
+# TODO have everything masked when ~wait_for_rois is true
+# until rois are registered
+# TODO TODO show mask for debugging
 
 # The main tracking class, a ROS node
 class Compressor:
@@ -62,50 +65,23 @@ class Compressor:
                         '~circular_mask_x'           : None,
                         '~circular_mask_y'           : None,
                         '~circular_mask_r'           : None,
-                        '~roi_points'                : None
+                        '~roi_points'                : None,
+                        '~wait_for_rois' : False # TODO TODO implement
                         }
 
-        # TODO TODO parameter alternative between rois as private parameters for each node and 
-        # having delta_video_simplebuffer publishing a cropped / masked version?
-        # TODO TODO i guess i already broke backwards compatibility with Floris's configuration
-        # files by making these parameters private? way my version can work with Floris' original
-        # configuration files?
-
-        # possible solutions:
-        # -publish private params for rois to each of subs
-        # -public w/ pipeline num (pre/ap)pended?
-        
-        # reasons to not do either of the above: user shouldn't have to specify more than once
-        # because there is no reason for them to differ across steps in pipeline
-        # (except *maybe* viewer)
-
-        # -delta_video_simplebuffer.py publish image topic to downstream tracker node, which
-        #  would no longer subscribe to camera (nor need roi info)
-        #    -though may need to send offset to tracker to have tracker output globally 
-        #     correct coordinates?
-        #  argument for this approach is the work of computing ROI masks and blanking images
-        #  won't have to be done three times over.
-        
-        
         for parameter, default_value in self.params.items():
             # TODO shrink this try / except so it is just around
             # get_param (and so regular self.param[key] calls
             # could also be producing this error)?
             use_default = False
             try:
-                # TODO do i need all the pipelines in their own namespaces regardless, to avoid topic conflicts?
-                # seems like i do... (or remap all topic names or something, but this seems like what pushing down
-                # was made for...)
                 # this signifies private parameters
                 if parameter[0] == '~':
                     value = rospy.get_param(parameter)
-
                 else:
                     p = 'multi_tracker/delta_video/' + parameter
                     value = rospy.get_param(p)
 
-                # TODO maybe change back to 'none' so we can specify in yamls they dont exist, while not just commenting those lines out?
-                # or should i just comment the lines / not include them?
                 # assumes strings like 'none' floris used
                 # should not be overwriting defaults of None.
                 # may not always be true.
@@ -127,17 +103,41 @@ class Compressor:
             
             self.params[parameter] = value
 
-        # TODO why does rospy.Time.now() jump from 0 to ~149998...???
-        # this solution seems hacky and i wish i didn't have to do it...
-        # TODO also put in other nodes? utility func?
-        self.time_start = 0
-        while np.isclose(self.time_start, 0.0):
-            self.time_start = rospy.Time.now().to_sec()
+        self.clear_rois()
+
+        # TODO TODO share in utility module w/ liveviewer somehow
+        # should i allow both roi_* and wait_for_rois?
+        roi_params = ['circular_mask_x', 'circular_mask_y', 'circular_mask_r', 'roi_points']
+        if self.params['wait_for_rois']:
+            if any(map(lambda x: self.params[x] != None, roi_params)):
+                rospy.logfatal('liveviewer: roi parameters other than rectangular roi_[l/r/b/t] ' + \
+                    'are not supported when wait_for_rois is set to True')
+
+        # add single rois defined in params to instance variables for consistency later
+        # roi_* are still handled differently, and can be set alongside tracker roi_*'s
+        # which are now private (node specific) parameters
+        else:
+            # TODO should i write this to allow for saving each
+            # roi in a separate bag? i'm leaning towards no,
+            # because i'm not seeing what use cases would benefit
+            # from that...
+            n = rospy.get_name()
+            try:
+                node_num = int(n.split('_')[-1])
+            except ValueError:
+                node_num = 1
+            
+            circle_param_names = ['circular_mask_x', 'circular_mask_y', 'circular_mask_r'] 
+            self.add_roi(node_num, circle_param_names)
+
+            poly_param_names = ['roi_points']
+            self.add_roi(node_num, poly_param_names)
         
         self.save_data = rospy.get_param('multi_tracker/delta_video/save_data', True)
         if not self.save_data:
             rospy.logwarn('delta_video not saving data! multi_tracker/delta_video/save_data was False')
         
+        # TODO warn if using default here?
         self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
 
         self.debug = rospy.get_param('multi_tracker/delta_video/debug', False)
@@ -203,16 +203,66 @@ class Compressor:
         
         # Subscriptions - subscribe to images, and tracked objects
         self.image_mask = None 
-        sizeImage = 128+1024*1024*3 # Size of header + data.
-        self.subImage = rospy.Subscriber(self.params['image_topic'], Image, self.image_callback, queue_size=5, buff_size=2*sizeImage, tcp_nodelay=True)
+        if not self.params['wait_for_rois']:
+            sizeImage = 128+1024*1024*3 # Size of header + data.
+            self.subImage = rospy.Subscriber(self.params['image_topic'], Image, self.image_callback, queue_size=5, buff_size=2*sizeImage, tcp_nodelay=True)
+        
+        s = rospy.Service('register_rois', RegisterROIs, self.register_rois)
+        # TODO does this need a rospy.spin / spinOnce to work?
+
+
+    def clear_rois(self):
+        """
+        Does not clear mask.
+        """
+        self.have_rois = False
+        self.circular_rois = dict()
+        self.polygonal_rois = dict()
+        self.rectangular_rois = dict()
+
+
+    # make less convoluted
+    def add_roi(self, node_num, param_names):
+        r = dict()
+        have_params = list(map(lambda x: self.params[x] != None, param_names))
+        #rospy.logwarn(have_params)
+        if any(have_params):
+            if all(have_params):
+                for p in param_names:
+                    #rospy.logwarn(p)
+                    #rospy.logwarn(self.params[p])
+                    r[p] = self.params[p]
+            else:
+                rospy.logfatal('liveviewer: incomplete definition of roi type. ' + \
+                    'need all of : ' + str(param_names))
+
+        else:
+            return
+
+        #rospy.logwarn(param_names)
+        #rospy.logwarn(r)
+        
+        if 'roi_points' in param_names:
+            hull = cv2.convexHull(np.array(r['roi_points'], dtype=np.int32))
+            self.polygonal_rois[node_num] = hull
+        
+        elif 'circular_mask_x' in param_names:
+            self.circular_rois[node_num] = r
+
+        elif 'roi_l' in param_names:
+            self.rectangular_rois[node_num] = r
+    
 
     def reset_background(self, service_call):
         self.reset_background_flag = True
+        # TODO remove?
         return 1
-        
+   
+     
     def image_callback(self, rosimg):
         with self.lockBuffer:
             self.image_buffer.append(rosimg)
+
 
     def process_image_buffer(self, rosimg):
         if self.framestamp is not None:
@@ -236,22 +286,22 @@ class Compressor:
         self.shapeImage = self.imgScaled.shape # (height,width)
         
         # define a self var in init that dictates whether we should mask?
-        if self.image_mask is None:
-            fill_color = [1,1,1]
-            if not self.params['circular_mask_x'] is None:
+        if self.have_rois:
+            if self.image_mask is None:
                 self.image_mask = np.zeros_like(self.imgScaled)
-                # TODO i don't need the int cast do i?
-                cv2.circle(self.image_mask, (self.params['circular_mask_x'], self.params['circular_mask_y']), int(self.params['circular_mask_r']), fill_color, -1)
+                fill_color = [1,1,1]
+                
+                for r in self.circular_rois.values():
+                    cv2.circle(self.image_mask, (r['circular_mask_x'], r['circular_mask_y']), \
+                        int(r['circular_mask_r']), fill_color, -1) # need to cast? TODO
 
-            # TODO test!
-            elif not self.params['roi_points'] is None:
-                rospy.logwarn('filling hull in delta_video_simplebuffer!')
-                self.image_mask = np.zeros_like(self.imgScaled)
-                hull = cv2.convexHull(np.array(self.params['roi_points'], dtype=np.int32))
-                cv2.fillConvexPoly(self.image_mask, hull, fill_color) # , -1)
+                for r in self.polygonal_rois.values():
+                    cv2.fillConvexPoly(self.image_mask, r, fill_color)
 
-        if not self.image_mask is None:
-            self.imgScaled = self.image_mask * self.imgScaled
+                for r in self.rectangular_rois:
+                    # TODO correct? shape?
+                    self.image_mask[r['roi_b']:r['roi_t'], r['roi_l']:r['roi_r']] = fill_color
+            self.imgScaled = self.image_mask*self.imgScaled
 
         def background_png_name():
             if self.use_original_timestamp:
@@ -352,29 +402,73 @@ class Compressor:
                 '(' + str(self.params['max_change_in_frame']) + ')')
             self.reset_background_flag = True
             
-     
-    def Main(self):
+    
+    def register_rois(self, req):
+        """
+        """
+        # as of 2017-Aug, only one of lists will be non-empty.
+        for i, r in enumerate(req.rectangular_rois):
+            roi_dict = dict()
+            roi_dict['roi_t'] = r.t
+            roi_dict['roi_b'] = r.b
+            roi_dict['roi_l'] = r.l
+            roi_dict['roi_r'] = r.r
+            self.rectangular_rois[i] = roi_dict
+        
+        for i, r in enumerate(req.polygonal_rois):
+            points = []
+            for p in r.points:
+                points.append([p.x, p.y])
+            hull = cv2.convexHull(np.array(points, dtype=np.int32))
+            self.polygonal_rois[i] = hull
+        
+        for i, r in enumerate(req.circular_rois):
+            roi_dict = dict()
+            roi_dict['circular_mask_x'] = r.x
+            roi_dict['circular_mask_y'] = r.y
+            roi_dict['circular_mask_r'] = r.r
+            self.circular_rois[i] = roi_dict
+        self.have_rois = True
+        sizeImage = 128+1024*1024*3 # Size of header + data.
+        self.subImage = rospy.Subscriber(self.params['image_topic'], Image, self.image_callback, queue_size=5, buff_size=2*sizeImage, tcp_nodelay=True)
+        # this seems to be what ros expects for return
+        # when service does not specify a return type
+        return []
+    
+    
+    def main(self):
+        if self.params['wait_for_rois']:
+            rate = rospy.Rate(5) # Hz:
+            while not rospy.is_shutdown():
+                if self.have_rois:
+                    break
+                rate.sleep()
+        
+        # TODO why does rospy.Time.now() jump from 0 to ~149998...???
+        # this solution seems hacky and i wish i didn't have to do it...
+        # TODO also put in other nodes? utility func?
+        # also handle shutdown here?
+        self.time_start = 0
+        while np.isclose(self.time_start, 0.0):
+            self.time_start = rospy.Time.now().to_sec()
+        
         while not rospy.is_shutdown():
+            # TODO reset time_start when each new roi is added?
             t = rospy.Time.now().to_sec() - self.time_start
             if t > self.record_length_seconds:
-                cv2.destroyAllWindows()
                 return
             
             with self.lockBuffer:
                 time_now = rospy.Time.now()
                 if len(self.image_buffer) > 0:
                     self.process_image_buffer(self.image_buffer.pop(0))
-                
                 if len(self.image_buffer) > 3:
                     pt = (rospy.Time.now() - time_now).to_sec()
                     rospy.logwarn("Delta video processing time exceeds acquisition rate. " + \
                         "Processing time: %f, Buffer: %d", pt, len(self.image_buffer))
-            
-        # TODO why here?
-        cv2.destroyAllWindows()
 
 #####################################################################################################
     
 if __name__ == '__main__':
     compressor = Compressor()
-    compressor.Main()
+    compressor.main()

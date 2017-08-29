@@ -28,16 +28,6 @@ class SaveBag:
         # which will cause this to not save anything, because no topics will have
         # this random number appended to them upstream of this node...
         
-        try:
-            self.pipeline_num = int(last_name_component)
-            remap_topics = True
-        except ValueError:
-            remap_topics = False
-        
-        if remap_topics:
-            # maybe needs to be converted to list for later extend call
-            self.topics = map(lambda x: x + '_' + str(self.pipeline_num), self.topics)
-
         # TODO delete me
         rospy.logwarn('topics being saved in node ' + rospy.get_name() + ': ' + str(self.topics))
         
@@ -52,7 +42,7 @@ class SaveBag:
             self.experiment_basename = time.strftime('%Y%m%d_%H%M%S', time.localtime())
             generated_basename = True
 
-        filename = self.experiment_basename + '_N' + str(self.pipeline_num) + '_delta_video.bag'
+        filename = self.experiment_basename + '_delta_video.bag'
         if rospy.get_param('multi_tracker/explicit_directories', False):
             directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
         else:

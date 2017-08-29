@@ -6,8 +6,9 @@ import rospkg
 # latest versions of ROS (from source, particularly) should have a method in here for
 # getting topic names, so we wouldn't need to use rosgraph
 # import rostopic
-from rosgraph.masterapi import Master
 from sensor_msgs.msg import Image
+from multi_tracker.msg import Point2D, PolygonalROI, RectangularROI, CircularROI
+from multi_tracker.srv import RegisterROIs
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import os
@@ -15,16 +16,7 @@ from subprocess import Popen
 import Queue
 # import dynamic_reconfigure.server
 
-"""
-params:
--types of rois to look for (approx size too?)
--thresholding (?) (alternatives?)
--dilation beyond detected ROI
--x,y offsets from detected ROI
--throwaway_n_frames
-"""
 
-# TODO hopefully shutting this node wont kill stuff launched with it?
 # TODO break out ROI definitions from core tracking launch file, and make another tracking
 # launch file that includes the core + ROI defs, the core which will be called here separately
 # TODO dynamic reconfigure and display ROIs that will be selected with button to lock them in
@@ -32,6 +24,13 @@ params:
 
 class RoiFinder:
     def __init__(self):
+        # TODO what happens if init_node is called after / before defining subscribers 
+        # and publishers and stuff? what all does it do?
+        # (examples have subscribers after and pub before)
+
+        # start node
+        rospy.init_node('roi_finder')
+
         # TODO maybe have this launch file do something that won't be changed
         # (launch core tracking nodes without setting parameters?)
         # so I can keep it in a central location?
@@ -49,6 +48,9 @@ class RoiFinder:
         node_namespace = 'roi_finder/'
         self.roi_type = rospy.get_param(node_namespace + 'roi_type', 'rectangles')
 
+        # will not launch any tracking pipelines if this is True
+        # but will still register the rois with the delta video node
+        self.video_only = rospy.get_param('~video_only', False)
         # TODO populate automatically from those with a launch pipeline and
         # a automatic / manual roi selection function depending on current function
         # TODO factor this kind of check into validator node?
@@ -66,19 +68,12 @@ class RoiFinder:
 
         self.bridge = CvBridge()
 
-        # TODO what happens if init_node is called after / before defining subscribers 
-        # and publishers and stuff? what all does it do?
-        # (examples have subscribers after and pub before)
-
-        # start node
-        rospy.init_node('roi_finder')
-
         self.camera = 'camera/image_raw'
         queue_size = 10
         # TODO determine automatically
         size_image = 128 + 1920 * 1080 * 3
         # TODO should the buff_size not be queue_size * size_image?
-        buff_size = 2*size_image
+        buff_size = 2 * size_image
 
         if automatic_roi_detection:
             rospy.Subscriber(self.camera, Image, self.detect_roi_callback, \
@@ -398,7 +393,42 @@ class RoiFinder:
         #self.launch_tracking_pipelines(rois)
 
 
-    # TODO are the threads of callbacks really different though?
+    def register_rois(self, rois):
+        rospy.wait_for_service('register_rois')
+        try:
+            register = rospy.ServiceProxy('register_rois', RegisterROIs)
+            l = []
+            if self.roi_type == 'rectangle':
+                raise NotImplementedError
+                for r in rois:
+                    rect = RectangularROI()
+                    '''
+                    rect.t = 
+                    rect.b = 
+                    rect.l = 
+                    rect.r = 
+                    '''
+                    l.append(rect)
+                register(l, [], [])
+                    
+            elif self.roi_type == 'circle':
+                raise NotImplementedError
+                register([], [], l)
+            
+            elif self.roi_type == 'polygon':
+                for r in rois:
+                    poly = []
+                    for p in r:
+                        poly.append(Point2D(p[0], p[1]))
+                    l.append(PolygonalROI(poly))
+                register([], l, [])
+            
+            elif self.roi_type == 'mask':
+                raise NotImplementedError('mask not supported w/ register_rois')
+        except rospy.ServiceException as exc:
+            rospy.logfatal('service did not process request: ' + str(exc))
+
+
     def main(self):
         """
         Checks for launch requests and executes them.
@@ -407,7 +437,10 @@ class RoiFinder:
         while not rospy.is_shutdown():
             if not self.launch_queue.empty():
                 rois = self.launch_queue.get()
-                self.launch_tracking_pipelines(rois)
+                if not self.video_only:
+                    self.launch_tracking_pipelines(rois)
+                # tries to send ROIs (to delta_video node)
+                self.register_rois(rois)
 
             if self.manual_selection_done:
                 self.manual_sub.unregister()

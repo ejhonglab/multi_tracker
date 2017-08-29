@@ -54,6 +54,10 @@ add_message_files(
     Trackedobject.msg
     Trackedobjectlist.msg
     DeltaVid.msg
+    Point2D.msg
+    RectangularROI.msg
+    PolygonalROI.msg
+    CircularROI.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -61,8 +65,7 @@ add_service_files(
    FILES
    resetBackgroundService.srv
    addImageToBackgroundService.srv
-#   Service1.srv
-#   Service2.srv
+   RegisterROIs.srv
 )
 
 ## Generate actions in the 'action' folder

@@ -155,7 +155,6 @@ class LiveViewer:
         self.tracked_trajectories = {}
         self.contours = None
         self.window_initiated = False
-        self.have_rois = False
         self.image_mask = None 
         
         # Subscriptions - subscribe to images, and tracked objects
@@ -242,9 +241,7 @@ class LiveViewer:
         # make a mask that is a union of all of the ROIs we are tracking
         # if we have any rois
         if self.have_rois:
-            #rospy.loginfo('have_rois')
             if self.image_mask is None:
-                #rospy.loginfo('image_mask is None')
                 self.image_mask = np.zeros_like(self.imgScaled)
                 fill_color = [1,1,1]
                 
@@ -350,6 +347,11 @@ class LiveViewer:
                 else:
                     rospy.logfatal('liveviewer: incomplete definition of roi type. ' + \
                         'need all of : ' + str(param_names))
+            else:
+                # TODO why was this causing problems in delta_video but not here?
+                # is this correct? (i think so)
+                return
+            
         else:
             # TODO lead to same error either way...
             for p in param_names:
@@ -370,6 +372,7 @@ class LiveViewer:
         """
         Does not clear mask.
         """
+        self.have_rois = False
         self.circular_rois = dict()
         self.polygonal_rois = dict()
         self.rectangular_rois = dict()

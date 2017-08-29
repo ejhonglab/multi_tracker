@@ -1,0 +1,4 @@
+RectangularROI[] rectangular_rois
+PolygonalROI[] polygonal_rois
+CircularROI[] circular_rois
+---
