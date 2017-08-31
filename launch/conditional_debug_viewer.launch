@@ -1,16 +1,14 @@
 <launch>
-
-<node name="threshold_view" pkg="image_view" type="image_view" output="screen">
-    <remap from="image" to="multi_tracker/1_thresholded" />
-</node>
-<node name="denoised_view" pkg="image_view" type="image_view" output="screen">
-    <remap from="image" to="multi_tracker/2_denoised" />
-</node>
-<node name="dilated_view" pkg="image_view" type="image_view" output="screen">
-    <remap from="image" to="multi_tracker/3_dilated" />
-</node>
-<node name="eroded_view" pkg="image_view" type="image_view" output="screen">
-    <remap from="image" to="multi_tracker/4_eroded" />
-</node>
-
+  <node name="threshold_view" pkg="image_view" type="image_view" output="screen">
+      <remap from="image" to="multi_tracker/1_thresholded" />
+  </node>
+  <node name="denoised_view" pkg="image_view" type="image_view" output="screen">
+      <remap from="image" to="multi_tracker/2_denoised" />
+  </node>
+  <node name="dilated_view" pkg="image_view" type="image_view" output="screen">
+      <remap from="image" to="multi_tracker/3_dilated" />
+  </node>
+  <node name="eroded_view" pkg="image_view" type="image_view" output="screen">
+      <remap from="image" to="multi_tracker/4_eroded" />
+  </node>
 </launch>

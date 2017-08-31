@@ -114,6 +114,7 @@ class LiveViewer:
                 parameter = parameter[1:]
             self.params[parameter] = value
 
+        self.tracked_trajectories = {}
         self.clear_rois()
 
         # should i allow both roi_* and detect_tracking_pipelines?
@@ -152,7 +153,6 @@ class LiveViewer:
         # initialize display
         self.window_name = 'liveviewer'
         self.cvbridge = CvBridge()
-        self.tracked_trajectories = {}
         self.contours = None
         self.window_initiated = False
         self.image_mask = None 

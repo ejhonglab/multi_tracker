@@ -1,0 +1,20 @@
+
+# used with a Blackfly BFLY-U3-23S6M w/ USB 3.0
+# see http://wiki.ros.org/pointgrey_camera_driver
+# https://github.com/ros-drivers/pointgrey_camera_driver/blob/master/pointgrey_camera_driver/cfg/PointGrey.cfg
+# https://www.ptgrey.com/support/downloads/10264/
+# for available parameters
+
+# (this is also the default)
+video_mode: 'format7_mode0'
+
+# lowercase?
+# Mode0 is standard internal triggering w/ global shutter
+trigger_mode: 'Mode0'
+
+# this camera can go up to 41.0 fps (at 1920x1200)
+frame_rate: 15.0
+
+# auto_shutter and auto_gain seem to be True by default
+# otherwise set with shutter_speed and gain
+

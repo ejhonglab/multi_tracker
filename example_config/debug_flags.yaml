@@ -1,4 +1,4 @@
-multi_tracker/tracker/debug: True
-multi_tracker/data_association/debug: True
-multi_tracker/liveviewer/debug: True
-multi_tracker/delta_video/debug: True
+multi_tracker/tracker/debug: False
+multi_tracker/data_association/debug: False
+multi_tracker/liveviewer/debug: False
+multi_tracker/delta_video/debug: False

@@ -36,6 +36,7 @@ class DataAssociator(object):
                     kalman_parameter_py_file)
                 print 'Kalman py file: ', kalman_parameter_py_file
             else:
+	        # TODO make one long string so error is all printed
                 raise IOError(kalman_parameter_py_file + ' not found. Try launching tracking' + \
                     ' from a directory with all required configuration files with ROS_HOME=`pwd`' + \
                     ', or set the multi_tracker/explicit_directories parameter in ' + \

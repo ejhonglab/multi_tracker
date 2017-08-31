@@ -19,3 +19,5 @@ link to checkerboard or make a local copy.
 -make configuration files immutable once data acquisition is launched (in another node?)
     -maybe in metatools?
 
+-should crash if no configs (or at least warn heavily)
+-should crash if no disk space

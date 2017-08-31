@@ -1,0 +1,19 @@
+<launch>
+  <!-- can't figure out how to only pass this if it is set
+       maybe passthrough thing?
+  <arg name="serial" default="" />
+  -->
+  <arg name="camera" default="/image_raw" />
+  <arg name="video_only" default="False" />
+  
+  <include file="$(find multi_tracker)/launch/pointgrey_cam.launch">
+    <!--
+    <arg name="serial" value="$(arg serial)" />
+    -->
+  </include>
+  
+  <include file="$(find multi_tracker)/launch/tracking.launch">
+    <arg name="camera" value="$(arg camera)" />
+    <arg name="video_only" value="$(arg video_only)" />
+  </include>
+</launch>
