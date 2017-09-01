@@ -312,6 +312,9 @@ class LiveViewer:
                         # TODO display (sorted? cost listed?) associations between trajectories 
                         # and contours
                     '''
+
+        # to show images bigger than the screen resolution
+        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         cv2.imshow(self.window_name, self.imgOutput)
 
         if not self.window_initiated: # for some reason this approach works in opencv 3 instead of previous approach
