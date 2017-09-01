@@ -1,14 +1,15 @@
 <launch>
+  <arg name="camera" default="camera" />
   <!-- TODO how to only set if have?
   <arg name="serial" default="" />
   -->
-  
   <!-- test that these are recognized by camera -->
-  <rosparam command="load" file="pointgrey_blackfly.yaml" />
   
-  <node name="camera" pkg="pointgrey_camera_driver" type="camera_node" required="true">
+  <node name="$(arg camera)" pkg="pointgrey_camera_driver" type="camera_node" required="true">
+    <rosparam command="load" file="pointgrey_blackfly.yaml" />
     <!--
     <remap from="camera_serial" to="$(arg serial)" />
     -->
   </node>
+  
 </launch>
