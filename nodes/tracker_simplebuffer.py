@@ -55,10 +55,10 @@ class Tracker:
                         'max_size'                  : 200,
                         'max_expected_area'         : 500,
                         'liveview'                  : False, # TODO what does this do? remove?
-                        '~roi_l'                     : 0, # see notes in delta_video_simplebuffer
-                        '~roi_r'                     : -1,
-                        '~roi_b'                     : 0,
-                        '~roi_t'                     : -1,
+                        'roi_l'                     : 0, # see notes in delta_video_simplebuffer
+                        'roi_r'                     : -1,
+                        'roi_b'                     : 0,
+                        'roi_t'                     : -1,
                         '~circular_mask_x'           : None,
                         '~circular_mask_y'           : None,
                         '~circular_mask_r'           : None,

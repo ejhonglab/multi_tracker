@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 from __future__ import division
 import rospy
 import rosparam
@@ -58,10 +59,10 @@ class Compressor:
                         'threshold'         : 10,
                         'camera_encoding'   : 'mono8', # fireflies are bgr8, basler gige cams are mono8
                         'max_change_in_frame'       : 0.2,
-                        '~roi_l'                     : 0,
-                        '~roi_r'                     : -1,
-                        '~roi_b'                     : 0,
-                        '~roi_t'                     : -1,
+                        'roi_l'                     : 0,
+                        'roi_r'                     : -1,
+                        'roi_b'                     : 0,
+                        'roi_t'                     : -1,
                         '~circular_mask_x'           : None,
                         '~circular_mask_y'           : None,
                         '~circular_mask_r'           : None,
@@ -254,6 +255,7 @@ class Compressor:
     
 
     def reset_background(self, service_call):
+        rospy.logwarn('delta video service for resetting background was invoked')
         self.reset_background_flag = True
         # TODO remove?
         return 1
@@ -278,8 +280,8 @@ class Compressor:
         try:
             img = self.cvbridge.imgmsg_to_cv2(rosimg, 'passthrough') # might need to change to bgr for color cameras
         except CvBridgeError, e:
-            rospy.logwarn ('Exception converting background image from ROS to opencv:  %s' % e)
-            img = np.zeros((320,240))
+            # TODO just make this fatal?
+            rospy.logerr('Exception converting background image from ROS to opencv:  %s' % e)
 
         # TODO i guess i could see a case for this not being mutually exclusive w/ the circular mask?
         self.imgScaled = img[self.params['roi_b']:self.params['roi_t'], self.params['roi_l']:self.params['roi_r']]
@@ -304,13 +306,15 @@ class Compressor:
             self.imgScaled = self.image_mask*self.imgScaled
 
         def background_png_name():
+            # TODO also check we are using sim_time
             if self.use_original_timestamp:
+                # TODO make sure everything that loads these doesn't break w/ addition of seconds
                 background_img_filename = self.experiment_basename + \
-                    time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M_N' + str(self.pipeline_num) + \
+                    time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%S_N' + str(self.pipeline_num) + \
                     '.png', time.localtime(rospy.Time.now().to_sec()))
             else:
                 background_img_filename = self.experiment_basename + \
-                    time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M_N' + str(self.pipeline_num) + \
+                    time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%S_N' + str(self.pipeline_num) + \
                     '.png', time.localtime())
 
             if self.explicit_directories:
@@ -346,17 +350,24 @@ class Compressor:
             self.current_background_img += 1
             return
 
+        # TODO TODO include a thread lock on reset bg flag + lock when writing?
         # TODO will this be true by default? if so, is it always saving two images?
         # maybe get rid of the above?
         if self.reset_background_flag:
+            self.reset_background_flag = False
+            #rospy.loginfo('resetting background')
+            # put behind debug flag
+            #assert not np.allclose(self.backgroundImage, self.imgScaled)
             self.backgroundImage = copy.copy(self.imgScaled)
             self.background_img_filename = background_png_name()
             
             if self.save_data:
+                #rospy.loginfo('writing to ' + self.background_img_filename)
+                # TODO also check for success as above
+                # refactor into function
                 cv2.imwrite(self.background_img_filename, self.backgroundImage)
             
             self.current_background_img += 1
-            self.reset_background_flag = False
             return
 
         # calculate the difference from the background
@@ -374,6 +385,7 @@ class Compressor:
         header  = Header(stamp=self.framestamp,frame_id=str(self.framenumber))
         delta_msg.header = header
         delta_msg.background_image = self.background_img_filename
+        
         if len(changed_pixels[0]) > 0:
             delta_msg.xpixels = changed_pixels[0].tolist()
             delta_msg.ypixels = changed_pixels[1].tolist()
@@ -396,7 +408,7 @@ class Compressor:
         changed_fraction = len(changed_pixels[0]) / (self.diff.shape[0] * self.diff.shape[1])
 
         # TODO TODO this was printed several times but no new png. what gives? flag ever effecting?
-        if changed_fraction > self.params['max_change_in_frame']:
+        if not self.reset_background_flag and changed_fraction > self.params['max_change_in_frame']:
             rospy.logwarn(os.path.split(__file__)[-1] + ': resetting background image for # ' + \
                 'changed fraction of pixels (' + str(changed_fraction) + ') > max_change_in_frame '+\
                 '(' + str(self.params['max_change_in_frame']) + ')')
