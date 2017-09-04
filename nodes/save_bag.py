@@ -94,7 +94,10 @@ class SaveBag:
         while not rospy.is_shutdown():
             t = rospy.Time.now().to_sec() - self.time_start
             if t > self.record_length_seconds:
+                # TODO maybe now i should check that process
+                # is killed there?
                 self.stop_recording()      
+                break
         
 
 if __name__ == '__main__':
