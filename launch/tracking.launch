@@ -1,6 +1,8 @@
 <launch>
   <arg name="camera" default="/camera/image_raw" />
   <arg name="video_only" default="False" />
+  <arg name="tracking_only" default="False" />
+  <arg name="viewer" default="True" />
 
   <!-- TODO only load d.v. in here if video only? or break into
        something that loads delta_video and save_bag nodes? + set_basename? + snapshot_params? -->
@@ -12,12 +14,13 @@
   <!-- TODO equivalent of required, but just for process to finish cleanly? -->
   <node name="snapshot_params" pkg="multi_tracker" type="snapshot_params.py" output="screen" />
   
-  <include file="$(find multi_tracker)/launch/save_delta_video.launch">
+  <include file="$(find multi_tracker)/launch/save_delta_video.launch" unless="$(arg tracking_only)">
     <arg name="camera" value="$(arg camera)" />
   </include>
 
   <!-- may later want to use pass_all_args argument -->
   <include file="$(find multi_tracker)/launch/single_tracking_pipeline.launch" unless="$(arg video_only)">
     <arg name="camera" value="$(arg camera)" />
+    <arg name="viewer" value="$(arg viewer)" />
   </include>
 </launch>

@@ -1,5 +1,8 @@
 <launch>
 
+<arg name="rate" default="1.0" />
+<arg name="start" default="0.0" />
+
 <arg name="viewer" default="false" />
 
 <param name="use_sim_time" type="bool" value="true" />
@@ -11,7 +14,8 @@
 # TODO this won't currently play video recorded on multi_tracker/delta_video.
 # fix so that it does. check for both? (the other being the original multi_tracker/1/delta_video)
 <node name="rosbag_player" pkg="multi_tracker" type="rosbag_play_wrapper.py" 
- output="screen" args="--clock --pause --rate=2 --start=0" >
+ output="screen" args="--clock --pause --rate=$(arg rate) --start=$(arg start)" >
+  <param name="topic_in" value="/multi_tracker/1/delta_video" />
   <param name="topic_out" value="original_delta_video" />
 </node>
 

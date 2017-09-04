@@ -67,16 +67,14 @@ class DataAssociator(object):
         last_name_component = node_name.split('_')[-1]
         try:
             self.pipeline_num = int(last_name_component)
-            remap_topics = True
         except ValueError:
-            remap_topics = False
+            # TODO check this doesn't cause problems
+            self.pipeline_num = 1
 
         tracked_object_topic = 'multi_tracker/tracked_objects'
         contour_topic = 'multi_tracker/contours'
-        
-        if remap_topics:
-            tracked_object_topic = tracked_object_topic + '_' + str(self.pipeline_num)
-            contour_topic = contour_topic + '_' + str(self.pipeline_num)
+        tracked_object_topic = tracked_object_topic + '_' + str(self.pipeline_num)
+        contour_topic = contour_topic + '_' + str(self.pipeline_num)
         
         # Publishers.
         self.pubTrackedObjects = rospy.Publisher(tracked_object_topic, Trackedobjectlist, queue_size=300)
@@ -183,8 +181,8 @@ class DataAssociator(object):
             if objid not in objects_accounted_for:
                 if c not in contours_accounted_for:
                     if self.debug:
-                        print 'assigning c=' + str(c) + ' to o=' + str(objid) + \
-                            ' w/ cost=' + str(data[2])
+                        rospy.loginfo('assigning c=' + str(c) + ' to o=' + str(objid) + \
+                            ' w/ cost=' + str(data[2]))
                     
                     objects2contours[objid] = c
                     objects_accounted_for.add(objid)
@@ -214,17 +212,18 @@ class DataAssociator(object):
 
     def contour_identifier(self, contourlist):
         if self.debug:
-            print 'starting contour_identifier'
-            print 'contours from', contourlist.header.stamp
+            # TODO use logdebug actually
+            rospy.loginfo('starting contour_identifier')
+            rospy.loginfo('contours from ' + str(contourlist.header.stamp))
         # keep track of which new objects have been "taken"
         update_dict = {}
 
         def update_tracked_object(tracked_object, measurement, contourlist):
             if self.debug:
-                print 'updating objid', tracked_object['objid']
+                rospy.loginfo('updating objid ' + str(tracked_object['objid']))
             if measurement is None:
                 if self.debug:
-                    print 'measurement is none'
+                    rospy.loginfo('measurement is none')
                 m = np.matrix([np.nan for i in range( tracked_object['measurement'].shape[0] ) ]).T
                 xhat, P, K = tracked_object['kalmanfilter'].update( None ) # run kalman filter
             else:
@@ -304,6 +303,7 @@ class DataAssociator(object):
                     do_assignment = True
                 
                 if self.debug:
+                    # TODO logdebug
                     if objects_rejected == len(mask):
                         print 'rejected all matches that might have been made to contour', c, \
                             'because of covariances'
@@ -466,7 +466,7 @@ class DataAssociator(object):
         header = Header(stamp=t)
         self.pubTrackedObjects.publish( Trackedobjectlist(header=header, tracked_objects=object_info_to_publish) )
         if self.debug:
-            print('finishing contour_identifier\n\n')
+            rospy.loginfo('finishing contour_identifier\n\n')
 
     def main(self):
         while not rospy.is_shutdown():

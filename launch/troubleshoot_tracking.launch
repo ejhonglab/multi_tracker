@@ -24,6 +24,21 @@
 <rosparam command="load" file="delta_video_parameters.yaml"/>
 <node name="delta_video" pkg="multi_tracker" type="delta_video_simplebuffer.py" output="screen" />
 
+<node name="one" pkg="image_view" type="image_view">
+  <remap from="image" to="multi_tracker/1_thresholded" />
+</node>
+<node name="two" pkg="image_view" type="image_view">
+  <remap from="image" to="multi_tracker/2_denoised" />
+</node>
+<node name="three" pkg="image_view" type="image_view">
+  <remap from="image" to="multi_tracker/3_dilated" />
+</node>
+<node name="four" pkg="image_view" type="image_view">
+  <remap from="image" to="multi_tracker/4_eroded" />
+</node>
+
+<!--
 <node name="conditional_debug_viewer" pkg="multi_tracker" type="conditional_debug_viewer.py" output="screen" />
+-->
 
 </launch>
