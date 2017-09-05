@@ -645,8 +645,11 @@ class QTrajectory(TemplateBaseClass):
         if self.load_original:
             self.original_pd = mta.read_hdf5_file_to_pandas.load_data_as_pandas_dataframe_from_hdf5_file(self.data_filename)
         print 'loading data'
-        self.pd, self.config = mta.read_hdf5_file_to_pandas.load_and_preprocess_data(self.data_filename)
-        self.path = self.config.path
+        #self.pd, self.config = mta.read_hdf5_file_to_pandas.load_and_preprocess_data(self.data_filename)
+        self.pd = mta.read_hdf5_file_to_pandas.load_and_preprocess_data(self.data_filename)
+        self.config = None
+        
+        #self.path = self.config.path
         self.dataset = read_hdf5_file_to_pandas.Dataset(self.pd)
         filename = os.path.join(self.path, 'delete_cut_join_instructions.pickle')
         if os.path.exists(filename):
@@ -801,7 +804,7 @@ if __name__ == '__main__':
         
     ## Read data #############################################################
     parser = OptionParser()
-    parser.add_option('--path', type=str, default='none', help="option: path that points to standard named filename, background image, dvbag, config. If using 'path', no need to provide filename, bgimg, dvbag, and config. Note")
+    parser.add_option('--path', type=str, default=os.getcwd(), help="option: path that points to standard named filename, background image, dvbag, config. If using 'path', no need to provide filename, bgimg, dvbag, and config. Note")
     parser.add_option('--movie', type=int, default=1, help="load and play the dvbag movie, default is 1, to load use 1")
     parser.add_option('--load-original', type=int, default=0, dest="load_original", help="load original (unprocessed) dataset for debugging, use 1 to load, default 0")
     parser.add_option('--draw-interesting-time-points', type=int, default=1, dest="draw_interesting_time_points", help="draw interesting time points (e.g. vertical lines). Default = True, set to False if VERY large dataset.")
