@@ -29,7 +29,9 @@ class RosbagPlayWrapper:
             
             self.bag_filename = os.path.abspath(os.path.expanduser(bags_in_path[0]))
 
+        # was multi_tracker/1/delta_video in Floris's original code
         self.topic_in = rospy.get_param('~topic_in', 'multi_tracker/delta_video')
+        # is remapped to original_delta_video in much of my code
         self.topic_out = rospy.get_param('~topic_out', 'multi_tracker/delta_video')
 
         # reformat remaining args into a list to be passed to Popen
