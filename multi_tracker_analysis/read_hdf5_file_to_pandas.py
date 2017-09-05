@@ -232,7 +232,9 @@ def load_dataset_from_path(path, load_saved=False, convert_to_units=True, use_an
         dataset.save_dataset()
 
     return dataset
-            
+
+# TODO make methods like this "private". anywhere else accidentally calling it? (gui v2 was)
+# TODO fix / suppress FutureWarning generated in here (was it here or gui in background?)
 def load_data_as_pandas_dataframe_from_hdf5_file(filename, attributes=None):
     if '.pickle' in filename:
         pd = pandas.read_pickle(filename)
@@ -273,7 +275,6 @@ def load_and_preprocess_data(hdf5_filename):
     
     returns: pandas dataframe, processed according to configuration file, and the configuration file instance
     '''
-
     if 'trackedobjects' not in hdf5_filename:
         print 'File is not a trackedobjects file, looking for a trackedobjects file in this directory'
         fname = get_filename(hdf5_filename, 'trackedobjects.hdf5')
@@ -292,6 +293,7 @@ def load_and_preprocess_data(hdf5_filename):
     config_filename = 'config_' + identifiercode + '.py'
     config_filename = get_filename(directory, config_filename)
 
+    # TODO shouldn't this be calling load_config_from_path?
     if config_filename is not None:
         Config = imp.load_source('Config', config_filename)
         config = Config.Config(directory, identifiercode)

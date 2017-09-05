@@ -108,6 +108,7 @@ class QTrajectory(TemplateBaseClass):
         trange = np.max(self.pd.time_epoch.values) - np.min(self.pd.time_epoch.values) 
         self.troi = [np.min(self.pd.time_epoch.values), np.min(self.pd.time_epoch.values)+trange*0.1] 
         self.skip_frames = 1
+        # TODO remove traces of this assertion or warn if using it
         self.frame_delay = 0.03
         self.path = os.path.dirname(data_filename)
         self.clickable_width = clickable_width
@@ -642,14 +643,16 @@ class QTrajectory(TemplateBaseClass):
     ### Load / read / save data functions
     
     def load_data(self):
+        # TODO will this find where original is correctly? test / document
         if self.load_original:
-            self.original_pd = mta.read_hdf5_file_to_pandas.load_data_as_pandas_dataframe_from_hdf5_file(self.data_filename)
-        print 'loading data'
-        #self.pd, self.config = mta.read_hdf5_file_to_pandas.load_and_preprocess_data(self.data_filename)
-        self.pd = mta.read_hdf5_file_to_pandas.load_and_preprocess_data(self.data_filename)
-        self.config = None
+            raise NotImplementedError('implementation of load_original seemed wrong')
+            # TODO why using same data_filename though? and not mutually exclusive?
+            # so pd must == original_pd
+            self.original_pd = mta.read_hdf5_file_to_pandas.load_and_preprocess_data(self.data_filename)
+        print 'loading data from', self.data_filename
+        self.pd, self.config = mta.read_hdf5_file_to_pandas.load_and_preprocess_data(self.data_filename)
+        self.path = self.config.path
         
-        #self.path = self.config.path
         self.dataset = read_hdf5_file_to_pandas.Dataset(self.pd)
         filename = os.path.join(self.path, 'delete_cut_join_instructions.pickle')
         if os.path.exists(filename):
