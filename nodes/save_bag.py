@@ -55,13 +55,13 @@ class SaveBag:
                 rospy.set_param('multi_tracker/experiment_basename', self.experiment_basename)
 
         self.bag_filename = os.path.join(directory, filename)
-        # TODO does this need to go back to python time?
         self.processRosbag = None
         rospy.on_shutdown(self.on_shutdown)
         
         # hacky. see TODOs in delta_video_simplebuffer.py
         self.time_start = 0
         # do w/o numpy?
+        # TODO does this need to go back to python time?
         while np.isclose(self.time_start, 0.0):
             self.time_start = rospy.Time.now().to_sec()
 
@@ -75,18 +75,15 @@ class SaveBag:
         cmdline = ['rosbag', 'record','-O', self.bag_filename]
         cmdline.extend(self.topics)
         print cmdline
-        # TODO why did he take this approach w/ the preexec_fn?
-        #self.processRosbag = subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)
-        self.processRosbag = subprocess.Popen(cmdline)
+        self.processRosbag = subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)
     
      
     def stop_recording(self):
-        # TODO faced error where self.processRosbag was still None when this was called
-        # that indicative of other problem?
         if not self.processRosbag is None:
-            #subprocess.os.killpg(self.processRosbag.pid, subprocess.signal.SIGINT)
-            self.processRosbag.kill()
+            subprocess.os.killpg(self.processRosbag.pid, subprocess.signal.SIGINT)
             rospy.loginfo('Closed bag file.')
+            # maybe hold on to it in case we need to escalate shutdown signals?
+            self.processRosbag = None
                 
     
     def main(self):
@@ -97,7 +94,7 @@ class SaveBag:
                 # TODO maybe now i should check that process
                 # is killed there?
                 self.stop_recording()      
-                break
+                return
         
 
 if __name__ == '__main__':
