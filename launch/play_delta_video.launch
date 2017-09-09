@@ -15,7 +15,7 @@
 # fix so that it does. check for both? (the other being the original multi_tracker/1/delta_video)
 <node name="rosbag_player" pkg="multi_tracker" type="rosbag_play_wrapper.py" 
  output="screen" args="--clock --pause --rate=$(arg rate) --start=$(arg start)" >
-  <param name="topic_in" value="/multi_tracker/1/delta_video" />
+  <param name="topic_in" value="multi_tracker/delta_video" />
   <param name="topic_out" value="original_delta_video" />
 </node>
 

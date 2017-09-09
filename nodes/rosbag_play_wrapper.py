@@ -41,6 +41,9 @@ class RosbagPlayWrapper:
         flags_list = [k for k, v in args_dict.items() if isinstance(v, bool) and v]
         # TODO this doesn't seem to be working... couldn't seem to remap w/ it
         self.passthrough_args = flags_list + [item for sublist in pairs_list for item in sublist]
+
+        # TODO logdebug
+        #rospy.loginfo('pasthrough_args' + str(self.passthrough_args))
         
         self.rosbag_process = None
         rospy.on_shutdown(self.on_shutdown)

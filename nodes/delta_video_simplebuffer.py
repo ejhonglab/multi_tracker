@@ -373,13 +373,18 @@ class Compressor:
         # calculate the difference from the background
         # sign set in __init__ based on name of tracking function (defaults to 0)
         # TODO test
+	'''
         if self.sign == -1:
+	    # TODO need to multiply one by -1?
             self.diff = self.backgroundImage - self.imgScaled
         elif self.sign == 1:
             self.diff = self.imgScaled - self.backgroundImage
         else:
-            self.diff = cv2.absdiff(self.imgScaled, self.backgroundImage)
+	'''
+        # TODO temporary hack fix. revert.
+        self.diff = cv2.absdiff(self.imgScaled, self.backgroundImage)
 
+	#rospy.loginfo('comparing to threshold ' + str(self.params['threshold']))
         changed_pixels = np.where(self.diff > self.params['threshold'])
         delta_msg = DeltaVid()
         header  = Header(stamp=self.framestamp,frame_id=str(self.framenumber))
