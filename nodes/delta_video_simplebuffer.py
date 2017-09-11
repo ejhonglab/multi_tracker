@@ -420,9 +420,13 @@ class Compressor:
             self.reset_background_flag = True
             
     
+    # TODO test
+    # TODO TODO save rois
     def register_rois(self, req):
         """
         """
+        # TODO maybe make all of this parameter setting / saving optional?
+
         # as of 2017-Aug, only one of lists will be non-empty.
         for i, r in enumerate(req.rectangular_rois):
             roi_dict = dict()
@@ -431,6 +435,12 @@ class Compressor:
             roi_dict['roi_l'] = r.l
             roi_dict['roi_r'] = r.r
             self.rectangular_rois[i] = roi_dict
+
+            # TODO does this format make the most sense?
+            rospy.set_param('~' + str(i) + '/roi_t', r.t)
+            rospy.set_param('~' + str(i) + '/roi_b', r.b)
+            rospy.set_param('~' + str(i) + '/roi_l', r.l)
+            rospy.set_param('~' + str(i) + '/roi_r', r.r)
         
         for i, r in enumerate(req.polygonal_rois):
             points = []
@@ -438,6 +448,8 @@ class Compressor:
                 points.append([p.x, p.y])
             hull = cv2.convexHull(np.array(points, dtype=np.int32))
             self.polygonal_rois[i] = hull
+
+            rospy.set_param('~' + str(i) + '/roi_points', points)
         
         for i, r in enumerate(req.circular_rois):
             roi_dict = dict()
@@ -445,6 +457,15 @@ class Compressor:
             roi_dict['circular_mask_y'] = r.y
             roi_dict['circular_mask_r'] = r.r
             self.circular_rois[i] = roi_dict
+
+            rospy.set_param('~' + str(i) + '/circular_mask_x', r.x)
+            rospy.set_param('~' + str(i) + '/circular_mask_y', r.y)
+            rospy.set_param('~' + str(i) + '/circular_mask_r', r.r)
+
+        # now invoke the snapshot_param node in this namespace to dump the 
+        # TODO maybe save through other means? just pickle? api for launching single nodes?
+        params = ['roslaunch', 'multi_tracker', 'snapshot_params.launch', 
+
         self.have_rois = True
         sizeImage = 128+1024*1024*3 # Size of header + data.
         self.subImage = rospy.Subscriber(self.params['image_topic'], Image, self.image_callback, queue_size=5, buff_size=2*sizeImage, tcp_nodelay=True)

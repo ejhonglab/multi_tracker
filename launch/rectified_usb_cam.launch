@@ -1,4 +1,6 @@
 <launch>
+  <arg name="viewer" default="False" />
+
   <node name="usb_cam" pkg="usb_cam" type="usb_cam_node" output="screen">
   	<!-- TODO appropriate framerate? check not duplicates -->
   	<!-- TODO make camera_name match calibration -->
@@ -13,4 +15,8 @@
   </node>
   
   <node name="image_proc" pkg="image_proc" type="image_proc" output="screen" ns="usb_cam" />
+
+  <node name="rect_usb_view" pkg="image_view" type="image_view" if="$(arg viewer)">
+    <remap from="image" to="/usb_cam/image_rect" />
+  </node>
 </launch>

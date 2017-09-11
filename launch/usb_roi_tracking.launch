@@ -1,0 +1,13 @@
+<launch>
+  <arg name="viewer" default="True" />
+  <arg name="video_only" default="False" />
+  
+  <include file="$(find multi_tracker)/launch/rectified_usb_cam.launch">
+  </include>
+  
+  <include file="$(find multi_tracker)/launch/detect_roi_tracking.launch">
+    <arg name="camera" value="/usb_cam/image_rect" />
+    <arg name="viewer" value="$(arg viewer)" />
+    <arg name="video_only" value="$(arg video_only)" />
+  </include>
+</launch>

@@ -3,8 +3,9 @@
   <arg name="num" default="1" />
 
   <arg name="dump_roi_params" default="False" />
+  <arg name="only_dump_params" default="False" />
 
-  <arg name="viewer" default="True" />
+  <arg name="viewer" default="True" unless="$(arg only_dump_params)"/>
 
   <arg name="polygonal_roi" default="False" />
   <arg name="roi_points" default="[]" />
@@ -21,59 +22,59 @@
   <arg name="circular_mask_r" default="-1" />
 
   <!-- TODO can i change to camera/image_raw? that remappable? -->
-  <arg name="camera" default="/camera/image_raw" />
+  <arg name="camera" default="/camera/image_raw" unless="$(arg only_dump_params)" />
   
   <!-- TODO remove slight redundancy between ns and num now? (ns is set w/ that num in roi_finder.py) -->
   <group ns="$(arg ns)">
-    <node name="tracker_$(arg num)" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" required="true">
-      <remap from="/camera/image_raw" to="$(arg camera)" />
+    <group unless="$(arg only_dump_params)">
+      <node name="tracker_$(arg num)" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" required="true">
+        <remap from="/camera/image_raw" to="$(arg camera)" />
+        
+        <!-- TODO maybe condense all this loading into another launch file somehow?
+             w/ arg passthrough syntax maybe? -->
+        <rosparam param="roi_points" subst_value="True" if="$(arg polygonal_roi)">
+          $(arg roi_points)
+        </rosparam>
+
+        <param name="roi_l" value="$(arg roi_l)" if="$(arg rectangular_roi)" />
+        <param name="roi_r" value="$(arg roi_r)" if="$(arg rectangular_roi)" />
+        <param name="roi_t" value="$(arg roi_t)" if="$(arg rectangular_roi)" />
+        <param name="roi_b" value="$(arg roi_b)" if="$(arg rectangular_roi)" />
+
+        <param name="circular_mask_x" value="$(arg circular_mask_x)" if="$(arg circular_roi)" />
+        <param name="circular_mask_y" value="$(arg circular_mask_y)" if="$(arg circular_roi)" />
+        <param name="circular_mask_r" value="$(arg circular_mask_r)" if="$(arg circular_roi)" />
+      </node>
+
+      <node name="data_association_$(arg num)" pkg="multi_tracker" type="data_association.py" output="screen" required="true" />
       
-      <!-- TODO maybe condense all this loading into another launch file somehow?
-           w/ arg passthrough syntax maybe? -->
-      <rosparam param="roi_points" subst_value="True" if="$(arg polygonal_roi)">
-        $(arg roi_points)
-      </rosparam>
-
-      <param name="roi_l" value="$(arg roi_l)" if="$(arg rectangular_roi)" />
-      <param name="roi_r" value="$(arg roi_r)" if="$(arg rectangular_roi)" />
-      <param name="roi_t" value="$(arg roi_t)" if="$(arg rectangular_roi)" />
-      <param name="roi_b" value="$(arg roi_b)" if="$(arg rectangular_roi)" />
-
-      <param name="circular_mask_x" value="$(arg circular_mask_x)" if="$(arg circular_roi)" />
-      <param name="circular_mask_y" value="$(arg circular_mask_y)" if="$(arg circular_roi)" />
-      <param name="circular_mask_r" value="$(arg circular_mask_r)" if="$(arg circular_roi)" />
-    </node>
-
-    <node name="data_association_$(arg num)" pkg="multi_tracker" type="data_association.py" output="screen" required="true" />
-    
-    # launch node to save data to hdf5
-    <node name="save_hdf5_data_$(arg num)" pkg="multi_tracker" type="save_data_to_hdf5.py" output="screen" required="true" />
-    
-    <node name="liveview_$(arg num)" pkg="multi_tracker" type="liveviewer.py" output="screen" if="$(arg viewer)"> 
-      <!-- considering making only one node in the pipeline directly subscribe to this topic... 
-           delta_video_simplebuffer or a crop / roi node -->
-      <remap from="/camera/image_raw" to="$(arg camera)" />
-
-      <param name="roi_l" value="$(arg roi_l)" if="$(arg rectangular_roi)" />
-      <param name="roi_r" value="$(arg roi_r)" if="$(arg rectangular_roi)" />
-      <param name="roi_t" value="$(arg roi_t)" if="$(arg rectangular_roi)" />
-      <param name="roi_b" value="$(arg roi_b)" if="$(arg rectangular_roi)" />
-
-      <param name="circular_mask_x" value="$(arg circular_mask_x)" if="$(arg circular_roi)" />
-      <param name="circular_mask_y" value="$(arg circular_mask_y)" if="$(arg circular_roi)" />
-      <param name="circular_mask_r" value="$(arg circular_mask_r)" if="$(arg circular_roi)" />
-
-      <!-- TODO include support for polygonal rois in standalone tracking instances? -->
+      # launch node to save data to hdf5
+      <node name="save_hdf5_data_$(arg num)" pkg="multi_tracker" type="save_data_to_hdf5.py" output="screen" required="true" />
       
-      <!-- This won't be true any time we want a liveviewer here.
-           We will call the liveviewer from the calling launch file
-           (see detect_roi_tracking.launch). -->
-      <param name="detect_tracking_pipelines" value="False" />
-    </node>
+      <node name="liveview_$(arg num)" pkg="multi_tracker" type="liveviewer.py" output="screen" if="$(arg viewer)"> 
+        <!-- considering making only one node in the pipeline directly subscribe to this topic... 
+             delta_video_simplebuffer or a crop / roi node -->
+        <remap from="/camera/image_raw" to="$(arg camera)" />
+
+        <param name="roi_l" value="$(arg roi_l)" if="$(arg rectangular_roi)" />
+        <param name="roi_r" value="$(arg roi_r)" if="$(arg rectangular_roi)" />
+        <param name="roi_t" value="$(arg roi_t)" if="$(arg rectangular_roi)" />
+        <param name="roi_b" value="$(arg roi_b)" if="$(arg rectangular_roi)" />
+
+        <param name="circular_mask_x" value="$(arg circular_mask_x)" if="$(arg circular_roi)" />
+        <param name="circular_mask_y" value="$(arg circular_mask_y)" if="$(arg circular_roi)" />
+        <param name="circular_mask_r" value="$(arg circular_mask_r)" if="$(arg circular_roi)" />
+
+        <!-- TODO include support for polygonal rois in standalone tracking instances? -->
+        
+        <!-- This won't be true any time we want a liveviewer here.
+             We will call the liveviewer from the calling launch file
+             (see detect_roi_tracking.launch). -->
+        <param name="detect_tracking_pipelines" value="False" />
+      </node>
+    </group>
     
-    <!-- TODO will this work for getting roi params out of node (private) namespace? -->
     <node name="snapshot_roi_params_$(arg num)" pkg="multi_tracker" type="snapshot_params.py" output="screen" if="$(arg dump_roi_params)">
-      <!-- TODO will this work being only relative? resolve relative to snapshot params? -->
       <param name="filename" value="roi_N$(arg num).yaml" type="str" />
       <param name="namespace" value="tracker_$(arg num)" type="str" />
       <param name="wait_s" value="1" type="double" />

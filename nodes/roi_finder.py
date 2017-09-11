@@ -106,6 +106,7 @@ class RoiFinder:
             'camera:=' + rospy.resolve_name(self.camera)] + extra_params
         self.current_node_num += 1
         rospy.logwarn(params)
+        # TODO consider using floris' technique to kill these gently with pgroup
         p = Popen(params)
         self.to_kill.append(p)
         
