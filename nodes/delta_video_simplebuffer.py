@@ -7,6 +7,7 @@ import copy
 import cv2
 import numpy as np
 import threading
+from subprocess import Popen
 # TODO
 #import dynamic_reconfigure.server
 from cv_bridge import CvBridge, CvBridgeError
@@ -49,6 +50,8 @@ class Compressor:
         '''
         # initialize the node
         rospy.init_node('delta_compressor')
+
+        self.child = None
         
         # default parameters (parameter server overides them)
         # TODO set via default yaml?
@@ -462,9 +465,14 @@ class Compressor:
             rospy.set_param('~' + str(i) + '/circular_mask_y', r.y)
             rospy.set_param('~' + str(i) + '/circular_mask_r', r.r)
 
+        roi_param_filename = time.strftime('compressor_rois_%Y%m%d_%H%M%S_N' + str(self.pipeline_num) + \
+            '.yaml', time.localtime(rospy.Time.now().to_sec()))
+
         # now invoke the snapshot_param node in this namespace to dump the 
         # TODO maybe save through other means? just pickle? api for launching single nodes?
-        params = ['roslaunch', 'multi_tracker', 'snapshot_params.launch', 
+        params = ['roslaunch', 'multi_tracker', 'snapshot_params.launch', 'ns:=' + \
+            rospy.get_namespace(), 'filename:=' + roi_param_filename]
+        self.child = Popen(params)
 
         self.have_rois = True
         sizeImage = 128+1024*1024*3 # Size of header + data.
@@ -504,6 +512,9 @@ class Compressor:
                     pt = (rospy.Time.now() - time_now).to_sec()
                     rospy.logwarn("Delta video processing time exceeds acquisition rate. " + \
                         "Processing time: %f, Buffer: %d", pt, len(self.image_buffer))
+
+        if not self.child is None:
+            self.child.kill()
 
 #####################################################################################################
     

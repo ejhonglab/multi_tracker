@@ -1,0 +1,11 @@
+<launch>
+  <arg name="ns" default="/" />
+  <arg name="filename" default="parameters.yaml" />
+
+  <node name="snapshot_roi_params" pkg="multi_tracker" type="snapshot_params.py" output="screen">
+    <param name="filename" value="$(arg filename)" type="str" />
+    <param name="namespace" value="$(arg ns)" type="str" />
+    <param name="wait_s" value="1" type="double" />
+    <param name="copy_old_params" value="False" type="bool" />
+  </node>
+</launch>
