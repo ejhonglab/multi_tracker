@@ -1,6 +1,6 @@
 <launch>
-  <arg name="viewer" default="True" />
-  <arg name="video_only" default="False" />
+  <arg name="viewer" default="False" />
+  <arg name="video_only" default="True" />
   
   <include file="$(find multi_tracker)/launch/rectified_usb_cam.launch">
   </include>
