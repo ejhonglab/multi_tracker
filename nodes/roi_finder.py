@@ -15,6 +15,7 @@ import os
 from subprocess import Popen
 import Queue
 # import dynamic_reconfigure.server
+import glob
 
 
 # TODO break out ROI definitions from core tracking launch file, and make another tracking
@@ -58,6 +59,7 @@ class RoiFinder:
         if not self.roi_type in self.valid_roi_types:
             raise ValueError('invalid roi_type: ' + self.roi_type + '. valid types are ' + str(self.valid_roi_types))
 
+        load_rois = rospy.get_param(node_namespace + 'load_rois', False)
         automatic_roi_detection = rospy.get_param(node_namespace + 'automatic_roi_detection', False)
         if not automatic_roi_detection:
             # a place for the click event callback to store points
@@ -75,14 +77,7 @@ class RoiFinder:
         # TODO should the buff_size not be queue_size * size_image?
         buff_size = 2 * size_image
 
-        if automatic_roi_detection:
-            rospy.Subscriber(self.camera, Image, self.detect_roi_callback, \
-                    queue_size=queue_size, buff_size=buff_size)
-
-        else:
-            self.manual_selection_done = False
-            self.manual_sub = rospy.Subscriber(self.camera, Image, self.manual_roi_callback, \
-                    queue_size=queue_size, buff_size=buff_size)
+        self.manual_selection_done = False
 
         # can't just rospy.spin() here because the main thread
         # is the only one that can call launch files (a sequence
@@ -90,6 +85,21 @@ class RoiFinder:
         # a launch file because it can't register signals)
         self.launch_queue = Queue.Queue()
         self.to_kill = []
+
+        if not load_rois:
+            if automatic_roi_detection:
+                rospy.Subscriber(self.camera, Image, self.detect_roi_callback, \
+                        queue_size=queue_size, buff_size=buff_size)
+
+            else:
+                self.manual_sub = rospy.Subscriber(self.camera, Image, self.manual_roi_callback, \
+                        queue_size=queue_size, buff_size=buff_size)
+
+        else:
+            rospy.logwarn('Ignoring roi_finder/automatic_roi_detection, because roi_finder/' + \
+                'load_rois was True.')
+            self.load_rois()
+
         self.main()
 
 
@@ -316,6 +326,26 @@ class RoiFinder:
         return rois
 
 
+    def load_polygons(self, params):
+        """
+        """
+        rospy.logwarn('load_polygons with params=' + str(params))
+        rois = []
+        for k, v in params.items():
+            try:
+                n = int(k)
+            except:
+                continue
+
+            if 'roi_points' in v:
+                rospy.logwarn('appending roi ' + str(v['roi_points']))
+                rois.append(v['roi_points'])
+            else:
+                rospy.logwarn('numbered namespace without polygonal roi. experiment' + \
+                    ' done with different roi type?')
+        return rois
+
+
     def launch_tracking_pipelines(self, rois):
         """
         """
@@ -331,7 +361,8 @@ class RoiFinder:
                         rospy.logwarn('starting one tracking pipeline launch file')
                         f(self, r)
                         # TODO remove me? longer?
-                        rospy.sleep(1)
+                        # TODO TODO only remove me when sim_time is set?
+                        #rospy.sleep(1)
                     found_launch = True
                     break
         if not found_launch:
@@ -339,34 +370,37 @@ class RoiFinder:
 
 
     # can't see how to easily let launch_tracking_pipeline use this too, but would be nice
-    def find_and_call_function(self, frame, prefix, description):
+    def find_and_call_function(self, prefix, description, frame=None, params=None):
         """
         Finds a function in the instance of this class with prefix in it, and calls that function
         with frame as an (the only) argument following self. Description should describe the
         type of function being sought and will be included in an error message if no function
         is found.
         """
-        if self.frames_tossed < self.toss_first_n_frames:
-            self.frames_tossed += 1
-            return
+        if not frame is None:
+            if self.frames_tossed < self.toss_first_n_frames:
+                self.frames_tossed += 1
+                return
 
-        try:
-            # TODO which encoding to use? 8 or something else?
-            frame = self.bridge.imgmsg_to_cv2(frame, 'bgr8')
+            try:
+                frame = self.bridge.imgmsg_to_cv2(frame, 'bgr8')
 
-        except CvBridgeError as e:
-            # raise?
-            rospy.logerr(e)
-            return None
+            except CvBridgeError as e:
+                # raise?
+                rospy.logerr(e)
+                return None
         
         found_func = False
         for attr in dir(self):
             if prefix in attr and self.roi_type in attr:
                 f = getattr(self.__class__, attr)
                 if callable(f):
-                    # TODO put behind debug flag?
-                    #rospy.loginfo('calling function: ' + str(f))
-                    rois = f(self, frame)
+                    if not frame is None:
+                        rois = f(self, frame)
+                    elif not params is None:
+                        rois = f(self, params)
+                    else:
+                        raise ValueError('either params or frame needs to be specified')
                     found_func = True
                     break
 
@@ -375,11 +409,66 @@ class RoiFinder:
         return rois
 
 
+    def load_rois(self):
+        """
+        """
+        # TODO might need load_manifest('rosparam')?
+        import rosparam
+        # TODO also check in current directory?
+        #files = glob.glob('compressor_rois_*.yaml')
+        files = glob.glob(os.path.join(rospy.get_param('source_directory'), 'compressor_rois_*.yaml'))
+        if len(files) < 1:
+            rospy.logfatal('Did not find any files matching compressor_rois_*.yaml')
+            return []
+
+        elif len(files) > 1:
+            rospy.logfatal('Found too many files matching compressor_rois_*.yaml')
+            return []
+
+        filename = os.path.abspath(files[0])
+        # get the parameters in the namespace of the name we want
+        # TODO find roi specifiers wherever they are, in the future
+        paramlist = rosparam.load_file(filename)
+        ns = 'delta_compressor'
+        ns_param_dict = self.find_roi_namespace(ns, paramlist)
+        if ns_param_dict is None:
+            rospy.logfatal('could not find parameter namespace: ' + ns)
+            return
+
+        rois = self.find_and_call_function('load_', 'parameter dump loading', params=ns_param_dict)
+        rospy.logwarn('loaded rois:' + str(rois))
+        self.launch_queue.put(rois)
+
+
+    # maybe make static
+    def find_roi_namespace(self, key, params):
+        if type(params) is list:
+            for ps, ns in params:
+                if ns == key:
+                    return params
+                else:
+                    ret = self.find_roi_namespace(key, ps)
+                    if not ret is None:
+                        return ret
+            return None
+
+        elif type(params) is dict:
+            if key in params:
+                return params[key]
+
+            else:
+                for v in params.values():
+                    ret = self.find_roi_namespace(key, v)
+                    if not ret is None:
+                        return ret
+                return None
+
+
     def manual_roi_callback(self, frame):
         """
         Manually select ROIs of specified type and launch an instance of tracking pipeline appropriately.
         """
-        rois = self.find_and_call_function(frame, 'manual_', 'manual selection')
+        rois = self.find_and_call_function('manual_', 'manual selection', frame=frame)
         self.launch_queue.put(rois)
         #self.launch_tracking_pipelines(rois)
 
@@ -389,7 +478,7 @@ class RoiFinder:
         """
         Detect ROIs of specified type and launch an instance of tracking pipeline appropriately.
         """
-        rois = self.find_and_call_funcion(frame, 'detect_', 'roi detection')
+        rois = self.find_and_call_funcion('detect_', 'roi detection', frame=frame)
         self.launch_queue.put(rois)
         #self.launch_tracking_pipelines(rois)
 

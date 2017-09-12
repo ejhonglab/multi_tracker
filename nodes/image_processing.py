@@ -34,6 +34,7 @@ else:
 # the format custom image processing functions should follow
 ###############################################################################
 # TODO fix this if i broke it
+"""
 def incredibly_basic(self):
     # If there is no background image, grab one, and move on to the next frame
     if self.backgroundImage is None:
@@ -55,10 +56,10 @@ def incredibly_basic(self):
     # extract and publish contours
     # http://docs.opencv.org/trunk/doc/py_tutorials/py_imgproc/py_contours/py_contour_features/py_contour_features.html
     if OPENCV_VERSION == 2:
-        contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     elif OPENCV_VERSION == 3:
         self.threshed = np.uint8(self.threshed)
-        image, contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        image, contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     
     try:
         header  = Header(stamp=self.framestamp,frame_id=str(self.framenumber))
@@ -66,10 +67,12 @@ def incredibly_basic(self):
         header  = Header(stamp=None,frame_id=str(self.framenumber))
         rospy.logerr('could not get framestamp, run tracker_nobuffer instead')
     # TODO does floris have a tracker_nobuffer? what did it do?
-        
+
     contour_info = []
     for contour in contours:
-        if len(contour) > 5: # Large objects are approximated by an ellipse
+        # TODO pull request this. contour fitting should work w/ > 5 points. is CHAIN_APPROX_NONE
+        # still around? or using simple? check # points
+        if len(contour) >= 5: # Large objects are approximated by an ellipse
             ellipse = cv2.fitEllipse(contour)
             (x,y), (a,b), angle = ellipse
             a /= 2.
@@ -94,6 +97,7 @@ def incredibly_basic(self):
             
     # publish the contours
     self.pubContours.publish(Contourlist(header=header, contours=contour_info))  
+"""
 
 
 ###############################################################################
@@ -154,9 +158,9 @@ def add_data_to_contour_info(x,y,ecc,area,angle,dtCamera,header):
 
 def extract_and_publish_contours(self):
     if OPENCV_VERSION == 2:
-        contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     elif OPENCV_VERSION == 3:
-        image, contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        image, contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     # http://docs.opencv.org/trunk/doc/py_tutorials/py_imgproc/py_contours/py_contour_features/py_contour_features.html
     
     try:
@@ -169,7 +173,7 @@ def extract_and_publish_contours(self):
     for contour in contours:
         # Large objects are approximated by an ellipse
         # TODO break fitting into func and make recursive?
-        if len(contour) > 5:
+        if len(contour) >= 5:
             x, y, ecc, area, angle = fit_ellipse_to_contour(self, contour)
             
             # if object is too large, split it in two, this helps with colliding objects, but is not 100% correct
@@ -187,13 +191,13 @@ def extract_and_publish_contours(self):
                 c1 = np.array(c1)
                 c2 = np.array(c2)
                 
-                if len(c1) > 5:
+                if len(c1) >= 5:
                     x, y, ecc, area, angle = fit_ellipse_to_contour(self, np.array(c1))
                     if area < self.params['max_size'] and area > self.params['min_size']:
                         data = add_data_to_contour_info(x,y,ecc,area,angle,self.dtCamera,header)
                         contour_info.append(data)
                 
-                if len(c2) > 5:
+                if len(c2) >= 5:
                     x, y, ecc, area, angle = fit_ellipse_to_contour(self, np.array(c2))
                     if area < self.params['max_size'] and area > self.params['min_size']:
                         data = add_data_to_contour_info(x, y, ecc , area, angle, \
@@ -391,11 +395,13 @@ def dark_or_light_objects_only(self, color='dark'):
         self.pub_threshed.publish(img)
     
     # noise removal
-    self.threshed = cv2.morphologyEx(self.threshed,cv2.MORPH_OPEN, kernel, iterations = 1)
-    if self.debug and self.pub_denoised.get_num_connections() > 0:
-        c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
-        img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
-        self.pub_denoised.publish(img)
+    if self.params['denoise']:
+        self.threshed = cv2.morphologyEx(self.threshed,cv2.MORPH_OPEN, kernel, iterations = 1)
+
+        if self.debug and self.pub_denoised.get_num_connections() > 0:
+            c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
+            img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
+            self.pub_denoised.publish(img)
     
     erode_and_dialate(self)
 

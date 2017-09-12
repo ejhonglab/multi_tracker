@@ -153,7 +153,10 @@ class LiveViewer:
         # initialize display
         self.window_name = 'liveviewer'
         self.cvbridge = CvBridge()
-        self.contours = None
+        if self.params['detect_tracking_pipelines']:
+            self.contours = dict()
+        else:
+            self.contours = None
         self.window_initiated = False
         self.image_mask = None 
         
@@ -171,10 +174,11 @@ class LiveViewer:
             rospy.logerr('could not connect to add image to background service - is tracker running?')
         
 
+    # TODO refactor to not have node_num optional, and that signal whether num should be passed to callback?
     def start_subscribers(self, node_num):
         self.tracked_trajectories[node_num] = dict()
         rospy.Subscriber('multi_tracker/tracked_objects_' + str(node_num), Trackedobjectlist, lambda x: self.tracked_object_callback(node_num, x))
-        rospy.Subscriber('multi_tracker/contours_' + str(node_num), Contourlist, self.contour_callback)
+        rospy.Subscriber('multi_tracker/contours_' + str(node_num), Contourlist, lambda x: self.contour_callback(x, n=node_num))
     
 
     def reset_background(self, service_call):
@@ -215,10 +219,13 @@ class LiveViewer:
                     del(self.tracked_trajectories[node_num][objid])
 
     
-    def contour_callback(self, contours):
-        self.contours = contours
+    def contour_callback(self, contours, n=None):
+        if n is None:
+            self.contours = contours
+        else:
+            self.contours[n] = contours
 
-    
+
     def image_callback(self, rosimg):
         # Convert the image.
         try:
@@ -268,27 +275,34 @@ class LiveViewer:
             self.imgOutput = self.imgScaled
         
         # Draw ellipses from contours
+        # TODO consider just using iterable identity?
         if self.contours is not None:
-            for c, contour in enumerate(self.contours.contours):
-                # b = contour.area / (np.pi*a)
-                # b = ecc*a
-                if contour.ecc != 0: # eccentricity of ellipse < 1 but > 0
-                    a = np.sqrt( contour.area / (np.pi*contour.ecc) )
-                    b = contour.ecc*a
-                else: # eccentricity of circle is 0 
-                    a = 1
-                    b = 1
-                center = (int(contour.x), int(contour.y))
-                angle = int(contour.angle)
-                axes = (int(np.min([a,b])), int(np.max([a,b])))
-                cv2.ellipse(self.imgOutput, center, axes, angle, 0, 360, (0,255,0), 2 )
-                
-                if self.debug:
-                    # assumes consistent order in contourlist, read in same iteration as data_assoc,
-                    # and that data_assoc doesn't change order
-                    offset_center = (int(contour.x) + 15, int(contour.y))
-                    cv2.putText(self.imgOutput, str(c), offset_center, cv2.FONT_HERSHEY_SIMPLEX, \
-                        0.65, (0,255,0), 2, cv2.LINE_AA)
+            if self.params['detect_tracking_pipelines']:
+                contours = self.contours.values()
+            else:
+                contours = [self.contours.contours]
+
+            for contour_list in contours:
+                for c, contour in enumerate(contour_list.contours):
+                    # b = contour.area / (np.pi*a)
+                    # b = ecc*a
+                    if contour.ecc != 0: # eccentricity of ellipse < 1 but > 0
+                        a = np.sqrt( contour.area / (np.pi*contour.ecc) )
+                        b = contour.ecc*a
+                    else: # eccentricity of circle is 0 
+                        a = 1
+                        b = 1
+                    center = (int(contour.x), int(contour.y))
+                    angle = int(contour.angle)
+                    axes = (int(np.min([a,b])), int(np.max([a,b])))
+                    cv2.ellipse(self.imgOutput, center, axes, angle, 0, 360, (0,255,0), 2 )
+                    
+                    if self.debug:
+                        # assumes consistent order in contourlist, read in same iteration as data_assoc,
+                        # and that data_assoc doesn't change order
+                        offset_center = (int(contour.x) + 15, int(contour.y))
+                        cv2.putText(self.imgOutput, str(c), offset_center, cv2.FONT_HERSHEY_SIMPLEX, \
+                            0.65, (0,255,0), 2, cv2.LINE_AA)
         
         # Display the image | Draw the tracked trajectories
         for pipeline_num in self.tracked_trajectories:
@@ -394,7 +408,7 @@ class LiveViewer:
 
         new_nodes = False
         for n in nodes:
-            if 'delta_video_'  in n and not '_player' in n and not 'save_' in n:
+            if 'tracker_' in n:
                 def getter(p):
                     return rospy.get_param(n + '/' + p)
             else:
@@ -412,7 +426,7 @@ class LiveViewer:
         self.clear_rois()
 
         for n in nodes:
-            if 'delta_video_'  in n and not '_player' in n and not 'save_' in n:
+            if 'tracker_'  in n:
                 def getter(p):
                     return rospy.get_param(n + '/' + p)
             else:

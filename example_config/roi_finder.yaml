@@ -4,3 +4,4 @@ roi_finder/toss_first_n_frames: 0
 # TODO TODO dilate polygons (to not lose border for misclicking when defining ROI?)
 # just convert to mask and then dilate? (seems like there would be a cheaper way though)
 #roi_finder/extra_roi_pixel_radius: 5
+roi_finder/load_rois: False

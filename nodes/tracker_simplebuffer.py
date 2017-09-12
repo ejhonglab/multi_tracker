@@ -54,6 +54,7 @@ class Tracker:
                         'min_size'                  : 5,
                         'max_size'                  : 200,
                         'max_expected_area'         : 500,
+                        'denoise'                   : True,
                         'liveview'                  : False, # TODO what does this do? remove?
                         'roi_l'                     : 0, # see notes in delta_video_simplebuffer
                         'roi_r'                     : -1,
@@ -96,6 +97,10 @@ class Tracker:
                 parameter = parameter[1:]
             
             self.params[parameter] = value
+
+        if self.params['min_size'] < 5:
+            rospy.logfatal('only contours that can be fit with ellipses are supported now. ' + \
+                'contours must have at least 5 pixels to be fit. please increase min_size parameter.')
 
         # TODO maybe just reduce to debug flag and not save data in that case?
         self.save_data = rospy.get_param('multi_tracker/tracker/save_data', True)
