@@ -54,6 +54,9 @@ class DataAssociator(object):
         #self.max_size = rospy.get_param('multi_tracker/data_association/max_size')
         self.max_tracked_objects = rospy.get_param('multi_tracker/data_association/max_tracked_objects')
         self.n_covariances_to_reject_data = rospy.get_param('multi_tracker/data_association/n_covariances_to_reject_data')
+        if self.n_covariances_to_reject_data <= 0:
+            rospy.logwarn('not rejecting noisy trajectories because parameter ' + \
+                'n_covariances_to_reject data was set to <= 0')
 
         self.contour_buffer = []
 
@@ -109,6 +112,7 @@ class DataAssociator(object):
                                                             ),
                 'nframes':      0,
               }
+        # TODO is this screwing things up?
         self.tracked_objects.setdefault(new_obj['objid'], new_obj)
         self.current_objid += 1
 
@@ -281,31 +285,38 @@ class DataAssociator(object):
                 costs[c,:] = np.array([np.linalg.norm(m-e) for e in tracked_object_state_estimates])
                 # TODO covariance the right term? (cause sqrt...?)
                 # check dimensionality of this and above
-                ncov = self.n_covariances_to_reject_data * np.sqrt(tracked_object_covariances)
-                    
-                # TODO reasons this would be inappropriate?
-                # uncomment me. just temporarily using floris's
-                # TODO shouldn't this threshold be wrt the current estimates (centered)?
-                mask = costs[c,:] >= ncov.flatten()
-                # TODO why are tracked_object_covariances not a 1d array? werent they scalars?
-                # if this is a history thing, maybe get rid of it?
-                costs[c, mask] = max_cost
-                objects_rejected = np.sum(mask)
-                if objects_rejected < len(mask):
+
+                if self.n_covariances_to_reject_data > 0:
+                    ncov = self.n_covariances_to_reject_data * np.sqrt(tracked_object_covariances)
+                    # TODO reasons this would be inappropriate?
+                    # uncomment me. just temporarily using floris's
+                    # TODO shouldn't this threshold be wrt the current estimates (centered)?
+                    # TODO TODO maybe do this check before computing costs, and don't compute
+                    # costs if already above threshold?
+                    mask = costs[c,:] >= ncov.flatten()
+                    # TODO why are tracked_object_covariances not a 1d array? werent they scalars?
+                    # if this is a history thing, maybe get rid of it?
+                    costs[c, mask] = max_cost
+
+                    objects_rejected = np.sum(mask)
+                    if objects_rejected < len(mask):
+                        do_assignment = True
+
+                    if self.debug:
+                        # TODO logdebug
+                        if objects_rejected == len(mask):
+                            rospy.logwarn(str(self.pipeline_num) + ': rejected all matches that' + \
+                                'might have been made to contour ' + str(c) + 'because of covariances')
+                            rospy.logwarn(str(self.pipeline_num) + ': cutoffs ' + str(ncov))
+                            rospy.logwarn(str(self.pipeline_num) + ': data ' + str(costs[c,:]))
+
+                        elif objects_rejected  > 0:
+                            rospy.logwarn(str(self.pipeline_num) + ': ' + str(objects_rejected) + \
+                                ' pairs above covariance threshold (set to max_cost)')
+                else:
+                    # this what i want?
                     do_assignment = True
                 
-                if self.debug:
-                    # TODO logdebug
-                    if objects_rejected == len(mask):
-                        rospy.logwarn(str(self.pipeline_num) + ': rejected all matches that' + \
-                            'might have been made to contour ' + str(c) + 'because of covariances')
-                        rospy.logwarn(str(self.pipeline_num) + ': cutoffs ' + str(ncov))
-                        rospy.logwarn(str(self.pipeline_num) + ': data ' + str(costs[c,:]))
-
-                    elif objects_rejected  > 0:
-                        rospy.logwarn(str(self.pipeline_num) + ': ' + str(objects_rejected) + \
-                            ' pairs above covariance threshold (set to max_cost)')
-
             if do_assignment:
                 # TODO use float INFINITY constant to get rid of max_cost?
                 # TODO just pass floris' the object covariances too, rather than acting
@@ -408,7 +419,8 @@ class DataAssociator(object):
             v = np.linalg.norm( np.array( tracked_object['state'][tracked_object['statenames']['velocity'],-1] ).flatten().tolist() )
             if v > self.max_velocity:
                 if self.debug:
-                    rospy.logwarn(str(self.pipeline_num) + ': destroying object', objid, 'for high velocity', v)
+                    rospy.logwarn(str(self.pipeline_num) + ': destroying object ' \
+                        + str(objid) + ' for high velocity ' + str(v))
                 if objid not in objects_to_destroy:
                     objects_to_destroy.append(objid)
 
@@ -418,6 +430,7 @@ class DataAssociator(object):
         # recalculate persistance (not necessary, but convenient)
         # TODO why?
         objid_in_order_of_persistance = []
+        # TODO is this check realy necesesary? (doesn't look like it) delete
         if len(self.tracked_objects.keys()) > 0:
             persistance = []
             # TODO is this the same objid used elsewhere? always / never reindexed from 0?
