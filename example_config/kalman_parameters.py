@@ -35,7 +35,8 @@ R   = np.matrix([[0.39229913, 0.11372618, -0.12277696, -0.03180835, 0],
 gamma  = None
 gammaW = None
 
-max_covariance = 1000
+# set either of these to <= 0 to not discard trajectories on that criterion
+max_covariance = -1
 max_velocity = 150
 
 # TODO what exactly is this doing? name doesn't seem to reflect its function
