@@ -57,7 +57,7 @@ class DiscreteKalmanFilter(object):
         
     # the meat of the algorithm
     def update(self, measurement=None, control=None):
-    
+        # TODO anything look susceptible to precision problems in here?
         if control is None:
             control = np.matrix(np.zeros([1, 1]))
         
@@ -72,6 +72,7 @@ class DiscreteKalmanFilter(object):
         gammaW = self.gammaW
         
         # calculate kalman gain
+        # TODO should this not be stored for the next step?
         K = P_apriori*H.T*(H*P_apriori*H.T+R).I
 
         # update step
