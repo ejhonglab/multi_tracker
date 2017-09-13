@@ -112,6 +112,7 @@ class DataAssociator(object):
         self.tracked_objects.setdefault(new_obj['objid'], new_obj)
         self.current_objid += 1
 
+
     def hungarian_association(self, costs, max_cost=None, split_cost=None):
         raise NotImplementedError()
         return objects2contours, unmatched_objects, unmatched_contours
@@ -181,7 +182,7 @@ class DataAssociator(object):
             if objid not in objects_accounted_for:
                 if c not in contours_accounted_for:
                     if self.debug:
-                        rospy.loginfo('assigning c=' + str(c) + ' to o=' + str(objid) + \
+                        rospy.loginfo(str(self.pipeline_num) + ': assigning c=' + str(c) + ' to o=' + str(objid) + \
                             ' w/ cost=' + str(data[2]))
                     
                     objects2contours[objid] = c
@@ -213,22 +214,25 @@ class DataAssociator(object):
     def contour_identifier(self, contourlist):
         if self.debug:
             # TODO use logdebug actually
-            rospy.loginfo('starting contour_identifier')
-            rospy.loginfo('contours from ' + str(contourlist.header.stamp))
+            rospy.loginfo(str(self.pipeline_num) + ': starting contour_identifier')
+            rospy.loginfo(str(self.pipeline_num) + ': contours from ' + str(contourlist.header.stamp))
         # keep track of which new objects have been "taken"
         update_dict = {}
 
         def update_tracked_object(tracked_object, measurement, contourlist):
             if self.debug:
-                rospy.loginfo('updating objid ' + str(tracked_object['objid']))
+                rospy.loginfo(str(self.pipeline_num) + ': updating objid ' + str(tracked_object['objid']))
             if measurement is None:
                 if self.debug:
-                    rospy.loginfo('measurement is none')
+                    rospy.loginfo(str(self.pipeline_num) + ': measurement is none')
                 m = np.matrix([np.nan for i in range( tracked_object['measurement'].shape[0] ) ]).T
                 xhat, P, K = tracked_object['kalmanfilter'].update( None ) # run kalman filter
             else:
                 tracked_object['measurement'] = np.hstack( (tracked_object['measurement'], measurement) ) # add object's data to the tracked object
                 xhat, P, K = tracked_object['kalmanfilter'].update( tracked_object['measurement'][:,-1] ) # run kalman filter
+            # TODO TODO did floris ever specify the size of this buffer?
+            # as i have it now (and maybe as he had it), it can only ever hold one item
+            # because for each append there is a pop...
             tracked_object['frames'].append(int(contourlist.header.frame_id))
             tracked_object['frames'].pop(0)
             tracked_object['nframes'] += 1
@@ -237,18 +241,6 @@ class DataAssociator(object):
             tracked_object['state'] = np.hstack( (tracked_object['state'][:,-1], xhat) )
             #print xhat
             # TODO why is more than most recent xhat stored? (in state)
-
-        # iterate through objects first
-        # get order of persistence
-        objid_in_order_of_persistance = []
-        if len(self.tracked_objects.keys()) > 0:
-            persistance = []
-            objids = []
-            for objid, tracked_object in self.tracked_objects.items():
-                 persistance.append(tracked_object['nframes'])
-                 objids.append(objid)
-            order = np.argsort(persistance)[::-1]
-            objid_in_order_of_persistance = [objids[o] for o in order]
 
         # TODO break this out into a validation_gate function?
         # loop through contours and find errors to all tracked objects (if less than allowed error)
@@ -262,6 +254,7 @@ class DataAssociator(object):
             # TODO is this line right? matmul? which wiki eqs does this correspond to?
             # TODO what are the dimensions? it bears on the dims of the section below
             cov = np.array([np.linalg.norm( (tracked_object['kalmanfilter'].H * tracked_object['kalmanfilter'].P).T * self.association_matrix )])
+            # TODO TODO how is this used differently from objids? or in order of persistance?
             tracked_object_ids.append(objid)
             if tracked_object_state_estimates is None:
                 tracked_object_state_estimates = tose
@@ -280,7 +273,6 @@ class DataAssociator(object):
         # build a matrix of costs (distances between detected contours and trajectories)
         if tracked_object_state_estimates is not None:
             costs = np.empty([len(contourlist.contours), len(self.tracked_objects)])
-            # TODO warn if incurring max_cost (in debugging)
             max_cost = 50 # TODO replace me with correct value / rosparam
             do_assignment = False
             
@@ -305,12 +297,14 @@ class DataAssociator(object):
                 if self.debug:
                     # TODO logdebug
                     if objects_rejected == len(mask):
-                        print 'rejected all matches that might have been made to contour', c, \
-                            'because of covariances'
-                        print 'cutoffs\n', ncov
-                        print 'data\n', costs[c,:]
+                        rospy.logwarn(str(self.pipeline_num) + ': rejected all matches that' + \
+                            'might have been made to contour ' + str(c) + 'because of covariances')
+                        rospy.logwarn(str(self.pipeline_num) + ': cutoffs ' + str(ncov))
+                        rospy.logwarn(str(self.pipeline_num) + ': data ' + str(costs[c,:]))
+
                     elif objects_rejected  > 0:
-                        print objects_rejected , 'pairs above covariance threshold (set to max_cost)'
+                        rospy.logwarn(str(self.pipeline_num) + ': ' + str(objects_rejected) + \
+                            ' pairs above covariance threshold (set to max_cost)')
 
             if do_assignment:
                 # TODO use float INFINITY constant to get rid of max_cost?
@@ -321,7 +315,7 @@ class DataAssociator(object):
                 
                 # above function uses indices of cost matrix to refer to objects
                 # point those indices back to the current objects they represent
-                # TODO break info function?
+                # TODO break into function?
                 object2contour = {tracked_object_ids[o]: c for o, c in object2contour.iteritems()}
                 unmatched_objects = [tracked_object_ids[o] for o in unmatched_objects]
                 
@@ -349,24 +343,26 @@ class DataAssociator(object):
 
         # update state estimates for tracked objects matched to contours
         if self.debug:
-            print('updating matched objects')
+            rospy.loginfo(str(self.pipeline_num) + ': updating matched objects')
+
         for object_id, contour_id in object2contour.iteritems():
             tracked_object = self.tracked_objects[object_id]
             contour = contourlist.contours[contour_id]
             measurement = np.matrix([contour.x, contour.y, 0, contour.area, contour.angle]).T
             # TODO this seems to only use contourlist for metadata. maybe pass explicitly.
             update_tracked_object(tracked_object, measurement, contourlist)
+
         if self.debug:
-            print('done updating matched objects')
+            rospy.loginfo(str(self.pipeline_num) + ': done updating matched objects')
 
         # update predictions for unmatched objects
         # TODO so something was in both this and obj2cont?
         if self.debug:
-            print('updating objects (that are supposed to be) not matched to contours')
+            rospy.loginfo(str(self.pipeline_num) + ': updating objects (that are supposed to be) not matched to contours')
         for object_id in unmatched_objects:
             update_tracked_object(self.tracked_objects[object_id], None, contourlist)
         if self.debug:
-            print('done updating unmatched objects')
+            rospy.loginfo(str(self.pipeline_num) + ': done updating unmatched objects')
         '''
         # TODO so what causes unmatched objects to finally get dropped? after how many frames?
         # is it just a byproduct of the covariance getting large (for some reason?, if it does?)
@@ -380,6 +376,9 @@ class DataAssociator(object):
         # any unnaccounted contours should spawn new objects
         for contour_id in unmatched_contours:
             #print('contour not accounted for')
+            if self.debug:
+                rospy.logwarn(str(self.pipeline_num) + ': creating new tracked object for contour' +\
+                    ' ' + str(contour_id))
             self.new_tracked_object(contourlist.contours[contour_id])
 
         # moved after deletes for other reasons to not go below # of objects we want
@@ -400,8 +399,8 @@ class DataAssociator(object):
             tracked_object_covariance = np.linalg.norm( (tracked_object['kalmanfilter'].H*tracked_object['kalmanfilter'].P).T * self.association_matrix )
             if tracked_object_covariance > self.max_covariance:
                 if self.debug:
-                    print 'destroying object', objid, 'for high covariance', \
-                        tracked_object_covariance
+                    rospy.logwarn(str(self.pipeline_num) + ': destroying object ' + str(objid) + \
+                        ' for high covariance ' + str(tracked_object_covariance))
                 
                 if objid not in objects_to_destroy:
                     objects_to_destroy.append(objid)
@@ -409,7 +408,7 @@ class DataAssociator(object):
             v = np.linalg.norm( np.array( tracked_object['state'][tracked_object['statenames']['velocity'],-1] ).flatten().tolist() )
             if v > self.max_velocity:
                 if self.debug:
-                    print 'destroying object', objid, 'for high velocity', v
+                    rospy.logwarn(str(self.pipeline_num) + ': destroying object', objid, 'for high velocity', v)
                 if objid not in objects_to_destroy:
                     objects_to_destroy.append(objid)
 
@@ -421,9 +420,17 @@ class DataAssociator(object):
         objid_in_order_of_persistance = []
         if len(self.tracked_objects.keys()) > 0:
             persistance = []
+            # TODO is this the same objid used elsewhere? always / never reindexed from 0?
             for objid, tracked_object in self.tracked_objects.items():
-                 persistance.append(len(tracked_object['frames']))
-                 objid_in_order_of_persistance.append(objid)
+                persistance.append(tracked_object['nframes'])
+                objid_in_order_of_persistance.append(objid)
+    
+            if self.debug:
+                rospy.logwarn(str(self.pipeline_num) + ': object ids ' + \
+                    str(objid_in_order_of_persistance))
+                rospy.logwarn(str(self.pipeline_num) + ': their persistance in frames ' + \
+                    str(persistance))
+
             # TODO some reverse arg to sort to save some steps?
             order = np.argsort(persistance)[::-1]
             objid_in_order_of_persistance = [objid_in_order_of_persistance[o] for o in order]
@@ -431,13 +438,16 @@ class DataAssociator(object):
         # publish tracked objects
         object_info_to_publish = []
         t = contourlist.header.stamp
-        num_published = 0
+        num_published = 1
         for objid in objid_in_order_of_persistance:
             # make sure we don't get too many objects - delete the oldest ones, 
             # and ones with high covariances
             # TODO optionally maintain estimate of # of objects, and then aim for that target,
             # rather than track too few objects?
             if num_published > self.max_tracked_objects:
+                if self.debug:
+                    # TODO replace pipeline_num w/ n for easier reading?
+                    rospy.logwarn(str(self.pipeline_num) + ': deleting object ' + str(objid) + ' b/c over max_tracked_objects')
                 del(self.tracked_objects[objid])
                 continue
                 
@@ -466,7 +476,7 @@ class DataAssociator(object):
         header = Header(stamp=t)
         self.pubTrackedObjects.publish( Trackedobjectlist(header=header, tracked_objects=object_info_to_publish) )
         if self.debug:
-            rospy.loginfo('finishing contour_identifier\n\n')
+            rospy.loginfo(str(self.pipeline_num) + ': finishing contour_identifier\n\n')
 
     def main(self):
         while not rospy.is_shutdown():
@@ -475,7 +485,7 @@ class DataAssociator(object):
                 time_now = rospy.Time.now()
                 if len(self.contour_buffer) > 0:
                     if self.debug:
-                        rospy.loginfo('LENGTH OF CONTOUR_BUFFER' + str(len(self.contour_buffer)))
+                        rospy.loginfo(str(self.pipeline_num) + ': LENGTH OF CONTOUR_BUFFER ' + str(len(self.contour_buffer)))
                     
                     self.contour_identifier(self.contour_buffer.pop(0))
                 

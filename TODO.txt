@@ -21,3 +21,5 @@ link to checkerboard or make a local copy.
 
 -should crash if no configs (or at least warn heavily)
 -should crash if no disk space
+
+-change all debug_flags (and self.debug sets/checks) to use logdebug and changing node debug levels
