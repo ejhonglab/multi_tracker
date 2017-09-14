@@ -18,6 +18,13 @@ import imp
 
 import threading
 
+
+def is_psd(M):
+    E, V = np.linalg.eigh(M)
+    tol = 1e-6
+    return np.all(E > tol)
+    
+
 class DataAssociator(object):
     def __init__(self):
         kalman_parameter_py_file = rospy.get_param('multi_tracker/data_association/kalman_parameters_py_file')
@@ -421,7 +428,14 @@ class DataAssociator(object):
         for objid, tracked_object in self.tracked_objects.items():
 
             if self.max_covariance > 0:
+                # H = the observation model. maps state space to observed space.
+                # P = (Pk|k or Pk|k-1? i.e. a priori or a posteriori state covariance estimate?
+                # Pk|k-1 = Fk Pk-1|k-1 Fk.T + Qk
+                # where Fk is the process transition model, mapping one state to the next
                 # TODO isn't this calculated above? (i don't think so) just save?
+                if self.debug:
+                    assert is_psd(tracked_object['kalmanfilter'].P)
+
                 tracked_object_covariance = np.linalg.norm( (tracked_object['kalmanfilter'].H*tracked_object['kalmanfilter'].P).T * self.association_matrix )
                 # TODO is this just always increasing until getting deleted?
                 if self.debug:

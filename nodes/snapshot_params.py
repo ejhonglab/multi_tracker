@@ -51,6 +51,9 @@ class SaveParams:
             try:
                 source_dir = rospy.get_param('source_directory')
                 there = glob.glob(os.path.join(source_dir, '*' + suffix))
+                # TODO deal with this metadata elsewhere?
+                # or list other extensions to copy over?
+                there += glob.glob(os.path.join(source_dir, '*stimuli.p'))
             
             except KeyError:
                 there = []

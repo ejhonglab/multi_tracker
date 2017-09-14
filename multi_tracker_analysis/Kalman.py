@@ -2,6 +2,9 @@ import numpy as np
 import scipy.stats
 import matplotlib.pyplot as plt
 
+# TODO for debugging delete me
+import rospy
+
 # class for running the discrete kalman filter algorithm from table 3.1
 class DiscreteKalmanFilter(object):
     def __init__(self, x0=None, P0=None, phi=None, gamma=None, H=None, Q=None, R=None, gammaW=None):
@@ -73,18 +76,24 @@ class DiscreteKalmanFilter(object):
         
         # calculate kalman gain
         # TODO should this not be stored for the next step?
+
+        # 
         K = P_apriori*H.T*(H*P_apriori*H.T+R).I
 
         # update step
         if measurement is not None:
             xhat_aposteriori = xhat_apriori + K*(measurement - H*xhat_apriori)
             I = np.matrix(np.eye(self.nstates))
+            # TODO this is the formula for the optimal Kalman gain...
+            # maybe i should be using the general "Joseph form" of the covariance update equation?
+            # i.e. Pk|k = (I-KkHk) Pk|k-1 (I-KkHk).T + KkRk(Kk.T)
             P_aposteriori = (I-K*H)*P_apriori
         else:
             xhat_aposteriori = xhat_apriori
             P_aposteriori = P_apriori
             
         # propagate step
+        # TODO do we not want to do this at fixed time intervals, asynchronous w/ update step above?
         xhat_new_apriori = phi*xhat_aposteriori + gamma*control
         P_new_apriori = phi*P_aposteriori*phi.T + gammaW*Q*gammaW.T
         

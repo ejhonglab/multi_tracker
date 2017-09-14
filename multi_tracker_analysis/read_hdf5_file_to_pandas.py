@@ -31,7 +31,7 @@ def get_filenames(path, contains, does_not_contain=['~', '.pyc']):
                 filelist.append( os.path.join(path, filename) )
     return filelist
     
-def get_filename(path, contains, does_not_contain=['~', '.pyc']):
+def get_filename(path, contains, does_not_contain=['~', '.pyc'], verbose=False):
     filelist = get_filenames(path, contains, does_not_contain)
     if len(filelist) == 1:
         return filelist[0]
@@ -40,8 +40,10 @@ def get_filename(path, contains, does_not_contain=['~', '.pyc']):
         print('Found multiple background images, using ' + str(pick))
         return pick
     else:
+        # TODO rewrite to exclude default printing, and call on check?
         print filelist
-        print 'Found too many, or too few files'
+        print 'Found too many, or too few files, with ' + str(contains) + \
+            ' and without ' + str(does_not_contain)
     return None
             
 def load_bag_as_hdf5(bag, skip_messages=[]):
