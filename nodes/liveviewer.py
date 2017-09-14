@@ -177,8 +177,16 @@ class LiveViewer:
     # TODO refactor to not have node_num optional, and that signal whether num should be passed to callback?
     def start_subscribers(self, node_num):
         self.tracked_trajectories[node_num] = dict()
-        rospy.Subscriber('multi_tracker/tracked_objects_' + str(node_num), Trackedobjectlist, lambda x: self.tracked_object_callback(node_num, x))
-        rospy.Subscriber('multi_tracker/contours_' + str(node_num), Contourlist, lambda x: self.contour_callback(x, n=node_num))
+        rospy.Subscriber('multi_tracker/tracked_objects_' + str(node_num), Trackedobjectlist, \
+            lambda x: self.tracked_object_callback(node_num, x))
+        # TODO refactor to not special case as much with the none. just make sure dict w/ one entry
+        # publishes to correct topic
+        if self.params['detect_tracking_pipelines']:
+            rospy.Subscriber('multi_tracker/contours_' + str(node_num), Contourlist, \
+                lambda x: self.contour_callback(x, n=node_num))
+        else:
+            rospy.Subscriber('multi_tracker/contours_' + str(node_num), Contourlist, \
+                self.contour_callback)
     
 
     def reset_background(self, service_call):
@@ -280,7 +288,7 @@ class LiveViewer:
             if self.params['detect_tracking_pipelines']:
                 contours = self.contours.values()
             else:
-                contours = [self.contours.contours]
+                contours = [self.contours]
 
             for contour_list in contours:
                 for c, contour in enumerate(contour_list.contours):

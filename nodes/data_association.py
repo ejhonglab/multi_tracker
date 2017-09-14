@@ -424,7 +424,10 @@ class DataAssociator(object):
                 # TODO isn't this calculated above? (i don't think so) just save?
                 tracked_object_covariance = np.linalg.norm( (tracked_object['kalmanfilter'].H*tracked_object['kalmanfilter'].P).T * self.association_matrix )
                 # TODO is this just always increasing until getting deleted?
-                rospy.logwarn('object ' + str(objid) + ' current covariance ' + str(tracked_object_covariance))
+                if self.debug:
+                    rospy.logwarn('object ' + str(objid) + ' current covariance ' + \
+                        str(tracked_object_covariance))
+
                 if tracked_object_covariance > self.max_covariance:
                     if self.debug:
                         # TODO TODO better document exactly what this is doing / how it is different
