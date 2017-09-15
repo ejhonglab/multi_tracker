@@ -264,6 +264,7 @@ class LiveViewer:
                     cv2.circle(self.image_mask, (r['circular_mask_x'], r['circular_mask_y']), \
                         int(r['circular_mask_r']), fill_color, -1) # need to cast? TODO
 
+                # TODO maybe these should not be added as one element lists, like they seem to be?
                 for r in self.polygonal_rois.values():
                     cv2.fillConvexPoly(self.image_mask, r, fill_color)
 
@@ -281,6 +282,14 @@ class LiveViewer:
         
         else:
             self.imgOutput = self.imgScaled
+
+        if self.have_rois and self.params['detect_tracking_pipelines']:
+            # TODO implement for other roi types as well
+            for n, r in self.polygonal_rois.items():
+                text_center = (int(np.mean(map(lambda x: x[0], r[0]))) - 25, \
+                    min(map(lambda x: x[1], r[0])) - 185)
+                cv2.putText(self.imgOutput, str(n), text_center, \
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
         # Draw ellipses from contours
         # TODO consider just using iterable identity?
