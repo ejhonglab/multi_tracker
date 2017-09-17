@@ -13,9 +13,6 @@ import pyqtgraph.ptime as ptime
 import time
 import numpy as np
 
-import read_hdf5_file_to_pandas
-import data_slicing
-
 import matplotlib.pyplot as plt
 
 import multi_tracker_analysis as mta
@@ -570,7 +567,7 @@ class QTrajectory(TemplateBaseClass):
         self.ui.qtplot_trajectory.clear()
                 
         pd_subset = mta.data_slicing.get_data_in_epoch_timerange(self.pd, self.troi)
-        self.dataset = read_hdf5_file_to_pandas.Dataset(self.pd)
+        self.dataset = mta.read_hdf5_file_to_pandas.Dataset(self.pd)
         
         self.init_bg_image()
         
@@ -653,7 +650,7 @@ class QTrajectory(TemplateBaseClass):
         self.pd, self.config = mta.read_hdf5_file_to_pandas.load_and_preprocess_data(self.data_filename)
         self.path = self.config.path
         
-        self.dataset = read_hdf5_file_to_pandas.Dataset(self.pd)
+        self.dataset = mta.read_hdf5_file_to_pandas.Dataset(self.pd)
         filename = os.path.join(self.path, 'delete_cut_join_instructions.pickle')
         if os.path.exists(filename):
             f = open(filename, 'r+')
@@ -669,7 +666,7 @@ class QTrajectory(TemplateBaseClass):
     def calc_time_etc(self):
         self.time_epoch = self.pd.time_epoch.groupby(self.pd.index).mean().values
         self.speed = self.pd.speed.groupby(self.pd.index).mean().values
-        self.nflies = data_slicing.get_nkeys_per_frame(self.pd)
+        self.nflies = mta.data_slicing.get_nkeys_per_frame(self.pd)
         self.time_epoch_continuous = np.linspace(np.min(self.time_epoch), np.max(self.time_epoch), len(self.nflies))
         
     def save_delete_cut_join_instructions(self, instructions):

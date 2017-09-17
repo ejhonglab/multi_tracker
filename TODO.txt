@@ -27,3 +27,8 @@ link to checkerboard or make a local copy.
 -should crash if no disk space
 
 -change all debug_flags (and self.debug sets/checks) to use logdebug and changing node debug levels
+
+-move trajectory editor to scripts? & change path to ui files and such
+-have an alternate setup.py for installing the analysis libraries standalone?
+
+-i've seen both BSD and MIT referenced. should we (Floris) try to pick just one?
