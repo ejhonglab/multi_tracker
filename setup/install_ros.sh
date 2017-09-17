@@ -22,7 +22,7 @@ apt-get install python-rosinstall
 # idk which line caused this to be needed. does it work here?
 rosdep fix-permissions
 
-touch $DIR.ros_installed
+#touch $DIR.ros_installed
 
 else
 echo "Either run this script as root or use sudo."
