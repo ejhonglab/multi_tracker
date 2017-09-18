@@ -2,6 +2,7 @@
 
 from __future__ import division
 import rospy
+import rostopic
 import time
 import os
 import subprocess
@@ -57,13 +58,6 @@ class SaveBag:
         self.bag_filename = os.path.join(directory, filename)
         self.processRosbag = None
         rospy.on_shutdown(self.on_shutdown)
-        
-        # hacky. see TODOs in delta_video_simplebuffer.py
-        self.time_start = 0
-        # do w/o numpy?
-        # TODO does this need to go back to python time?
-        while np.isclose(self.time_start, 0.0):
-            self.time_start = rospy.Time.now().to_sec()
 
     
     def on_shutdown(self):
@@ -88,6 +82,37 @@ class SaveBag:
     
     def main(self):
         self.start_recording()
+
+        for topic in self.topics:
+            rospy.logwarn(rospy.get_name() + ' waiting on ' + topic + \
+                ' to start record duration')
+            recheck = False
+            while not rospy.is_shutdown():
+                if recheck:
+                    time.sleep(0.5)
+
+                # TODO failure mode if topics that dont currently exist are in list to record?
+                # i want to support that w/o failure
+                
+                name = rospy.resolve_name(topic)
+                msg_type, _, _ = rostopic.get_topic_class(name)
+                if msg_type is None:
+                    recheck = True
+                    continue
+
+                else:
+                    rospy.wait_for_message(name, msg_type)
+                    break
+        
+        if not rospy.is_shutdown():
+            rospy.loginfo(rospy.get_name() + ' beginning record duration.')
+            # hacky. see TODOs in delta_video_simplebuffer.py
+            self.time_start = 0
+            # do w/o numpy?
+            # TODO does this need to go back to python time?
+            while np.isclose(self.time_start, 0.0):
+                self.time_start = rospy.Time.now().to_sec()
+
         while not rospy.is_shutdown():
             t = rospy.Time.now().to_sec() - self.time_start
             if t > self.record_length_seconds:
@@ -100,4 +125,3 @@ class SaveBag:
 if __name__ == '__main__':
     savebag = SaveBag()
     savebag.main()
-    
