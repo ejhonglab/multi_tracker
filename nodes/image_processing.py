@@ -3,8 +3,8 @@
 from __future__ import division
 import rospy
 import copy
-import cv2
 import numpy as np
+import cv2
 import dynamic_reconfigure.server
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image

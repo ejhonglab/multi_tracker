@@ -5,8 +5,8 @@ import rospy
 import rosparam
 import rosnode
 import copy
-import cv2
 import numpy as np
+import cv2
 import threading
 import dynamic_reconfigure.server
 from cv_bridge import CvBridge, CvBridgeError

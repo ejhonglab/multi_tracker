@@ -16,5 +16,5 @@ setup(
 )
 
 # only supported by setuptools
-#install_requires=['h5py', 'progressbar', 'pandas', 'scipy', \
+#install_requires=['numpy', 'h5py', 'progressbar', 'pandas', 'scipy', \
 #    'sympy', 'pyqtgraph'],

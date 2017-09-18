@@ -1,7 +1,8 @@
 <launch>
   <arg name="viewer" default="False" />
 
-  <node name="usb_cam" pkg="usb_cam" type="usb_cam_node" output="screen">
+  <!-- TODO have option to enable sending this output to screen? -->
+  <node name="usb_cam" pkg="usb_cam" type="usb_cam_node">
   	<!-- TODO appropriate framerate? check not duplicates -->
   	<!-- TODO make camera_name match calibration -->
   

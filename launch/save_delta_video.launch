@@ -7,5 +7,7 @@
     <param name="wait_for_rois" value="$(arg wait_for_rois)" type="bool" />
   </node>
   
+  <!-- TODO if this is going to be required, it may need to leave
+       termination to the above? maybe if wait_for_rois? -->
   <node name="save_delta_video" pkg="multi_tracker" type="save_bag.py" output="screen" required="true" />
 </launch>

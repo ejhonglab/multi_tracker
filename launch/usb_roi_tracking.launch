@@ -1,4 +1,6 @@
 <launch>
+  <!-- TODO make (a) viewer work if it is True whether or not 
+       video_only is false? -->
   <arg name="viewer" default="False" />
   <arg name="video_only" default="True" />
   

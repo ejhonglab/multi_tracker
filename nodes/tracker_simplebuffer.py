@@ -3,8 +3,8 @@
 from __future__ import division
 import imp, os
 import rospy
-import cv2
 import numpy as np
+import cv2
 import threading
 import dynamic_reconfigure.server
 # TODO remove?

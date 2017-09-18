@@ -4,8 +4,8 @@ from __future__ import division
 import rospy
 import rosparam
 import copy
-import cv2
 import numpy as np
+import cv2
 import threading
 from subprocess import Popen
 # TODO

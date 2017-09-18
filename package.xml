@@ -49,12 +49,14 @@
   <run_depend>roscpp</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>std_msgs</run_depend>
+  <run_depend>python-numpy</run_depend>
   <run_depend>python-h5py</run_depend>
   <run_depend>python-progressbar</run_depend>
   <run_depend>python-pandas</run_depend>
   <run_depend>python-scipy</run_depend>
+  <!-- TODO does someone have a version of this up that doesn't install huge tex recommended packages? -->
   <run_depend>python-sympy</run_depend>
-  <run_depend>python-pyqtgraph</run_depend>
+  <!-- <run_depend>python-pyqtgraph</run_depend> -->
   <!-- TODO use one of qt4/5 packages in repo? can replace pyqtgraph? otherwise add it to repo? -->
 
 
