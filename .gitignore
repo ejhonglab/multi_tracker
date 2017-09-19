@@ -10,3 +10,4 @@ log/
 *.swp
 *~
 *.pickle
+*.log

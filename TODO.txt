@@ -32,3 +32,5 @@ link to checkerboard or make a local copy.
 -have an alternate setup.py for installing the analysis libraries standalone?
 
 -i've seen both BSD and MIT referenced. should we (Floris) try to pick just one?
+
+-make vagrant use host ssh key for github?
