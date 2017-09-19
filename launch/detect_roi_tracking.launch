@@ -26,13 +26,15 @@
     <param name="video_only" value="$(arg video_only)" type="bool" />
   </node>
   
-  <node name="tracking_viewer" pkg="multi_tracker" type="liveviewer.py" output="screen" required="$(arg viewer)" unless="$(arg video_only)">
-      <remap from="/camera/image_raw" to="$(arg camera)" />
-      
-      <param name="detect_tracking_pipelines" value="True" />
-      <!-- TODO also support passing through roi_* args if i'm going to continue to support 
-           thos with the above flag -->
-  </node>
+  <group if="$(arg viewer)">
+    <node name="tracking_viewer" pkg="multi_tracker" type="liveviewer.py" output="screen" required="True" unless="$(arg video_only)">
+        <remap from="/camera/image_raw" to="$(arg camera)" />
+        
+        <param name="detect_tracking_pipelines" value="True" />
+        <!-- TODO also support passing through roi_* args if i'm going to continue to support 
+             thos with the above flag -->
+    </node>
+  </group>
   
   <!-- TODO fix package here after moving this file to metatools -->
   <!-- TODO equivalent of required, but just for process to finish cleanly? -->
