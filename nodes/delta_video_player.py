@@ -35,7 +35,7 @@ else:
 
 # The main tracking class, a ROS node
 class DeCompressor:
-    def __init__(self, topic_in, topic_out, directory, config=None, mode='mono', saveto=''):
+    def __init__(self, topic_in, topic_out, directory, config=None, mode='mono', saveto='', fps=5.0):
         '''
         Default image_topic for:
             Basler ace cameras with camera_aravis driver: camera/image_raw
@@ -63,6 +63,8 @@ class DeCompressor:
         else:
             self.saveto = None
             self.videowriter = None
+
+        self.fps = fps
             
         
     def delta_image_callback(self, delta_vid):
@@ -104,6 +106,10 @@ class DeCompressor:
             if self.mode == 'color':
                 new_image = cv2.cvtColor(new_image, cv2.COLOR_GRAY2RGB)
 
+            # TODO why was this not getting printed?
+            rospy.logwarn(new_image)
+            rospy.logwarn(new_image.shape)
+
             if self.config is not None:
                 # just use ros time conversion func
                 t = delta_vid.header.stamp.secs + delta_vid.header.stamp.nsecs*1e-9
@@ -114,11 +120,20 @@ class DeCompressor:
                 if self.videowriter is not None:
                     self.videowriter.write(new_image)
                 else:
+                    '''
                     if OPENCV_VERSION == 2:
                         self.videowriter = cv2.VideoWriter(self.saveto,cv2.cv.CV_FOURCC('m','p','4','v'), 300,(new_image.shape[1], new_image.shape[0]),True) # works on Linux and Windows
                     elif OPENCV_VERSION == 3:
                         self.videowriter = cv2.VideoWriter(self.saveto,cv2.VideoWriter_fourcc('m','p','4','v'), 300,(new_image.shape[1], new_image.shape[0]),True)
+                    '''
+                    # TODO handle iscolor flag appropriately
+                    self.videowriter = cv2.VideoWriter(self.saveto, \
+                        cv2.VideoWriter_fourcc(*'XVID'), self.fps, \
+                        (new_image.shape[1], new_image.shape[0]), False)
+                    #rospy.logwarn((new_image.shape[1], new_image.shape[0]))
                     #self.videowriter.open(self.saveto, cv.CV_FOURCC('P','I','M','1'), 30, (new_image.shape[0], new_image.shape[1]))
+            else:
+                rospy.logwarn('bgimg was none')
 
             if self.mode == 'mono':
                 image_message = self.cvbridge.cv2_to_imgmsg(new_image, encoding="mono8")
@@ -151,6 +166,7 @@ if __name__ == '__main__':
                         help="color if desired to convert to color image")
     parser.add_option("--saveto", type="str", dest="saveto", default='',
                         help="filename where to save video, default is none. Note: use this command to make a mac / quicktime friendly video: avconv -i test.avi -c:v libx264 -c:a copy outputfile.mp4")
+    # TODO add fps option
 
     (options, args) = parser.parse_args()
 

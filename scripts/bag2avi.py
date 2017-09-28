@@ -122,6 +122,7 @@ class Converter:
         self.current_goal_timestamp = 0
         # TODO include multi_tracker/delta_video as well
         # TODO TODO are these guaranteed to be sorted? how close to? (sort if not)
+        # TODO search bag for messages of correct type, and use that topic if only one
         for topic, msg, t in bag.read_messages(topics=['multi_tracker/1/delta_video']):
             # TODO when will t differ from msg.header 
             # TODO TODO which is appropriate timestamp (t or that in msg)?

@@ -6,6 +6,7 @@
 <arg name="viewer" default="false" />
 
 <arg name="delta_video_topic" default="/multi_tracker/delta_video" />
+<arg name="saveto" default="" />
 
 <param name="use_sim_time" type="bool" value="true" />
 
@@ -27,7 +28,8 @@
 # likewise with input topic? (this is what all the other nodes do)
 # in was previously original_delta_video, but couldn't remap after using wrapper. want to fix.
 <node name="delta_video_player" pkg="multi_tracker" type="delta_video_player.py" 
- args="--in='original_delta_video' --out='camera/image_raw'" required="true"/>
+ args="--in='original_delta_video' --out='camera/image_raw' 
+ --saveto='$(arg saveto)'" required="true"/>
 
 <node name="image_viewer" pkg="image_view" type="image_view" 
  args="image:=camera/image_raw" if="$(arg viewer)"/>
