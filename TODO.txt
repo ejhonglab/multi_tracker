@@ -34,3 +34,5 @@ link to checkerboard or make a local copy.
 -i've seen both BSD and MIT referenced. should we (Floris) try to pick just one?
 
 -make vagrant use host ssh key for github?
+
+-take background image w/o ROI mask for orienting arena
