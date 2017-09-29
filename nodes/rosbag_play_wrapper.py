@@ -92,6 +92,7 @@ if __name__ == '__main__':
     # work with both --rate=S and --rate S formats?
     parser.add_argument('--rate', action='store')
     parser.add_argument('--start', action='store')
+    parser.add_argument('--delay', action='store')
     
     # TODO is it possible the rosbag play queue is the main place losing messages?
     # because there is the --queue arg to rosbag play
