@@ -106,10 +106,6 @@ class DeCompressor:
             if self.mode == 'color':
                 new_image = cv2.cvtColor(new_image, cv2.COLOR_GRAY2RGB)
 
-            # TODO why was this not getting printed?
-            rospy.logwarn(new_image)
-            rospy.logwarn(new_image.shape)
-
             if self.config is not None:
                 # just use ros time conversion func
                 t = delta_vid.header.stamp.secs + delta_vid.header.stamp.nsecs*1e-9
@@ -130,10 +126,7 @@ class DeCompressor:
                     self.videowriter = cv2.VideoWriter(self.saveto, \
                         cv2.VideoWriter_fourcc(*'XVID'), self.fps, \
                         (new_image.shape[1], new_image.shape[0]), False)
-                    #rospy.logwarn((new_image.shape[1], new_image.shape[0]))
                     #self.videowriter.open(self.saveto, cv.CV_FOURCC('P','I','M','1'), 30, (new_image.shape[0], new_image.shape[1]))
-            else:
-                rospy.logwarn('bgimg was none')
 
             if self.mode == 'mono':
                 image_message = self.cvbridge.cv2_to_imgmsg(new_image, encoding="mono8")
