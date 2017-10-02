@@ -47,4 +47,8 @@ echo "Using output path $OUTPUT_PATH"
 ROS_HOME=$INPUT_PATH "roslaunch" multi_tracker play_delta_video.launch rate:=2.0 pause:=False delay:=5 &
 sleep 0.5
 cd $OUTPUT_PATH
-ROS_HOME=${OUTPUT_PATH} "roslaunch" multi_tracker detect_roi_tracking.launch viewer:=False tracking_only:=True
+ROS_HOME=${OUTPUT_PATH} "roslaunch" multi_tracker detect_roi_tracking.launch viewer:=False tracking_only:=True &
+# see https://unix.stackexchange.com/questions/231676/
+# given-two-background-commands-terminate-the-remaining-one-when-either-exits
+wait -n
+pkill -P $$

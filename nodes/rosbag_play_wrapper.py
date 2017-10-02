@@ -49,9 +49,11 @@ class RosbagPlayWrapper:
         rospy.on_shutdown(self.on_shutdown)
         self.play()
 
+
     def on_shutdown(self):
         self.stop()
-        
+
+
     def play(self):
         rospy.loginfo('starting process to play bag file: %s' % (self.bag_filename))
         # remapping will only work assuming that topic is in the bag
@@ -59,14 +61,28 @@ class RosbagPlayWrapper:
         # need to remap from global?
         cmdline = ['rosbag', 'play', self.bag_filename, self.topic_in + ':=' + self.topic_out]
         cmdline.extend(self.passthrough_args)
+
         self.rosbag_process = subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)
         # TODO just spin until Popen finishes? maybe make a blocking call?
-        rospy.spin()
+
+        r = rospy.Rate(0.2)
+        while not rospy.is_shutdown():
+            if not self.rosbag_process.poll() is None:
+                # process has finished
+                rospy.loginfo('poll returned nonzero. rosbag play must have finished.')
+                sys.exit()
+            r.sleep()
+
     
     def stop(self):
-        if not self.rosbag_process is None:
-            subprocess.os.killpg(self.rosbag_process.pid, subprocess.signal.SIGINT)
-            rospy.loginfo('rosbag play process killed from wrapper.')
+        try:
+            if not self.rosbag_process is None:
+                subprocess.os.killpg(self.rosbag_process.pid, subprocess.signal.SIGINT)
+                rospy.loginfo('rosbag play process killed from wrapper.')
+
+        # in case process is already dead
+        except OSError:
+            pass
 
 
 if __name__ == '__main__':
