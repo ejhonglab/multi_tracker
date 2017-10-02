@@ -5,7 +5,6 @@ import rospy
 import copy
 import numpy as np
 import cv2
-import dynamic_reconfigure.server
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image
 from std_msgs.msg import Header
@@ -34,6 +33,7 @@ else:
 # the format custom image processing functions should follow
 ###############################################################################
 # TODO fix this if i broke it
+# TODO document input / output contract these functions should meet
 """
 def incredibly_basic(self):
     # If there is no background image, grab one, and move on to the next frame
@@ -220,6 +220,7 @@ def extract_and_publish_contours(self):
     return coords_and_area
 
 
+# TODO maybe don't have a separate function for this?
 def convert_to_gray_if_necessary(self):
     if len(self.threshed.shape) == 3:
         self.threshed = np.uint8(cv2.cvtColor(self.threshed, cv2.COLOR_BGR2GRAY))

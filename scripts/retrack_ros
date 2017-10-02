@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+# TODO support passing any extra arguments through to (which node though?)
+# two separate argument strings, one for each launch file?
+
+# TODO how to / need to expand path?
+if [ -d "$1" ]; then
+	echo "Argument was a directory."
+	INPUT_PATH="$1"
+	#OUTPUT_PATH="$(dirname "${INPUT_PATH}")"
+elif [ -f "$1" ]; then
+	echo "Input was a file. Using parent directory."
+	INPUT_PATH="$(dirname "$1")"
+	#OUTPUT_PATH="$(dirname "${INPUT_PATH}")"
+elif [ -n "${DATA_DIR}" ]; then
+	echo "Had DATA_DIR environment variable. Checking there for directory named as argument."
+	ID=$1
+	INPUT_PATH="${DATA_DIR}/${ID}"
+	# TODO maybe retrack everything if ID is not set? everything without hdf5?
+	if [ -z "${ID}" ]; then
+		echo "Error: must specify subdirectory of DATA_DIR if argument is not otherwise a valid path."
+		exit 1
+	fi
+	# TODO search for any valid directories matching ID in DATA_DIR, excluding retracked dir
+	# (so i don't also have to specify parent dir like 20170920)
+fi
+
+if ! [ -d "${INPUT_PATH}" ]; then
+	echo "Error: input path ${INPUT_PATH} was not a directory."
+	exit 1
+fi
+
+# TODO might not want to assume output path should have same parent as input
+# how best to support? if env var detected?
+OUTPUT_PATH="${DATA_DIR}/retracked"
+
+if ! [ -d "${OUTPUT_PATH}" ]; then
+	echo "Error: output path ${OUTPUT_PATH} was not a directory."
+	exit 1
+fi
+
+echo "Using input path $INPUT_PATH"
+echo "Using output path $OUTPUT_PATH"
+
+# TODO how to make these terminate appropriately. set something required in both?
+# TODO probably need to start in background
+ROS_HOME=$INPUT_PATH "roslaunch" multi_tracker play_delta_video.launch rate:=2.0 pause:=False delay:=5 &
+sleep 0.5
+cd $OUTPUT_PATH
+ROS_HOME=${OUTPUT_PATH} "roslaunch" multi_tracker detect_roi_tracking.launch viewer:=False tracking_only:=True

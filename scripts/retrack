@@ -1,50 +1,50 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python
 
-# TODO support passing any extra arguments through to (which node though?)
-# two separate argument strings, one for each launch file?
+import argparse
 
-# TODO how to / need to expand path?
-if [ -d "$1" ]; then
-	echo "Argument was a directory."
-	INPUT_PATH="$1"
-	#OUTPUT_PATH="$(dirname "${INPUT_PATH}")"
-elif [ -f "$1" ]; then
-	echo "Input was a file. Using parent directory."
-	INPUT_PATH="$(dirname "$1")"
-	#OUTPUT_PATH="$(dirname "${INPUT_PATH}")"
-elif [ -n "${DATA_DIR}" ]; then
-	echo "Had DATA_DIR environment variable. Checking there for directory named as argument."
-	ID=$1
-	INPUT_PATH="${DATA_DIR}/${ID}"
-	# TODO maybe retrack everything if ID is not set? everything without hdf5?
-	if [ -z "${ID}" ]; then
-		echo "Error: must specify subdirectory of DATA_DIR if argument is not otherwise a valid path."
-		exit 1
-	fi
-	# TODO search for any valid directories matching ID in DATA_DIR, excluding retracked dir
-	# (so i don't also have to specify parent dir like 20170920)
-fi
+# TODO if i am also mainly only defining one class per file, 
+# should i be importing a different way?
+# TODO some way to not always follow package name by module? or is this better practice?
+from multi_tracker.delta_video_player import DeltaVideoPlayer
+from multi_tracker.image_processing import ContourExtractor
+from multi_tracker.data_association import Associator
+from multi_tracker.save_data_to_hdf5 import TrajectoryWriter
+from multi_tracker.liveviewer import Liveviewer
 
-if ! [ -d "${INPUT_PATH}" ]; then
-	echo "Error: input path ${INPUT_PATH} was not a directory."
-	exit 1
-fi
+parser = argparse.ArgumentParser()
 
-# TODO might not want to assume output path should have same parent as input
-# how best to support? if env var detected?
-OUTPUT_PATH="${DATA_DIR}/retracked"
+# TODO include argument for viewer. anything else?
+# which type of tracking pipeline to run? (include roi_finder + multiple pipelines?)
 
-if ! [ -d "${OUTPUT_PATH}" ]; then
-	echo "Error: output path ${OUTPUT_PATH} was not a directory."
-	exit 1
-fi
+# TODO make image_processor instance w/ parameters loaded in same way as in tracker_simplebuffer
 
-echo "Using input path $INPUT_PATH"
-echo "Using output path $OUTPUT_PATH"
+# i think i want to keep most of the __init__s for the classes most of the node files enclose
+# mainly to deal with parameter maintenance. is that reasonable?
 
-# TODO how to make these terminate appropriately. set something required in both?
-# TODO probably need to start in background
-ROS_HOME=$INPUT_PATH "roslaunch" multi_tracker play_delta_video.launch rate:=2.0 pause:=False delay:=5 &
-sleep 0.5
-cd $OUTPUT_PATH
-ROS_HOME=${OUTPUT_PATH} "roslaunch" multi_tracker detect_roi_tracking.launch viewer:=False tracking_only:=True
+# TODO if i also want to save parameters in same way as i have been, should i wrap snapshot_params
+# and pile up all yaml params here and pass to that, or should i give each class a method
+# to return parameters (would work better for default...)
+# one point in favor of wrapping:
+# -can make use of logic to copy old params over, etc
+
+# TODO how to deal w/ coordination of basename...
+# TODO TODO how to deal w/ resetting background. just need to deal w/ whatever influenced tracker (?)
+
+
+# TODO as_node argument to constructors necessary, or can all ROS stuff be factored into
+# __main__? delays? if necessary, maybe don't try to factor ROS stuff (e.g. init_node)
+# in to __main__?
+
+# TODO take argument of directory with parameter files
+decompressor = DeltaVideoPlayer()
+contour_extractor = ContourExtractor()
+associator = Associator()
+writer = TrajectoryWriter()
+viewer = Liveviewer()
+
+# TODO should be able to take bag files or video as input
+
+params = dict()
+
+for frame in video:
+    image_processing.process_image()

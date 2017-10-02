@@ -219,6 +219,7 @@ class Tracker:
             rospy.logwarn ('Exception converting background image from ROS to opencv:  %s' % e)
             img = np.zeros((320,240))
             
+        # TODO is this unreachable now?
         if img is None:
             return
         
