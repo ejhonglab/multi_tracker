@@ -170,11 +170,13 @@ def extract_and_publish_contours(self):
         print 'could not get framestamp, run tracker_nobuffer instead'
         
     contour_info = []
+    coords_and_area = set()
     for contour in contours:
         # Large objects are approximated by an ellipse
         # TODO break fitting into func and make recursive?
         if len(contour) >= 5:
             x, y, ecc, area, angle = fit_ellipse_to_contour(self, contour)
+            coords_and_area.add((x, y, area))
             
             # if object is too large, split it in two, this helps with colliding objects, but is not 100% correct
             if area > self.params['max_expected_area']:
@@ -215,6 +217,7 @@ def extract_and_publish_contours(self):
             
     # publish the contours
     self.pubContours.publish( Contourlist(header = header, contours=contour_info) )  
+    return coords_and_area
 
 
 def convert_to_gray_if_necessary(self):
@@ -405,15 +408,20 @@ def dark_or_light_objects_only(self, color='dark'):
     
     erode_and_dialate(self)
 
+    coords_and_area = extract_and_publish_contours(self)
+
     # publish the processed image
     # for troubleshooting image processing pipeline
     if self.debug and self.pub_processed.get_num_connections() > 0:
-        c = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
+        cimg = cv2.cvtColor(np.uint8(self.threshed), cv2.COLOR_GRAY2BGR)
+        for x, y, area in coords_and_area:
+            cv2.putText(cimg, str(area), (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, \
+                (255, 255, 255), 1, cv2.LINE_AA)
+
         # TODO test whether this works in OpenCV 2 and 3 (i think it works in 3 for me, despite
         # Floris's comment
-        img = self.cvbridge.cv2_to_imgmsg(c, 'bgr8') # might need to change to bgr for color cameras
+        img = self.cvbridge.cv2_to_imgmsg(cimg, 'bgr8') # might need to change to bgr for color cameras
         self.pub_processed.publish(img)
 
-    extract_and_publish_contours(self)
     reset_background_if_difference_is_very_large(self, color)
         
