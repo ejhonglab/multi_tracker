@@ -41,7 +41,6 @@ def get_filename(path, contains, does_not_contain=['~', '.pyc'], verbose=False):
         return pick
     else:
         # TODO rewrite to exclude default printing, and call on check?
-        print filelist
         print 'Found too many, or too few files, with ' + str(contains) + \
             ' and without ' + str(does_not_contain)
     return None
@@ -286,21 +285,28 @@ def load_and_preprocess_data(hdf5_filename):
         else:
             raise ValueError('Could not find trackedobjects.hdf5 file')
                     
+    print 'in func w/ long name'
     pd = load_data_as_pandas_dataframe_from_hdf5_file(hdf5_filename, attributes=None)
+    print 'done with long named function'
     
     hdf5_basename = os.path.basename(hdf5_filename)
     directory = os.path.dirname(hdf5_filename)
     
     identifiercode = hdf5_basename.split('_trackedobjects')[0]
     config_filename = 'config_' + identifiercode + '.py'
+    print 'looking for config file'
     config_filename = get_filename(directory, config_filename)
+    print 'done looking for config file'
 
     # TODO shouldn't this be calling load_config_from_path?
     if config_filename is not None:
         Config = imp.load_source('Config', config_filename)
+        print 'creating config object'
         config = Config.Config(directory, identifiercode)
+        print 'done creating config object'
         if config.__dict__.has_key('preprocess_data_function'):
             pd = config.__getattribute__('preprocess_data_function')(pd)
+        print 'done preprocessing data'
     else:
         config = None
         

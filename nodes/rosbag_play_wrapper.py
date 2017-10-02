@@ -6,6 +6,7 @@ import os
 import sys
 import glob
 import subprocess
+import time
 
 """
 PLays any bag file in the current directory, directory passed, and also existing behavior of 
@@ -65,13 +66,14 @@ class RosbagPlayWrapper:
         self.rosbag_process = subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)
         # TODO just spin until Popen finishes? maybe make a blocking call?
 
-        r = rospy.Rate(0.2)
         while not rospy.is_shutdown():
             if not self.rosbag_process.poll() is None:
                 # process has finished
                 rospy.loginfo('poll returned nonzero. rosbag play must have finished.')
                 sys.exit()
-            r.sleep()
+
+            else:
+                time.sleep(5)
 
     
     def stop(self):

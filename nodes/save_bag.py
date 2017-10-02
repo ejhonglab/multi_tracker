@@ -51,6 +51,7 @@ class SaveBag:
 
         if not os.path.exists(directory):
             # TODO this could run into concurrency issues. lock somehow?
+            # i have now officially had this fail
             os.makedirs(directory)
             if generated_basename:
                 rospy.set_param('multi_tracker/experiment_basename', self.experiment_basename)
