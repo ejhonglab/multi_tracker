@@ -12,6 +12,7 @@ from multi_tracker.msg import Trackedobject, Trackedobjectlist
 import h5py
 
 import atexit
+import errno
 
 # TODO maybe save roi information here to not require snapshot_params to delay until rois are set?
 # or just for redundancy?
@@ -53,10 +54,15 @@ class DataListener:
         else:
             directory = os.path.join(os.getcwd(), self.experiment_basename)
         
-        if not os.path.exists(directory):
+        try:
             os.makedirs(directory)
             if generated_basename:
-                rospy.set_param('multi_tracker/experiment_basename', self.experiment_basename)
+                rospy.set_param('multi_tracker/experiment_basename', \
+                    self.experiment_basename)
+
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
 
         filename = os.path.join(directory, self.experiment_basename + '_N' + str(self.pipeline_num) \
             + '_trackedobjects.hdf5')

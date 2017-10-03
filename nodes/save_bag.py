@@ -7,6 +7,7 @@ import time
 import os
 import subprocess
 import numpy as np
+import errno
 
 class SaveBag:
     def __init__(self):
@@ -45,16 +46,19 @@ class SaveBag:
 
         filename = self.experiment_basename + '_delta_video.bag'
         if rospy.get_param('multi_tracker/explicit_directories', False):
-            directory = os.path.expanduser( rospy.get_param('multi_tracker/data_directory') )
+            directory = os.path.expanduser(rospy.get_param('multi_tracker/data_directory'))
         else:
             directory = os.path.join(os.getcwd(), self.experiment_basename)
 
-        if not os.path.exists(directory):
-            # TODO this could run into concurrency issues. lock somehow?
-            # i have now officially had this fail
+        try:
             os.makedirs(directory)
             if generated_basename:
-                rospy.set_param('multi_tracker/experiment_basename', self.experiment_basename)
+                rospy.set_param('multi_tracker/experiment_basename', \
+                    self.experiment_basename)
+
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
 
         self.bag_filename = os.path.join(directory, filename)
         self.processRosbag = None

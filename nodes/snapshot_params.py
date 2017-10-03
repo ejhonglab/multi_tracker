@@ -6,6 +6,7 @@ import os
 import subprocess
 import shutil
 import glob
+import errno
 
 class SaveParams:
     def __init__(self):
@@ -39,11 +40,16 @@ class SaveParams:
         # TODO make directory in a central place? set exp_basename?
         # or copy in each node? may need to explicitly fail then if not there as a 
         # result of central code
-        if not os.path.exists(directory):
+        try:
             os.makedirs(directory)
             if generated_basename:
-                rospy.set_param('multi_tracker/experiment_basename', self.experiment_basename)
-    
+                rospy.set_param('multi_tracker/experiment_basename', \
+                    self.experiment_basename)
+
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+
         self.filename = os.path.join(directory, filename)
 
         copy_old_params = rospy.get_param('~copy_old_params', True)

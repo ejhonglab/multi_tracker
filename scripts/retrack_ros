@@ -42,9 +42,15 @@ fi
 echo "Using input path $INPUT_PATH"
 echo "Using output path $OUTPUT_PATH"
 
-# TODO how to make these terminate appropriately. set something required in both?
-# TODO probably need to start in background
-ROS_HOME=$INPUT_PATH "roslaunch" multi_tracker play_delta_video.launch rate:=2.0 pause:=False delay:=5 &
+if [ -z "$2" ]
+then
+	rate=0.8
+else
+	rate=$2
+fi
+
+
+ROS_HOME=$INPUT_PATH "roslaunch" multi_tracker play_delta_video.launch rate:=${rate} pause:=False delay:=5 &
 sleep 0.5
 cd $OUTPUT_PATH
 ROS_HOME=${OUTPUT_PATH} "roslaunch" multi_tracker detect_roi_tracking.launch viewer:=False tracking_only:=True &
