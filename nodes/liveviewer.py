@@ -79,7 +79,7 @@ class LiveViewer:
                         '~circular_mask_r'           : None,
                         '~roi_points'                : None,
                         '~detect_tracking_pipelines' : False, # rename?
-                        'save_demo'                  : True
+                        'save_demo'                  : False
                         }
         
         for parameter, default_value in self.params.items():
@@ -113,15 +113,13 @@ class LiveViewer:
                 parameter = parameter[1:]
             self.params[parameter] = value
 
-        # TODO remove
-        self.params['save_demo'] = True
         if self.params['save_demo']:
             # TODO include timestamp?
             self.video_filename = 'tracking_demo.avi'
             self.videowriter = None
             self.desired_frame_rate = 30.0
             self.mode = 'color'
-            print 'SETTING SELF VIDEOWRITER'
+
         rospy.init_node('liveviewer')
         
 
