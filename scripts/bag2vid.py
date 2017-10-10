@@ -12,6 +12,7 @@ from sensor_msgs.msg import Image
 import rosbag
 import glob
 import copy
+import sys
 
 from distutils.version import LooseVersion, StrictVersion
 print('Using open cv: ', cv2.__version__)
@@ -86,6 +87,10 @@ class Converter:
 
         self.videowriter = None
         self.video_filename = self.bag_file[:-4] + '.avi'
+
+        if os.path.exists(self.video_filename):
+            print(self.video_filename, 'already exists. exiting.')
+            sys.exit()
 
         try:
             from tqdm import tqdm

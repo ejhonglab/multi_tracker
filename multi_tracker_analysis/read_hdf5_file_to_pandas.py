@@ -294,7 +294,7 @@ def load_and_preprocess_data(hdf5_filename):
     
     identifiercode = hdf5_basename.split('_trackedobjects')[0]
     config_filename = 'config_' + identifiercode + '.py'
-    print 'looking for config file'
+    print 'looking for', config_filename, 'in', directory
     config_filename = get_filename(directory, config_filename)
     print 'done looking for config file'
 

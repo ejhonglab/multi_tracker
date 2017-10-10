@@ -160,7 +160,6 @@ class DataAssociator(object):
         return objects2contours, unmatched_objects, unmatched_contours
 
     # TODO set max cost as node param? redundant w/ ncov? which to keep?
-    # TODO change back to costs
     def floris_greedy_association(self, costs, max_cost=None, split_cost=None):
         """
         costs: a numpy array of dimension (# contours in this frame x # targets in last frame).
@@ -169,6 +168,10 @@ class DataAssociator(object):
         def drop_max_cost(coord_val):
             """
             """
+            if self.debug:
+                rospy.loginfo('dropping objects {} from cost matrix b/c max cost'.format(\
+                    np.where(coord_val[:,2] < max_cost)[0]))
+
             return coord_val[coord_val[:,2] < max_cost,:]
             
         #indices = np.where(costs[c,:] < ncov)[0]
@@ -179,6 +182,7 @@ class DataAssociator(object):
         #print contour_to_object_error
 
         # values over threshold # covariances are set to max cost before this function
+        # TODO maybe this is what is causing some to be lost b/c never added to all_objects?
         contour_to_object_error = drop_max_cost(contour_to_object_error)
         #print 'after dropping max_cost entries'
         #print contour_to_object_error
@@ -187,32 +191,36 @@ class DataAssociator(object):
         # TODO multiple assignments to same / suboptimal / dissapearing?
         # TODO TODO not currently equipped to deal with splits. fix.
         
+        # TODO set behind a high verbosity level?
         #print 'unsorted by costs\n', contour_to_object_error
         sorted_indices = np.argsort(contour_to_object_error[:,2])
         contour_to_object_error = contour_to_object_error[sorted_indices,:]
         #print 'sorted by costs\n', contour_to_object_error
 
         objects2contours = {}
-        all_objects = set()
-        all_contours = set()
+        all_objects = set(range(costs.shape[1]))
+        all_contours = set(range(costs.shape[0]))
+
         objects_accounted_for = set()
         contours_accounted_for = set()
         for data in contour_to_object_error:
             # TODO check these are the correct indexes
             c = int(data[1])
-            objid = int(data[0])
-            if objid not in objects_accounted_for:
+            # TODO was this really an objid before?
+            o = int(data[0])
+            if o not in objects_accounted_for:
                 if c not in contours_accounted_for:
                     if self.debug:
-                        rospy.loginfo('assigning c=' + str(c) + ' to o=' + str(objid) + \
+                        rospy.loginfo('assigning c=' + str(c) + ' to o=' + str(o) + \
                             ' w/ cost=' + str(data[2]))
                     
-                    objects2contours[objid] = c
-                    objects_accounted_for.add(objid)
+                    objects2contours[o] = c
+                    objects_accounted_for.add(o)
                     contours_accounted_for.add(c)
-            
-            all_objects.add(objid)
-            all_contours.add(c)
+
+        if self.debug:
+            rospy.logdebug('all_objects: {}'.format(all_objects))
+            rospy.logdebug('objects_accounted_for: {}'.format(objects_accounted_for))
 
         unmatched_objects = []
         for o in all_objects:
@@ -223,7 +231,7 @@ class DataAssociator(object):
         for c in all_contours:
             if not c in contours_accounted_for:
                 unmatched_contours.append(c)
-        
+
         # will have to convert to current object id after returning
         # here, objects are just the indices in the cost matrix, which is the order in
         # tracked_object_ids
@@ -243,7 +251,7 @@ class DataAssociator(object):
 
         def update_tracked_object(tracked_object, measurement, contourlist):
             if self.debug:
-                rospy.loginfo('updating objid ' + str(tracked_object['objid']))
+                rospy.loginfo('updating objid {}'.format(tracked_object['objid']))
             if measurement is None:
                 if self.debug:
                     rospy.loginfo('measurement is none')
@@ -341,14 +349,33 @@ class DataAssociator(object):
                 # TODO use float INFINITY constant to get rid of max_cost?
                 # TODO just pass floris' the object covariances too, rather than acting
                 # indirectly through max_cost?
+                # TODO TODO assert all objects are in one of these when debug flag is on
+                # seems like they might not be? some neither being updated nor destroyed...
+                if self.debug:
+                    rospy.loginfo('tracked_objects.keys(): {}'.format(self.tracked_objects.keys()))
+
                 object2contour, unmatched_objects, unmatched_contours = \
                     self.floris_greedy_association(costs, max_cost)
-                
                 # above function uses indices of cost matrix to refer to objects
                 # point those indices back to the current objects they represent
                 # TODO break into function?
                 object2contour = {tracked_object_ids[o]: c for o, c in object2contour.iteritems()}
+                # TODO TODO just calculate unmatched objects out here, if it's gonna be the same
+                # for each association function?
                 unmatched_objects = [tracked_object_ids[o] for o in unmatched_objects]
+
+                # TODO uncomment / move to a test
+                '''
+                if self.debug:
+                    assert (len(unmatched_objects) + len(object2contour)) == \
+                        len(self.tracked_objects)
+                '''
+
+                # TODO put behind debug flag. maybe make diff verbosity levels?
+                if self.debug:
+                    rospy.loginfo('object2contour: {}'.format(object2contour))
+                    rospy.loginfo('unmatched_objects: {}'.format(unmatched_objects))
+                    rospy.loginfo('unmatched_contours: {}'.format(unmatched_contours))
                 
             else:
                 costs = None
@@ -390,8 +417,10 @@ class DataAssociator(object):
         # TODO so something was in both this and obj2cont?
         if self.debug:
             rospy.loginfo('updating objects (that are supposed to be) not matched to contours')
+
         for object_id in unmatched_objects:
             update_tracked_object(self.tracked_objects[object_id], None, contourlist)
+
         if self.debug:
             rospy.loginfo('done updating unmatched objects')
         '''
@@ -426,7 +455,6 @@ class DataAssociator(object):
         # check covariance, and velocity
         objects_to_destroy = []
         for objid, tracked_object in self.tracked_objects.items():
-
             if self.max_covariance > 0:
                 # H = the observation model. maps state space to observed space.
                 # P = (Pk|k or Pk|k-1? i.e. a priori or a posteriori state covariance estimate?
@@ -448,7 +476,7 @@ class DataAssociator(object):
                         # from parameter in data_association_parameters.yaml (n_covariances_to...)
                         rospy.logwarn('destroying object ' + str(objid) + \
                             ' for high covariance ' + str(tracked_object_covariance))
-                    
+ 
                     if objid not in objects_to_destroy:
                         objects_to_destroy.append(objid)
 
@@ -458,6 +486,7 @@ class DataAssociator(object):
                     if self.debug:
                         rospy.logwarn('destroying object ' \
                             + str(objid) + ' for high velocity ' + str(v))
+
                     if objid not in objects_to_destroy:
                         objects_to_destroy.append(objid)
 
@@ -480,6 +509,7 @@ class DataAssociator(object):
                 rospy.logwarn('their persistance in frames ' + str(persistance))
 
             # TODO some reverse arg to sort to save some steps?
+            # TODO check sorted order is ultimately descending
             order = np.argsort(persistance)[::-1]
             objid_in_order_of_persistance = [objid_in_order_of_persistance[o] for o in order]
 
