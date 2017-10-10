@@ -65,8 +65,6 @@ class LiveViewer:
             Basler ace cameras with camera_aravis driver: camera/image_raw
             Pt Grey Firefly cameras with pt grey driver : camera/image_mono
         '''
-        rospy.init_node('liveviewer')
-        
         # default parameters (parameter server overides them)
         self.params = { 'image_topic'               : 'camera/image_mono',
                         'min_persistence_to_draw'   : 10,
@@ -80,7 +78,8 @@ class LiveViewer:
                         '~circular_mask_y'           : None,
                         '~circular_mask_r'           : None,
                         '~roi_points'                : None,
-                        '~detect_tracking_pipelines' : False # rename?
+                        '~detect_tracking_pipelines' : False, # rename?
+                        'save_demo'                  : True
                         }
         
         for parameter, default_value in self.params.items():
@@ -113,6 +112,18 @@ class LiveViewer:
                 del self.params[parameter]
                 parameter = parameter[1:]
             self.params[parameter] = value
+
+        # TODO remove
+        self.params['save_demo'] = True
+        if self.params['save_demo']:
+            # TODO include timestamp?
+            self.video_filename = 'tracking_demo.avi'
+            self.videowriter = None
+            self.desired_frame_rate = 30.0
+            self.mode = 'color'
+            print 'SETTING SELF VIDEOWRITER'
+        rospy.init_node('liveviewer')
+        
 
         self.tracked_trajectories = {}
         self.clear_rois()
@@ -172,6 +183,7 @@ class LiveViewer:
         
         except:
             rospy.logerr('could not connect to add image to background service - is tracker running?')
+
         
 
     # TODO refactor to not have node_num optional, and that signal whether num should be passed to callback?
@@ -347,6 +359,23 @@ class LiveViewer:
         # to show images bigger than the screen resolution
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         cv2.imshow(self.window_name, self.imgOutput)
+
+        if self.videowriter is not None:
+            self.videowriter.write(self.imgOutput)
+
+        elif self.params['save_demo']:
+            format_code = 'XVID'
+            if OPENCV_VERSION == 2:
+                fourcc = cv2.cv.CV_FOURCC(*format_code)
+                self.videowriter = cv2.VideoWriter(self.video_filename, fourcc, \
+                    self.desired_frame_rate, (self.imgOutput.shape[1], self.imgOutput.shape[0]), \
+                    1 if self.mode == 'color' else 0)
+
+            elif OPENCV_VERSION == 3:
+                fourcc = cv2.VideoWriter_fourcc(*format_code)
+                self.videowriter = cv2.VideoWriter(self.video_filename, fourcc, \
+                    self.desired_frame_rate, (self.imgOutput.shape[1], self.imgOutput.shape[0]), \
+                    1 if self.mode == 'color' else 0)
 
         if not self.window_initiated: # for some reason this approach works in opencv 3 instead of previous approach
             cv2.setMouseCallback(self.window_name, self.on_mouse_click)

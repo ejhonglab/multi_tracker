@@ -252,16 +252,22 @@ class DataAssociator(object):
         def update_tracked_object(tracked_object, measurement, contourlist):
             if self.debug:
                 rospy.loginfo('updating objid {}'.format(tracked_object['objid']))
+
             if measurement is None:
                 if self.debug:
                     rospy.loginfo('measurement is none')
                 m = np.matrix([np.nan for i in range( tracked_object['measurement'].shape[0] ) ]).T
                 # TODO TODO why are these variables returned? they dont seem to be used...
                 xhat, P, K = tracked_object['kalmanfilter'].update( None ) # run kalman filter
+
             else:
-                tracked_object['measurement'] = np.hstack( (tracked_object['measurement'], measurement) ) # add object's data to the tracked object
+                # add object's data to the tracked object
+                tracked_object['measurement'] = np.hstack( \
+                    (tracked_object['measurement'], measurement) )
                 # TODO TODO see above
-                xhat, P, K = tracked_object['kalmanfilter'].update( tracked_object['measurement'][:,-1] ) # run kalman filter
+                xhat, P, K = tracked_object['kalmanfilter'].update( \
+                    tracked_object['measurement'][:,-1] ) # run kalman filter
+
             # TODO TODO did floris ever specify the size of this buffer?
             # as i have it now (and maybe as he had it), it can only ever hold one item
             # because for each append there is a pop...
