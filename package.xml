@@ -45,7 +45,11 @@
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
   <build_depend>std_msgs</build_depend>
+  <!-- TODO is this still a dependency? -->
   <run_depend>geometry_msgs</run_depend>
+  <!-- TODO is either of image_pipeline or image_geometry better for this purpose?
+       see conflicting info in http://wiki.ros.org/opencv3 -->
+  <run_depend>image_pipeline</run_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>std_msgs</run_depend>
