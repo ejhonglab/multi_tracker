@@ -32,9 +32,7 @@ else:
 # basic image processing function (self contained), to demonstrate
 # the format custom image processing functions should follow
 ###############################################################################
-# TODO fix this if i broke it
 # TODO document input / output contract these functions should meet
-"""
 def incredibly_basic(self):
     # If there is no background image, grab one, and move on to the next frame
     if self.backgroundImage is None:
@@ -54,7 +52,7 @@ def incredibly_basic(self):
         self.threshed = np.uint8(cv2.cvtColor(self.threshed, cv2.COLOR_BGR2GRAY))
     
     # extract and publish contours
-    # http://docs.opencv.org/trunk/doc/py_tutorials/py_imgproc/py_contours/py_contour_features/py_contour_features.html
+    # http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_contours/py_contour_features/py_contour_features.html
     if OPENCV_VERSION == 2:
         contours, hierarchy = cv2.findContours(self.threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     elif OPENCV_VERSION == 3:
@@ -97,7 +95,6 @@ def incredibly_basic(self):
             
     # publish the contours
     self.pubContours.publish(Contourlist(header=header, contours=contour_info))  
-"""
 
 
 ###############################################################################

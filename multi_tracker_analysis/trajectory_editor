@@ -49,10 +49,11 @@ screen_height = screen.get_height()
 # check screen size - if "small" screen use smaller ui
 path = os.path.dirname(os.path.abspath(__file__))
 if screen_height < 900:
-    uiFile = os.path.join(path, 'trajectory_viewer_small_screens.ui')
+    uiFile = os.path.join(path, 'gui_trajectory_viewer_smallscreens.ui')
+    SMALL = True
 else:
-    uiFile = os.path.join(path, 'trajectory_viewer_gui.ui')
-#uiFile = '/home/caveman/catkin_ws/src/multi_tracker/multi_tracker_analysis/trajectory_viewer_small_screens.ui'
+    uiFile = os.path.join(path, 'gui_trajectory_viewer.ui')
+    SMALL = False
 WindowTemplate, TemplateBaseClass = pg.Qt.loadUiType(uiFile)
 
 def get_random_color():
@@ -77,6 +78,7 @@ class QTrajectory(TemplateBaseClass):
         self.draw_config_function = draw_config_function
 
         # Buttons
+        self.ui.save_trajecs.clicked.connect(self.save_trajectories)
         self.ui.movie_save.clicked.connect(self.save_image_sequence)
         self.ui.movie_speed.sliderMoved.connect(self.set_movie_speed)
         self.ui.trajec_undo.clicked.connect(self.trajec_undo)
@@ -85,15 +87,21 @@ class QTrajectory(TemplateBaseClass):
         self.ui.trajec_delete.clicked.connect(self.toggle_trajec_delete)
         self.ui.trajec_cut.clicked.connect(self.toggle_trajec_cut)
         self.ui.trajec_join_collect.clicked.connect(self.toggle_trajec_join_collect)
+        self.ui.trajec_select_all.clicked.connect(self.select_all_trajecs)
         self.ui.trajec_join_add_data.clicked.connect(self.toggle_trajec_join_add_data)
         self.ui.trajec_join_save.clicked.connect(self.trajec_join_save)
         self.ui.trajec_join_clear.clicked.connect(self.toggle_trajec_join_clear)
-        self.ui.get_original_objid.clicked.connect(self.trajec_get_original_objid)
         self.ui.save_annotation.clicked.connect(self.save_annotation)
         self.ui.load_annotations.clicked.connect(self.load_annotations)
         self.ui.annotated_color_checkbox.stateChanged.connect(self.toggle_annotated_colors)
         self.ui.annotated_hide_checkbox.stateChanged.connect(self.toggle_annotated_hide)
-        self.ui.save_colors.clicked.connect(self.save_trajec_colors)
+
+        if not SMALL:
+            self.ui.get_original_objid.clicked.connect(self.trajec_get_original_objid)
+            self.ui.save_colors.clicked.connect(self.save_trajec_colors)
+
+            self.ui.min_selection_length.setPlainText(str(0))
+            self.ui.max_selection_length.setPlainText(str(-1)) # -1 means all
         
         # parameters
         self.data_filename = data_filename
@@ -102,7 +110,7 @@ class QTrajectory(TemplateBaseClass):
         self.backgroundimg = None
         self.binsx = None
         self.binsy = None
-        trange = np.max(self.pd.time_epoch.values) - np.min(self.pd.time_epoch.values) 
+        trange = np.float( np.max(self.pd.time_epoch.values) - np.min(self.pd.time_epoch.values) )
         self.troi = [np.min(self.pd.time_epoch.values), np.min(self.pd.time_epoch.values)+trange*0.1] 
         self.skip_frames = 1
         # TODO remove traces of this assertion or warn if using it
@@ -115,7 +123,7 @@ class QTrajectory(TemplateBaseClass):
             self.dvbag = rosbag.Bag(delta_video_filename)
         else:
             self.dvbag = None
-            
+
         # Initialize 
         self.trajec_width_dict = {}
         try:
@@ -180,8 +188,39 @@ class QTrajectory(TemplateBaseClass):
         self.current_time_vline.setPos(0)
         pen = pg.mkPen((255,255,255), width=2)
         self.current_time_vline.setPen(pen)
-        self.get_original_objid = False
+
+        # hide a bunch of the axes
+        self.ui.qtplot_timetrace.hideAxis('left')
+        self.ui.qtplot_timetrace.hideAxis('bottom')
+
+        self.ui.qtplot_trajectory.hideAxis('left')
+        self.ui.qtplot_trajectory.hideAxis('bottom')
+
     ### Button Callbacks
+
+    def save_trajectories(self):
+        self.troi = self.linear_region.getRegion()
+
+        start_frame = self.dataset.timestamp_to_framestamp(self.troi[0])
+        end_frame = self.dataset.timestamp_to_framestamp(self.troi[-1])
+        dirname = 'data_selection_' + str(start_frame) + '_to_' + str(end_frame)
+        dirname = os.path.join(self.path, dirname)
+
+        if os.path.exists(dirname):
+            print 'Data selection path exists!'
+        else:
+            os.mkdir(dirname)
+
+        fname = 'dataframe_' + str(start_frame) + '_to_' + str(end_frame) + '.pickle'
+        fname = os.path.join(dirname, fname)
+        print 'Saving stand alone pandas dataframe to file: '
+        print '    ' + fname
+
+        pd_subset = mta.data_slicing.get_data_in_epoch_timerange(self.pd, self.troi)
+
+        pd_subset.to_pickle(fname)
+
+        #self.config.plot_trajectories(self.troi)
     
     def set_all_buttons_false(self):
         self.cut_objects = False
@@ -189,7 +228,7 @@ class QTrajectory(TemplateBaseClass):
         self.delete_objects = False
         self.add_data = False
         self.get_original_objid = False
-    
+
     def set_movie_speed(self, data):
         if data >0:
             self.skip_frames = data
@@ -322,14 +361,20 @@ class QTrajectory(TemplateBaseClass):
     
     def toggle_trajec_delete(self):
         self.set_all_buttons_false()
-
         self.delete_objects = True
         self.crosshair_pen = pg.mkPen('r', width=1)
         print('Deleting objects!')
+
+        # first delete selected trajectories
+        print 'Deleting selected objects: ', self.object_id_numbers
+        while len(self.object_id_numbers) > 0:
+            key = self.object_id_numbers.pop()
+            self.delete_object_id_number(key, redraw=False)
+
+        self.draw_trajectories()
+        self.draw_timeseries_vlines_for_interesting_timepoints()
+        #
         
-        for key in self.object_id_numbers:
-            self.delete_object_id_number(key)
-    
     def toggle_trajec_cut(self):
         self.set_all_buttons_false()
 
@@ -346,6 +391,32 @@ class QTrajectory(TemplateBaseClass):
         
         print('Ready to collect object id numbers. Click on traces to add object id numbers to the list. Click "save object id numbers" to save, and reset the list')
         
+    def select_all_trajecs(self):
+        if not self.join_objects:
+            self.toggle_trajec_join_collect()
+        
+        if not SMALL:
+            min_len = self.ui.__getattribute__('min_selection_length')
+            min_len = int(min_len.toPlainText())
+
+            max_len = self.ui.__getattribute__('max_selection_length')
+            max_len = int(max_len.toPlainText())
+            if max_len == -1:
+                max_len = np.inf
+        else:
+            min_len = 0
+            max_len = np.inf
+            
+        pd_subset = mta.data_slicing.get_data_in_epoch_timerange(self.pd, self.troi)
+        keys = np.unique(pd_subset.objid.values)
+
+        for trace in self.plotted_traces:
+            key = trace.curve.key
+            trajec_length = len(self.pd[self.pd.objid==key])
+            if trajec_length > min_len and trajec_length < max_len:
+                self.trace_clicked(trace.curve)
+
+
     def toggle_trajec_join_add_data(self):
         self.set_all_buttons_false()
 
@@ -398,7 +469,7 @@ class QTrajectory(TemplateBaseClass):
             self.ui.qttext_show_original_objid.clear()
             self.ui.qttext_show_original_objid.setPlainText(str(int(objid)))
         
-    def trace_clicked(self, item): 
+    def trace_clicked(self, item, redraw=True): 
         if self.join_objects:
             if item.key not in self.object_id_numbers:
                 print 'Saving object to object list: ', item.key
@@ -422,7 +493,7 @@ class QTrajectory(TemplateBaseClass):
             print 'Cutting trajectory: ', item.key, ' at: ', self.mouse_position
             self.cut_trajectory(item.key, self.mouse_position)
         elif self.delete_objects:
-            self.delete_object_id_number(item.key)
+            self.delete_object_id_number(item.key, redraw=redraw)
         elif self.add_data:
             self.add_data_to_trajecs_to_join()
             
@@ -492,7 +563,7 @@ class QTrajectory(TemplateBaseClass):
         
         print 'Reset object id list - you may collect a new selection of objects now'
         
-    def delete_object_id_number(self, key):
+    def delete_object_id_number(self, key, redraw=True):
         instructions = {'action': 'delete',
                         'order': time.time(),
                         'objid': key}
@@ -500,8 +571,9 @@ class QTrajectory(TemplateBaseClass):
         # update gui
         #self.trajec_to_color_dict[key] = (0,0,0,0) 
         self.pd = mta.read_hdf5_file_to_pandas.delete_cut_join_trajectories_according_to_instructions(self.pd, instructions, interpolate_joined_trajectories=True)
-        self.draw_trajectories()
-        self.draw_timeseries_vlines_for_interesting_timepoints()
+        if redraw:
+            self.draw_trajectories()
+            self.draw_timeseries_vlines_for_interesting_timepoints()
     
     ### Drawing functions
     
@@ -546,7 +618,6 @@ class QTrajectory(TemplateBaseClass):
             vline.setPen(pen)
             self.selected_trajectory_ends.append(vline)
             
-    
     def update_time_region(self, linear_region):
         self.linear_region = linear_region
         self.troi = linear_region.getRegion()
@@ -558,7 +629,7 @@ class QTrajectory(TemplateBaseClass):
             self.backgroundimg = cv2.imread(self.backgroundimg_filename, cv2.CV_8UC1)
         img = copy.copy(self.backgroundimg)
 
-        self.img = pg.ImageItem(img)
+        self.img = pg.ImageItem(img, autoLevels=False)
 
         
     def draw_trajectories(self):
@@ -578,7 +649,7 @@ class QTrajectory(TemplateBaseClass):
         img = copy.copy(self.backgroundimg)
         img[indices] = 0
 
-        self.img = pg.ImageItem(img)
+        self.img = pg.ImageItem(img, autoLevels=False)
         self.ui.qtplot_trajectory.addItem(self.img)
         self.img.setZValue(-200)  # make sure image is behind other data
         
@@ -631,12 +702,12 @@ class QTrajectory(TemplateBaseClass):
         self.draw_data_to_add()
         self.draw_vlines_for_selected_trajecs()
         #self.save_trajec_color_width_dicts()
-        
+    
     def draw_data_to_add(self):
         for data in self.data_to_add:
             print data
             self.ui.qtplot_trajectory.plot([data[1]], [data[2]], pen=(0,0,0), symbol='o', symbolSize=10) 
-    
+
     ### Load / read / save data functions
     
     def load_data(self):
@@ -740,13 +811,24 @@ class QTrajectory(TemplateBaseClass):
         
     def save_image_sequence(self):
         start_frame = self.dataset.timestamp_to_framestamp(self.troi[0])
-        dirname = 'image_sequence_' + str(start_frame)
+        end_frame = self.dataset.timestamp_to_framestamp(self.troi[-1])
+        dirname = 'data_selection_' + str(start_frame) + '_to_' + str(end_frame)
         dirname = os.path.join(self.path, dirname)
+
         if os.path.exists(dirname):
-            print 'Path exists! Will not overwrite'
-            return
+            print 'Data selection path exists!'
         else:
             os.mkdir(dirname)
+
+        image_sequence_dirname = 'image_sequence_' + str(start_frame) + '_to_' + str(end_frame)
+        dirname = os.path.join(dirname, image_sequence_dirname)
+        print 'Image sequence directory: ', dirname
+
+        if os.path.exists(dirname):
+            print 'Image selection path exists!'
+        else:
+            os.mkdir(dirname)
+
         print 'saving image sequence: ', len(self.image_sequence)
         zs = int(np.ceil( np.log10(len(self.image_sequence)) )+1)
         print 'zs: ', zs
