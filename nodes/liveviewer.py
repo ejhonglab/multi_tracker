@@ -113,10 +113,10 @@ class LiveViewer:
                 parameter = parameter[1:]
             self.params[parameter] = value
 
+        self.videowriter = None
         if self.params['save_demo']:
             # TODO include timestamp?
             self.video_filename = 'tracking_demo.avi'
-            self.videowriter = None
             self.desired_frame_rate = 30.0
             self.mode = 'color'
 
