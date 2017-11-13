@@ -22,6 +22,7 @@ else:
 # TODO will have to first find source directory unless i put the default configuration files in the
 # install targets of cmake (which i may want to do to package this)
 
+# TODO will need to change if i ever want this to be installable via apt / ROS build farm (install target, I assume)
 only_in_source = True
 
 if only_in_source:
@@ -46,6 +47,7 @@ else:
 # TODO will defaults be in same relative place once installed? can / should they be?
 # (might be non-compliant w/ install standard)
 
+# TODO accept different input packages
 path = join(rospack.get_path('multi_tracker'), 'example_config')
 example_files = glob.glob(path + '/*')
 
