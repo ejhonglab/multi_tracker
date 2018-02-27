@@ -21,6 +21,8 @@ class RosbagPlayWrapper:
         
         else:
             bags_in_path = glob.glob(os.path.join(args.path, '*.bag'))
+            bags_in_path = [x for x in bags_in_path if \
+                not 'shock_currents' in x]
 
             if len(bags_in_path) == 0:
                 raise IOError('no bagfiles found in path')

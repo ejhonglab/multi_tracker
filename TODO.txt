@@ -36,3 +36,9 @@ link to checkerboard or make a local copy.
 -make vagrant use host ssh key for github?
 
 -take background image w/o ROI mask for orienting arena
+
+-support for tracking during experiment on another computer
+ both with a need for feedback and without
+ -in case without, could transfer segments of data, checksum, track, repeat
+ -need for checksum?
+
