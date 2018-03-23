@@ -34,10 +34,7 @@ fi
 # how best to support? if env var detected?
 OUTPUT_PATH="${DATA_DIR}/retracked"
 
-if ! [ -d "${OUTPUT_PATH}" ]; then
-	echo "Error: output path ${OUTPUT_PATH} was not a directory."
-	exit 1
-fi
+mkdir -p ${OUTPUT_PATH}
 
 echo "Using input path $INPUT_PATH"
 echo "Using output path $OUTPUT_PATH"

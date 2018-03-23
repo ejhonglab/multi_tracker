@@ -1,44 +1,49 @@
 
-it is clear that the "tracked_object_covariance" blows up after being tipped passed a certain value
-, inexorably leading to a new objet being created... fix root cause
+it is clear that the "tracked_object_covariance" blows up after being tipped
+passed a certain value , inexorably leading to a new object being created... fix
+root cause
 
 include instructions and launch files for calibrating camera.
 link to checkerboard or make a local copy.
--calibrate
--enforce that camera is calibrated and test calibration periodically / warn?
--test i can track flies reliably with this lens / camera
-	-order if so
--test lighting works (waiting on power supply from digikey?)
+- calibrate
+- enforce that camera is calibrated and test calibration periodically / warn?
+- test i can track flies reliably with this lens / camera
+	 - order if so
+- test lighting works (waiting on power supply from digikey?)
 
--run multi_tracker setup.py in install scripts
--or package it for / with floris and install from ppa / repo?
- python package?
+- run multi_tracker setup.py in install scripts
+- or package it for / with Floris and install from ppa / repo?
+  python package?
 
--transition .py config files to .yaml?
+- transition .py config files to .yaml?
 
--fix delta video / rosbag save nodes so bagfile size doesnt blow up even if nothing is being published?
+- fix delta video / rosbag save nodes so bagfile size doesnt blow up even if
+  nothing is being published?
 
--install node files?
+- install node files?
 
--make configuration files immutable once data acquisition is launched (in another node?)
-    -maybe in metatools?
+- make configuration files immutable once data acquisition is launched (in another node?)
+  - maybe in metatools?
 
--should crash if no configs (or at least warn heavily)
--should crash if no disk space
+- should crash if no configs (or at least warn heavily)
+- should crash if no disk space
 
--change all debug_flags (and self.debug sets/checks) to use logdebug and changing node debug levels
+- change all debug_flags (and self.debug sets/checks) to use logdebug and
+  changing node debug levels
 
--move trajectory editor to scripts? & change path to ui files and such
--have an alternate setup.py for installing the analysis libraries standalone?
+- move trajectory editor to scripts? & change path to ui files and such
+- have an alternate setup.py for installing the analysis libraries standalone?
 
--i've seen both BSD and MIT referenced. should we (Floris) try to pick just one?
+- I've seen both BSD and MIT referenced. should we (Floris) try to pick just one?
 
--make vagrant use host ssh key for github?
+- make vagrant use host ssh key for Github?
 
--take background image w/o ROI mask for orienting arena
+- take background image w/o ROI mask for orienting arena
 
--support for tracking during experiment on another computer
- both with a need for feedback and without
- -in case without, could transfer segments of data, checksum, track, repeat
- -need for checksum?
+- support for tracking during experiment on another computer
+  both with a need for feedback and without
+  - in case without, could transfer segments of data, checksum, track, repeat
+  - need for checksum?
 
+- w/ tracking for choice experiments: am i re-ordering ROIs in re-formatting, but
+  maybe not appropriately numbering HDF5 output?
