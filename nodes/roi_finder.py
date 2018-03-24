@@ -25,6 +25,8 @@ from multi_tracker.srv import RegisterROIs
 # TODO dynamic reconfigure and display ROIs that will be selected with button to
 # lock them in maybe a gui to manually edit / define ROIs too?
 
+# TODO save a background image here (the one used to select the ROIs) so that it
+# is at least possible to recreate full movie (w/ static background) for display
 class RoiFinder:
     def __init__(self):
         # TODO what happens if init_node is called after / before defining
@@ -195,7 +197,8 @@ class RoiFinder:
         rospy.logwarn('rospy.get_namespace()=' + this_node_namespace)
         # remove prefix first?
         #nmax = max([int(ns.split('/')[0])
-            for ns in rostopic.list(this_node_namespace)])
+        #    for ns in rostopic.list(this_node_namespace)])
+
         # TODO anything to do to make the namespace? maybe only possible when
         # making node?
         #return this_node_namespace + '/' + str(nmax + 1) + '/'
@@ -214,7 +217,7 @@ class RoiFinder:
         # TODO if inputs are arbitrary corners, will need to do some min /
         # maxing to use the roi_* parameters as is (or just cv2 boundingBox /
         # rect)
-        param_dict = {'rectangular_roi': 'True', 'roi_b': str(bottom), \
+        param_dict = {'rectangular_roi': 'True', 'roi_b': str(bottom),
             'roi_t': str(top), 'roi_l': str(left), 'roi_r': str(right)}
         self.launch_tracking_common(param_dict)
         

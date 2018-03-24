@@ -70,6 +70,8 @@
       <param name="detect_tracking_pipelines" value="False" />
     </node>
     
+    <!-- TODO i think these might be exiting before getting ROI params (and thus
+         not saving a file?) sometimes? fix / alternative -->
     <node name="snapshot_roi_params_$(arg num)" pkg="multi_tracker" type="snapshot_params.py" output="screen" if="$(arg dump_roi_params)">
       <param name="filename" value="roi_N$(arg num).yaml" type="str" />
       <param name="namespace" value="tracker_$(arg num)" type="str" />
