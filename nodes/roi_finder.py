@@ -1,32 +1,34 @@
 #!/usr/bin/env python
 
-import rospy
-import roslaunch
-import rospkg
-# latest versions of ROS (from source, particularly) should have a method in here for
-# getting topic names, so we wouldn't need to use rosgraph
-# import rostopic
-from sensor_msgs.msg import Image
-from multi_tracker.msg import Point2D, PolygonalROI, RectangularROI, CircularROI
-from multi_tracker.srv import RegisterROIs
-import cv2
-from cv_bridge import CvBridge, CvBridgeError
 import os
 from subprocess import Popen
 import Queue
-# import dynamic_reconfigure.server
 import glob
 
+import rospy
+import roslaunch
+# latest versions of ROS (from source, particularly) should have a method in
+# here for getting topic names, so we wouldn't need to use rosgraph import
+# rostopic
+import rospkg
+from sensor_msgs.msg import Image
+# import dynamic_reconfigure.server
+from cv_bridge import CvBridge, CvBridgeError
+import cv2
 
-# TODO break out ROI definitions from core tracking launch file, and make another tracking
-# launch file that includes the core + ROI defs, the core which will be called here separately
-# TODO dynamic reconfigure and display ROIs that will be selected with button to lock them in
-# maybe a gui to manually edit / define ROIs too?
+from multi_tracker.msg import Point2D, PolygonalROI, RectangularROI, CircularROI
+from multi_tracker.srv import RegisterROIs
+
+# TODO break out ROI definitions from core tracking launch file, and make
+# another tracking launch file that includes the core + ROI defs, the core which
+# will be called here separately
+# TODO dynamic reconfigure and display ROIs that will be selected with button to
+# lock them in maybe a gui to manually edit / define ROIs too?
 
 class RoiFinder:
     def __init__(self):
-        # TODO what happens if init_node is called after / before defining subscribers 
-        # and publishers and stuff? what all does it do?
+        # TODO what happens if init_node is called after / before defining
+        # subscribers and publishers and stuff? what all does it do?
         # (examples have subscribers after and pub before)
 
         # start node
@@ -35,37 +37,47 @@ class RoiFinder:
         # TODO maybe have this launch file do something that won't be changed
         # (launch core tracking nodes without setting parameters?)
         # so I can keep it in a central location?
-        # TODO idiomatic ROS way to get package path? use python script location + relative path?
+        # TODO idiomatic ROS way to get package path? use python script location
+        # + relative path?
         # TODO need to specify if launch is only in source, as before?
         THIS_PACKAGE = 'multi_tracker'
         # TODO shorter call for this package path?
         # TODO still valid once installed / using that path?
         # TODO TODO test parameters are still accessible / valid across ROIs?
-        self.tracking_launch_file = rospy.get_param('roi_finder/tracking_launch_file', \
-                rospkg.RosPack().get_path(THIS_PACKAGE) + '/launch/single_tracking_pipeline.launch')
+        self.tracking_launch_file = rospy.get_param(
+            'roi_finder/tracking_launch_file',
+            rospkg.RosPack().get_path(THIS_PACKAGE) +
+            '/launch/single_tracking_pipeline.launch')
 
         self.current_node_num = 1
 
         node_namespace = 'roi_finder/'
-        self.roi_type = rospy.get_param(node_namespace + 'roi_type', 'rectangles')
+        self.roi_type = rospy.get_param(node_namespace + 'roi_type',
+            'rectangles')
 
         # will not launch any tracking pipelines if this is True
         # but will still register the rois with the delta video node
         self.video_only = rospy.get_param('~video_only', False)
-        # TODO populate automatically from those with a launch pipeline and
-        # a automatic / manual roi selection function depending on current function
+        # TODO populate automatically from those with a launch pipeline and a
+        # automatic / manual roi selection function depending on current
+        # function
         # TODO factor this kind of check into validator node?
         self.valid_roi_types = {'rectangle', 'circle', 'mask', 'polygon'}
         if not self.roi_type in self.valid_roi_types:
-            raise ValueError('invalid roi_type: ' + self.roi_type + '. valid types are ' + str(self.valid_roi_types))
+            raise ValueError('invalid roi_type: {}. valid types are {}'.format(
+                self.roi_types, self.valid_roi_types))
 
         load_rois = rospy.get_param(node_namespace + 'load_rois', False)
-        automatic_roi_detection = rospy.get_param(node_namespace + 'automatic_roi_detection', False)
+        automatic_roi_detection = \
+            rospy.get_param(node_namespace + 'automatic_roi_detection', False)
+
         if not automatic_roi_detection:
             # a place for the click event callback to store points
             self.points = []
 
-        self.toss_first_n_frames = rospy.get_param(node_namespace + 'toss_first_n_frames', 0)
+        self.toss_first_n_frames = rospy.get_param(node_namespace +
+            'toss_first_n_frames', 0)
+
         self.frames_tossed = 0
 
         self.bridge = CvBridge()
@@ -92,12 +104,13 @@ class RoiFinder:
                         queue_size=queue_size, buff_size=buff_size)
 
             else:
-                self.manual_sub = rospy.Subscriber(self.camera, Image, self.manual_roi_callback, \
-                        queue_size=queue_size, buff_size=buff_size)
+                self.manual_sub = rospy.Subscriber(self.camera, Image, 
+                    self.manual_roi_callback, queue_size=queue_size,
+                    buff_size=buff_size)
 
         else:
-            rospy.logwarn('Ignoring roi_finder/automatic_roi_detection, because roi_finder/' + \
-                'load_rois was True.')
+            rospy.logwarn('Ignoring roi_finder/automatic_roi_detection, ' + 
+                'because roi_finder/load_rois was True.')
             self.load_rois()
 
         self.main()
@@ -109,11 +122,14 @@ class RoiFinder:
             if isinstance(k, str) and isinstance(v, str):
                 extra_params.append(k + ':=' + v)
             else:
-                raise ValueError('param_dict must have all keys and values be strings')
+                raise ValueError(
+                    'param_dict must have all keys and values be strings')
         
-        params = ['roslaunch', 'multi_tracker', 'single_tracking_pipeline.launch', \
-            'dump_roi_params:=True', 'viewer:=False', 'num:=' + str(self.current_node_num), \
+        params = ['roslaunch', 'multi_tracker', 
+            'single_tracking_pipeline.launch', 'dump_roi_params:=True', 
+            'viewer:=False', 'num:={}'.format(self.current_node_num), 
             'camera:=' + rospy.resolve_name(self.camera)] + extra_params
+
         self.current_node_num += 1
         rospy.logwarn(params)
         # TODO consider using floris' technique to kill these gently with pgroup
@@ -121,8 +137,9 @@ class RoiFinder:
         self.to_kill.append(p)
         
 
-    # any support there might have been before for setting arguments via roslaunch api
-    # seems to have disappeared... will need to use subprocess for now
+    # any support there might have been before for setting arguments via
+    # roslaunch api seems to have disappeared... will need to use subprocess for
+    # now
     """
     def launch_tracking_common(self):
         # TODO could maybe rospy.get_namespace() to get prefix for child nodes?
@@ -134,27 +151,35 @@ class RoiFinder:
         # see roslaunchrunner api
         uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
         roslaunch.configure_logging(uuid)
-        launch = roslaunch.parent.ROSLaunchParent(uuid, [self.tracking_launch_file])
-        # TODO TODO make all nodes names unique somehow, assuming they need to be
-        # globally unique?
+        launch = roslaunch.parent.ROSLaunchParent(uuid,
+                                                  [self.tracking_launch_file])
+        # TODO TODO make all nodes names unique somehow, assuming they need to
+        # be globally unique?
         launch.start()
         self.current_node_num += 1
         # TODO problems with shutting down elsewhere?
         #launch.shutdown()
-        # decrement current_node_num when shuts down / whenever we manually shutdown?
+        # decrement current_node_num when shuts down / whenever we manually
+        # shutdown?
         self.to_stop.append(launch)
     """
 
     """
     def get_topics(self):
-        # see issue #946 (which has a commit added recently) for rostopic alternative
+        # see issue #946 (which has a commit added recently) for rostopic
+        # alternative
         # TODO is /rostopic correct? return type?
         try:
             # the rosbridge cost uses Master('/rosbridge')
-            publishers, subscribers, services = Master('/rostopic').getSystemState()
+            publishers, subscribers, services = \
+                Master('/rostopic').getSystemState()
+
             has_node_num = lambda x: 
             # can you not filter a set?
-            return filter(lambda x: any(fnmatch.fnmatch(str(x), glob) for glob in topics_glob), list(set([x for x, _ in publishers] + [x for x, _, in subscribers])))
+            return filter(lambda x: any(fnmatch.fnmatch(str(x), glob) 
+                for glob in topics_glob), list(set([x for x, _ in publishers] +
+                [x for x, _, in subscribers])))
+
         # TODO which exception type?
         except:
             return []
@@ -169,8 +194,10 @@ class RoiFinder:
         this_node_namespace = rospy.get_namespace()
         rospy.logwarn('rospy.get_namespace()=' + this_node_namespace)
         # remove prefix first?
-        #nmax = max([int(ns.split('/')[0]) for ns in rostopic.list(this_node_namespace)])
-        # TODO anything to do to make the namespace? maybe only possible when making node?
+        #nmax = max([int(ns.split('/')[0])
+            for ns in rostopic.list(this_node_namespace)])
+        # TODO anything to do to make the namespace? maybe only possible when
+        # making node?
         #return this_node_namespace + '/' + str(nmax + 1) + '/'
         return this_node_namespace + str(self.current_node_num) + '/'
 
@@ -181,10 +208,12 @@ class RoiFinder:
         self.launch_tracking_common(param_dict)
 
 
-    # TODO would only work for rectangle oriented to axes... couldn't find rotatedrectangle in python cv2 dir
+    # TODO would only work for rectangle oriented to axes... couldn't find
+    # rotatedrectangle in python cv2 dir
     def launch_a_tracking_pipeline_rectangles(self, left, right, top, bottom):
-        # TODO if inputs are arbitrary corners, will need to do some min / maxing to
-        # use the roi_* parameters as is (or just cv2 boundingBox / rect)
+        # TODO if inputs are arbitrary corners, will need to do some min /
+        # maxing to use the roi_* parameters as is (or just cv2 boundingBox /
+        # rect)
         param_dict = {'rectangular_roi': 'True', 'roi_b': str(bottom), \
             'roi_t': str(top), 'roi_l': str(left), 'roi_r': str(right)}
         self.launch_tracking_common(param_dict)
@@ -220,13 +249,14 @@ class RoiFinder:
         (allow ctrl-z and ctrl-[(shift-z)/y]?)
         """
         self.show_frame_for_selecting(frame)
-        rospy.loginfo('Click corners of the polygonal ROI. Press any key to store the ' + \
-            'points added so far as an ROI. Press <Esc> to close manual selection and ' + \
-            'launch tracking pipelines.')
+        rospy.loginfo('Click corners of the polygonal ROI. Press any key to ' +
+            'store the points added so far as an ROI. Press <Esc> to close ' +
+            'manual selection and launch tracking pipelines.')
         polygons = []
         while True:
-            # bitwise and to get the last 8 bytes, so that key states are considered the same
-            # whether or not things like num-lock are pressed
+            # bitwise and to get the last 8 bytes, so that key states are
+            # considered the same whether or not things like num-lock are
+            # pressed
             # TODO (maybe i want to know some of the other control keys though?)
             # waitKey delays for >= milliseconds equal to the argument
 
@@ -251,14 +281,19 @@ class RoiFinder:
                     polygon.append(p)
                 # TODO draw?
                 if len(polygon) < 3:
-                    rospy.logerr('key press with less than 3 points in buffer. need at least 3 points for a polygon. points still in buffer.')
+                    rospy.logerr('key press with less than 3 points in ' +
+                        'buffer. need at least 3 points for a polygon. ' +
+                        'points still in buffer.')
                 else:
-                    rospy.loginfo('Added polygon from current points. Resetting current points.')
+                    rospy.loginfo('Added polygon from current points. ' + 
+                        'Resetting current points.')
+
                     polygons.append(polygon)
                     self.points = []
         
         if len(self.points) != 0:
-            rospy.logwarn('had points in buffer when <Esc> key ended manual selection.')
+            rospy.logwarn(
+                'had points in buffer when <Esc> key ended manual selection.')
         
         # TODO how to only destroy one window? those from this node?
         # (don't want to screw with liveviewer or image_view windows...)
@@ -322,7 +357,8 @@ class RoiFinder:
         # better way to get edges of binary image?
         mask_edges = cv2.Canny(expected_mask)
         rois = cv2.hough(frame, mask_edges)
-        # TODO what i want to return here kinda depends on how i want to process the ROIs later
+        # TODO what i want to return here kinda depends on how i want to process
+        # the ROIs later
         return rois
 
 
@@ -341,8 +377,8 @@ class RoiFinder:
                 rospy.logwarn('appending roi ' + str(v['roi_points']))
                 rois.append(v['roi_points'])
             else:
-                rospy.logwarn('numbered namespace without polygonal roi. experiment' + \
-                    ' done with different roi type?')
+                rospy.logwarn('numbered namespace without polygonal roi. ' + 
+                    'experiment done with different roi type?')
         return rois
 
 
@@ -358,7 +394,9 @@ class RoiFinder:
                     #rospy.logwarn('ROIS = ' + str(rois))
                     for r in rois:
                         #rospy.logwarn('THIS ROI = ' + str(r))
-                        rospy.logwarn('starting one tracking pipeline launch file')
+                        rospy.logwarn(
+                            'starting one tracking pipeline launch file')
+
                         f(self, r)
                         # TODO remove me? longer?
                         # TODO TODO only remove me when sim_time is set?
@@ -366,16 +404,19 @@ class RoiFinder:
                     found_launch = True
                     break
         if not found_launch:
-            raise ValueError('no launch function found for roi_type "' + self.roi_type + '"')
+            raise ValueError(
+                'no launch function found for roi_type "' + self.roi_type + '"')
 
 
-    # can't see how to easily let launch_tracking_pipeline use this too, but would be nice
-    def find_and_call_function(self, prefix, description, frame=None, params=None):
+    # can't see how to easily let launch_tracking_pipeline use this too, but
+    # would be nice
+    def find_and_call_function(self, prefix, description, frame=None,
+            params=None):
         """
-        Finds a function in the instance of this class with prefix in it, and calls that function
-        with frame as an (the only) argument following self. Description should describe the
-        type of function being sought and will be included in an error message if no function
-        is found.
+        Finds a function in the instance of this class with prefix in it, and
+        calls that function with frame as an (the only) argument following self.
+        Description should describe the type of function being sought and will
+        be included in an error message if no function is found.
         """
         if not frame is None:
             if self.frames_tossed < self.toss_first_n_frames:
@@ -400,12 +441,16 @@ class RoiFinder:
                     elif not params is None:
                         rois = f(self, params)
                     else:
-                        raise ValueError('either params or frame needs to be specified')
+                        raise ValueError(
+                            'either params or frame needs to be specified')
+
                     found_func = True
                     break
 
         if not found_func:
-            raise ValueError('no ' + description + ' function found for roi_type "' + self.roi_type + '"')
+            raise ValueError('no ' + description + 
+                ' function found for roi_type "' + self.roi_type + '"')
+
         return rois
 
 
@@ -416,13 +461,17 @@ class RoiFinder:
         import rosparam
         # TODO also check in current directory?
         #files = glob.glob('compressor_rois_*.yaml')
-        files = glob.glob(os.path.join(rospy.get_param('source_directory'), 'compressor_rois_*.yaml'))
+        files = glob.glob(os.path.join(rospy.get_param('source_directory'), 
+            'compressor_rois_*.yaml'))
+
         if len(files) < 1:
-            rospy.logfatal('Did not find any files matching compressor_rois_*.yaml')
+            rospy.logfatal(
+                'Did not find any files matching compressor_rois_*.yaml')
             return []
 
         elif len(files) > 1:
-            rospy.logfatal('Found too many files matching compressor_rois_*.yaml')
+            rospy.logfatal(
+                'Found too many files matching compressor_rois_*.yaml')
             return []
 
         filename = os.path.abspath(files[0])
@@ -435,7 +484,8 @@ class RoiFinder:
             rospy.logfatal('could not find parameter namespace: ' + ns)
             return
 
-        rois = self.find_and_call_function('load_', 'parameter dump loading', params=ns_param_dict)
+        rois = self.find_and_call_function('load_', 'parameter dump loading',
+            params=ns_param_dict)
         rospy.logwarn('loaded rois:' + str(rois))
         self.launch_queue.put(rois)
 
@@ -466,9 +516,11 @@ class RoiFinder:
 
     def manual_roi_callback(self, frame):
         """
-        Manually select ROIs of specified type and launch an instance of tracking pipeline appropriately.
+        Manually select ROIs of specified type and launch an instance of
+        tracking pipeline appropriately.
         """
-        rois = self.find_and_call_function('manual_', 'manual selection', frame=frame)
+        rois = self.find_and_call_function('manual_', 'manual selection', 
+            frame=frame)
         self.launch_queue.put(rois)
         #self.launch_tracking_pipelines(rois)
 
@@ -476,9 +528,11 @@ class RoiFinder:
     # TODO what does Ctrax use to detect the ROIs?
     def detect_roi_callback(self, frame):
         """
-        Detect ROIs of specified type and launch an instance of tracking pipeline appropriately.
+        Detect ROIs of specified type and launch an instance of tracking
+        pipeline appropriately.
         """
-        rois = self.find_and_call_funcion('detect_', 'roi detection', frame=frame)
+        rois = self.find_and_call_funcion('detect_', 'roi detection',
+            frame=frame)
         self.launch_queue.put(rois)
         #self.launch_tracking_pipelines(rois)
 
@@ -536,7 +590,8 @@ class RoiFinder:
                 self.manual_sub.unregister()
                 if self.launch_queue.empty() and rois is None:
                     # TODO why is this not being reached?
-                    rospy.logerr('Manual selection closed without selecting any ROIs!')
+                    rospy.logerr(
+                        'Manual selection closed without selecting any ROIs!')
                     break
 
         for p in self.to_kill:
