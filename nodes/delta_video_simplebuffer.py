@@ -355,6 +355,7 @@ class Compressor:
                 data_directory = os.path.expanduser(
                     rospy.get_param('multi_tracker/data_directory'))
             else:
+                # TODO is this cwd really what i want?
                 data_directory = os.path.join(os.getcwd(), 
                                               self.experiment_basename)
             

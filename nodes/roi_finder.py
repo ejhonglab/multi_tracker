@@ -90,6 +90,7 @@ class RoiFinder:
         size_image = 128 + 1920 * 1080 * 3
         # TODO should the buff_size not be queue_size * size_image?
         buff_size = 2 * size_image
+        self.frame_to_save = None
 
         self.manual_selection_done = False
 
@@ -101,14 +102,20 @@ class RoiFinder:
         self.to_kill = []
 
         if not load_rois:
+            # TODO check there aren't race conditions that could cause this to
+            # trigger twice / handle
             if automatic_roi_detection:
-                rospy.Subscriber(self.camera, Image, self.detect_roi_callback, \
-                        queue_size=queue_size, buff_size=buff_size)
+                rospy.Subscriber(self.camera,
+                                 Image,
+                                 self.detect_roi_callback,
+                                 queue_size=queue_size,
+                                 buff_size=buff_size)
 
             else:
                 self.manual_sub = rospy.Subscriber(self.camera, Image, 
-                    self.manual_roi_callback, queue_size=queue_size,
-                    buff_size=buff_size)
+                                                   self.manual_roi_callback,
+                                                   queue_size=queue_size,
+                                                   buff_size=buff_size)
 
         else:
             rospy.logwarn('Ignoring roi_finder/automatic_roi_detection, ' + 
@@ -421,6 +428,8 @@ class RoiFinder:
         Description should describe the type of function being sought and will
         be included in an error message if no function is found.
         """
+        # TODO rename fn to indicate it is also deciding whether to toss frames?
+        # or refactor?
         if not frame is None:
             if self.frames_tossed < self.toss_first_n_frames:
                 self.frames_tossed += 1
@@ -428,6 +437,7 @@ class RoiFinder:
 
             try:
                 frame = self.bridge.imgmsg_to_cv2(frame, 'bgr8')
+                self.frame_to_save = frame
 
             except CvBridgeError as e:
                 # raise?
@@ -581,6 +591,7 @@ class RoiFinder:
         Checks for launch requests and executes them.
         """
         rois = None
+        experiment_basename = None
         while not rospy.is_shutdown():
             if not self.launch_queue.empty():
                 rois = self.launch_queue.get()
@@ -592,10 +603,31 @@ class RoiFinder:
             if self.manual_selection_done:
                 self.manual_sub.unregister()
                 if self.launch_queue.empty() and rois is None:
-                    # TODO why is this not being reached?
                     rospy.logerr(
                         'Manual selection closed without selecting any ROIs!')
                     break
+
+            # TODO i thought this node shut down, but it doesn't seem like it
+            # does? is it busy spinning (fix if so)?
+            if experiment_basename is None:
+                experiment_basename = rospy.get_param(
+                    'multi_tracker/experiment_basename', None)
+            else:
+                rospy.sleep(5.0)
+
+        if not (self.frame_to_save is None):
+            if not (experiment_basename is None):
+                data_dir = os.path.join(os.getcwd(), experiment_basename)
+                full_bg_filename = os.path.join(data_dir, 'full_background.png')
+                cv2.imwrite(full_bg_filename, self.frame_to_save)
+
+            else:
+                rospy.logwarn('had frame_to_save, but did not have ' +
+                    'experiment_basename, so did not know where to save it')
+
+        elif not (rois is None):
+            rospy.logwarn('did not have frame to save uncropped background ' + 
+                'when shutdown')
 
         for p in self.to_kill:
             p.kill()
