@@ -382,9 +382,9 @@ class Compressor:
                                       self.backgroundImage)
 
                 # restarting seemed to fix this for me once, unclear why
-                if not success or not 
+                if (not success or not 
                     (os.path.exists(self.background_img_filename) and
-                    os.path.getsize(self.background_img_filename) > 8):
+                    os.path.getsize(self.background_img_filename) > 8)):
                     # TODO i'd rather do without he sys.exit call, but logfatal
                     # didn't seem to kill the node... why wouldnt it?
                     rospy.logfatal('background image png was not saved ' +
