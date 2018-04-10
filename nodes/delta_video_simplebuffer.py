@@ -1,37 +1,35 @@
 #!/usr/bin/env python
 
 from __future__ import division
-import rospy
-import rosparam
+
 import copy
-import numpy as np
-import cv2
 import threading
 from subprocess import Popen
-# TODO
-#import dynamic_reconfigure.server
+import time
+import os
+import sys
+
+import numpy as np
+import cv2
 from cv_bridge import CvBridge, CvBridgeError
+import matplotlib.pyplot as plt
+import rospy
+import rosparam
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float32, Header, String
 
 from multi_tracker.msg import Contourinfo, Contourlist, DeltaVid
 from multi_tracker.msg import Trackedobject, Trackedobjectlist
 from multi_tracker.srv import resetBackgroundService, RegisterROIs
-
-import time
-import os
-import sys
 import image_processing
-
-import matplotlib.pyplot as plt
 
 # for basler ace cameras, use camera_aravis
 # https://github.com/ssafarik/camera_aravis
 # rosrun camera_aravis camnode
 # default image: /camera/image_raw
 
-# for firefley cameras, camera1394 does not provide timestamps but otherwise works
-# use point grey drivers
+# for firefley cameras, camera1394 does not provide timestamps but otherwise
+# works. use point grey drivers.
 # http://wiki.ros.org/pointgrey_camera_driver
 # rosrun pointgrey_camera_driver camera_node
 # default image: /camera/image_mono
@@ -56,22 +54,25 @@ class Compressor:
         # default parameters (parameter server overides them)
         # TODO set via default yaml?
         # share this default setting code?
-        # TODO does camera need to be global if multiple multi_trackers are going to operate on it?
-        # idiomatic way to do that? is what floris did the best?
-        self.params = { 'image_topic'       : 'camera/image_raw',
-                        'threshold'         : 10,
-                        'camera_encoding'   : 'mono8', # fireflies are bgr8, basler gige cams are mono8
-                        'max_change_in_frame'       : 0.2,
-                        'roi_l'                     : 0,
-                        'roi_r'                     : -1,
-                        'roi_b'                     : 0,
-                        'roi_t'                     : -1,
-                        '~circular_mask_x'           : None,
-                        '~circular_mask_y'           : None,
-                        '~circular_mask_r'           : None,
-                        '~roi_points'                : None,
-                        '~wait_for_rois' : False # TODO TODO implement
-                        }
+        # TODO does camera need to be global if multiple multi_trackers are
+        # going to operate on it?  idiomatic way to do that? is what floris did
+        # the best?
+        self.params = {
+            'image_topic'        : 'camera/image_raw',
+            'threshold'          : 10,
+            # fireflies are bgr8, basler gige cams are mono8
+            'camera_encoding'    : 'mono8',
+            'max_change_in_frame': 0.2,
+            'roi_l'              : 0,
+            'roi_r'              : -1,
+            'roi_b'              : 0,
+            'roi_t'              : -1,
+            '~circular_mask_x'   : None,
+            '~circular_mask_y'   : None,
+            '~circular_mask_r'   : None,
+            '~roi_points'        : None,
+            '~wait_for_rois'     : False # TODO TODO implement
+        }
 
         for parameter, default_value in self.params.items():
             # TODO shrink this try / except so it is just around
@@ -97,7 +98,7 @@ class Compressor:
                 use_default = True
 
             if use_default:
-                rospy.loginfo(rospy.get_name() + ' using default parameter: ' + \
+                rospy.loginfo(rospy.get_name() + ' using default parameter: ' +
                     parameter + ' = ' + str(default_value))
                 value = default_value
             
@@ -111,15 +112,18 @@ class Compressor:
 
         # TODO TODO share in utility module w/ liveviewer somehow
         # should i allow both roi_* and wait_for_rois?
-        roi_params = ['circular_mask_x', 'circular_mask_y', 'circular_mask_r', 'roi_points']
+        roi_params = ['circular_mask_x', 'circular_mask_y',
+                      'circular_mask_r', 'roi_points']
         if self.params['wait_for_rois']:
             if any(map(lambda x: self.params[x] != None, roi_params)):
-                rospy.logfatal('liveviewer: roi parameters other than rectangular roi_[l/r/b/t] ' + \
-                    'are not supported when wait_for_rois is set to True')
+                rospy.logfatal('liveviewer: roi parameters other than ' + 
+                    'rectangular roi_[l/r/b/t] are not supported when ' + 
+                    'wait_for_rois is set to True')
 
-        # add single rois defined in params to instance variables for consistency later
-        # roi_* are still handled differently, and can be set alongside tracker roi_*'s
-        # which are now private (node specific) parameters
+        # add single rois defined in params to instance variables for
+        # consistency later roi_* are still handled differently, and can be set
+        # alongside tracker roi_*'s which are now private (node specific)
+        # parameters
         else:
             # TODO should i write this to allow for saving each
             # roi in a separate bag? i'm leaning towards no,
@@ -131,29 +135,39 @@ class Compressor:
             except ValueError:
                 node_num = 1
             
-            circle_param_names = ['circular_mask_x', 'circular_mask_y', 'circular_mask_r'] 
+            circle_param_names = ['circular_mask_x',
+                                  'circular_mask_y',
+                                  'circular_mask_r'] 
             self.add_roi(node_num, circle_param_names)
 
             poly_param_names = ['roi_points']
             self.add_roi(node_num, poly_param_names)
         
-        self.save_data = rospy.get_param('multi_tracker/delta_video/save_data', True)
+        self.save_data = rospy.get_param('multi_tracker/delta_video/save_data',
+                                         True)
         if not self.save_data:
-            rospy.logwarn('delta_video not saving data! multi_tracker/delta_video/save_data was False')
+            rospy.logwarn('delta_video not saving data! multi_tracker' + 
+                '/delta_video/save_data was False')
         
         # TODO warn if using default here?
-        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
+        self.record_length_seconds = 3600 * rospy.get_param(
+            'multi_tracker/record_length_hours', 24)
 
         self.debug = rospy.get_param('multi_tracker/delta_video/debug', False)
 
-        self.use_original_timestamp = rospy.get_param('multi_tracker/retracking_original_timestamp', False)
-        self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', None)
-        if self.experiment_basename is None:
-            rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
-                ' Run the set_basename.py node along with others to fix this.')
-            self.experiment_basename = time.strftime('%Y%m%d_%H%M%S', time.localtime())
+        self.use_original_timestamp = rospy.get_param(
+            'multi_tracker/retracking_original_timestamp', False)
+        self.experiment_basename = rospy.get_param(
+            'multi_tracker/experiment_basename', None)
 
-        self.explicit_directories = rospy.get_param('multi_tracker/explicit_directories', False)
+        if self.experiment_basename is None:
+            rospy.logwarn('Basenames output by different nodes in this ' +
+                    'tracker run may differ!')
+            self.experiment_basename = time.strftime('%Y%m%d_%H%M%S',
+                time.localtime())
+
+        self.explicit_directories = rospy.get_param(
+            'multi_tracker/explicit_directories', False)
         
         # TODO break into util function?
         node_name = rospy.get_name()
@@ -172,17 +186,19 @@ class Compressor:
             delta_video_topic = delta_video_topic + '_' + str(self.pipeline_num)
         
         # Publishers - publish pixel changes
-        self.pubDeltaVid = rospy.Publisher(delta_video_topic, DeltaVid, queue_size=30)
+        self.pubDeltaVid = rospy.Publisher(delta_video_topic, DeltaVid,
+                                           queue_size=30)
 
-        # determine what kind of differences from background frame we are interested in
+        # determine what kind of differences from background frame we are
+        # interested in
         tracking_fn = rospy.get_param('multi_tracker/tracker/image_processor')
         if tracking_fn == 'dark_objects_only':
             self.sign = -1
         elif tracking_fn == 'light_objects_only':
             self.sign = 1
         else:
-            # will just use absdiff if the sign of the deviations of interest isn't obvious
-            # from the name of the tracking function
+            # will just use absdiff if the sign of the deviations of interest
+            # isn't obvious from the name of the tracking function
             self.sign = 0
         
         # background reset service
@@ -191,7 +207,9 @@ class Compressor:
         # any reasons not to?
 
         # TODO TODO refactor so that all background resets go through this node?
-        self.reset_background_service = rospy.Service('multi_tracker/delta_video/reset_background', resetBackgroundService, self.reset_background)
+        self.reset_background_service = rospy.Service(
+            'multi_tracker/delta_video/reset_background',
+            resetBackgroundService, self.reset_background)
         
         self.cvbridge = CvBridge()
         self.imgScaled      = None
@@ -209,7 +227,9 @@ class Compressor:
         self.image_mask = None 
         if not self.params['wait_for_rois']:
             sizeImage = 128+1024*1024*3 # Size of header + data.
-            self.subImage = rospy.Subscriber(self.params['image_topic'], Image, self.image_callback, queue_size=5, buff_size=2*sizeImage, tcp_nodelay=True)
+            self.subImage = rospy.Subscriber(self.params['image_topic'], Image,
+                self.image_callback, queue_size=5, buff_size=2*sizeImage,
+                tcp_nodelay=True)
         
         s = rospy.Service('register_rois', RegisterROIs, self.register_rois)
         # TODO does this need a rospy.spin / spinOnce to work?
@@ -237,8 +257,8 @@ class Compressor:
                     #rospy.logwarn(self.params[p])
                     r[p] = self.params[p]
             else:
-                rospy.logfatal('liveviewer: incomplete definition of roi type. ' + \
-                    'need all of : ' + str(param_names))
+                rospy.logfatal('liveviewer: incomplete definition of roi type' +
+                    '. need all of : ' + str(param_names))
 
         else:
             return
@@ -258,7 +278,8 @@ class Compressor:
     
 
     def reset_background(self, service_call):
-        rospy.logwarn('delta video service for resetting background was invoked')
+        rospy.logwarn('delta video service for resetting background was ' + 
+            'invoked')
         self.reset_background_flag = True
         # TODO remove?
         return 1
@@ -281,13 +302,18 @@ class Compressor:
         
         # Convert the image.
         try:
-            img = self.cvbridge.imgmsg_to_cv2(rosimg, 'passthrough') # might need to change to bgr for color cameras
+            # might need to change to bgr for color cameras
+            img = self.cvbridge.imgmsg_to_cv2(rosimg, 'passthrough')
         except CvBridgeError, e:
             # TODO just make this fatal?
-            rospy.logerr('Exception converting background image from ROS to opencv:  %s' % e)
+            rospy.logerr('Exception converting background image from ROS to ' + 
+                'OpenCV:  %s' % e)
 
-        # TODO i guess i could see a case for this not being mutually exclusive w/ the circular mask?
-        self.imgScaled = img[self.params['roi_b']:self.params['roi_t'], self.params['roi_l']:self.params['roi_r']]
+        # TODO i guess i could see a case for this not being mutually exclusive
+        # w/ the circular mask?
+        self.imgScaled = img[self.params['roi_b']:self.params['roi_t'], 
+            self.params['roi_l']:self.params['roi_r']]
+
         self.shapeImage = self.imgScaled.shape # (height,width)
         
         # define a self var in init that dictates whether we should mask?
@@ -297,65 +323,80 @@ class Compressor:
                 fill_color = [1,1,1]
                 
                 for r in self.circular_rois.values():
-                    cv2.circle(self.image_mask, (r['circular_mask_x'], r['circular_mask_y']), \
-                        int(r['circular_mask_r']), fill_color, -1) # need to cast? TODO
+                    # need to cast? TODO
+                    cv2.circle(self.image_mask, (r['circular_mask_x'], 
+                        r['circular_mask_y']), int(r['circular_mask_r']), 
+                        fill_color, -1)
 
                 for r in self.polygonal_rois.values():
                     cv2.fillConvexPoly(self.image_mask, r, fill_color)
 
                 for r in self.rectangular_rois:
                     # TODO correct? shape?
-                    self.image_mask[r['roi_b']:r['roi_t'], r['roi_l']:r['roi_r']] = fill_color
+                    self.image_mask[r['roi_b']:r['roi_t'], 
+                                    r['roi_l']:r['roi_r']] = fill_color
             self.imgScaled = self.image_mask*self.imgScaled
 
         def background_png_name():
             # TODO also check we are using sim_time
             if self.use_original_timestamp:
-                # TODO make sure everything that loads these doesn't break w/ addition of seconds
+                # TODO make sure everything that loads these doesn't break w/
+                # addition of seconds
                 background_img_filename = self.experiment_basename + \
-                    time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%S_N' + str(self.pipeline_num) + \
-                    '.png', time.localtime(rospy.Time.now().to_sec()))
+                    time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%S_N' + 
+                    str(self.pipeline_num) + '.png', 
+                    time.localtime(rospy.Time.now().to_sec()))
             else:
                 background_img_filename = self.experiment_basename + \
-                    time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%S_N' + str(self.pipeline_num) + \
-                    '.png', time.localtime())
+                    time.strftime('_deltavideo_bgimg_%Y%m%d_%H%M%S_N' + 
+                    str(self.pipeline_num) + '.png', time.localtime())
 
             if self.explicit_directories:
-                data_directory = os.path.expanduser(rospy.get_param('multi_tracker/data_directory'))
+                data_directory = os.path.expanduser(
+                    rospy.get_param('multi_tracker/data_directory'))
             else:
-                data_directory = os.path.join(os.getcwd(), self.experiment_basename)
+                data_directory = os.path.join(os.getcwd(), 
+                                              self.experiment_basename)
             
             return os.path.join(data_directory, background_img_filename)
         
-        ### image processing function ##############################################################
+        ### image processing function ##########################################
         
-        # TODO it doesn't seem like self.current_background_img counter is used? was it ever? remove?
-        # If there is no background image, grab one, and move on to the next frame
+        # TODO it doesn't seem like self.current_background_img counter is used?
+        # was it ever? remove?
+        # If there is no background image, grab one, and move on to the next
+        # frame.
         if self.backgroundImage is None:
             self.backgroundImage = copy.copy(self.imgScaled)
             self.background_img_filename = background_png_name()
             if self.save_data:
-                rospy.loginfo('delta_video saving first background image to ' + self.background_img_filename)
+                rospy.loginfo('delta_video saving first background image to ' +
+                    self.background_img_filename)
+
                 # TODO fix offset (indices probably shifted to left, up one)
                 #rospy.logwarn(self.backgroundImage)
                 #rospy.logwarn(self.backgroundImage.shape)
 
-                success = cv2.imwrite(self.background_img_filename, self.backgroundImage)
+                success = cv2.imwrite(self.background_img_filename,
+                                      self.backgroundImage)
 
                 # restarting seemed to fix this for me once, unclear why
-                if not success or not (os.path.exists(self.background_img_filename) and \
+                if not success or not 
+                    (os.path.exists(self.background_img_filename) and
                     os.path.getsize(self.background_img_filename) > 8):
-                    # TODO i'd rather do without he sys.exit call, but logfatal didn't seem
-                    # to kill the node... why wouldnt it?
-                    rospy.logfatal('background image png was not saved correctly. reason unknown. you may consider restarting.')
+                    # TODO i'd rather do without he sys.exit call, but logfatal
+                    # didn't seem to kill the node... why wouldnt it?
+                    rospy.logfatal('background image png was not saved ' +
+                        'correctly. reason unknown. you may consider ' +
+                        'restarting.')
                     sys.exit()
                 
             self.current_background_img += 1
             return
 
         # TODO TODO include a thread lock on reset bg flag + lock when writing?
-        # TODO will this be true by default? if so, is it always saving two images?
-        # maybe get rid of the above?
+        # TODO will this be true by default? if so, is it always saving two
+        # images? maybe get rid of the above?
         if self.reset_background_flag:
             self.reset_background_flag = False
             #rospy.loginfo('resetting background')
@@ -374,7 +415,8 @@ class Compressor:
             return
 
         # calculate the difference from the background
-        # sign set in __init__ based on name of tracking function (defaults to 0)
+        # sign set in __init__ based on name of tracking function
+        # (defaults to 0)
         # TODO test
 	'''
         if self.sign == -1:
@@ -387,7 +429,8 @@ class Compressor:
         # TODO temporary hack fix. revert.
         self.diff = cv2.absdiff(self.imgScaled, self.backgroundImage)
 
-	#rospy.loginfo('comparing to threshold ' + str(self.params['threshold']))
+        #rospy.loginfo('comparing to threshold ' +
+        #    str(self.params['threshold']))
         changed_pixels = np.where(self.diff > self.params['threshold'])
         delta_msg = DeltaVid()
         header  = Header(stamp=self.framestamp,frame_id=str(self.framenumber))
@@ -397,7 +440,8 @@ class Compressor:
         if len(changed_pixels[0]) > 0:
             delta_msg.xpixels = changed_pixels[0].tolist()
             delta_msg.ypixels = changed_pixels[1].tolist()
-            delta_msg.values = self.imgScaled[changed_pixels].reshape(len(changed_pixels[0])).tolist()
+            delta_msg.values = self.imgScaled[changed_pixels].reshape(
+                len(changed_pixels[0])).tolist()
         else:
             # TODO why preferable for first two fields but not the values?
             delta_msg.xpixels = [0]
@@ -406,19 +450,26 @@ class Compressor:
         self.pubDeltaVid.publish(delta_msg)
         
         '''
-        if the fraction of the frame that changed is too large, reset the background
-          -if this is small, it the background will reset more often, in the limit maybe
-           only saving the edges of the flies
-          -if this is large, the background may never reset, probably losing flies when
-           they cross their original positions, and likely storing more data than necessary
-           (particularly if something gets bumped or lighting changes)
+        if the fraction of the frame that changed is too large, reset the
+        background
+          - if this is small, it the background will reset more often, in the
+            limit maybe only saving the edges of the flies
+          - if this is large, the background may never reset, probably losing
+            flies when they cross their original positions, and likely storing
+            more data than necessary (particularly if something gets bumped or
+            lighting changes)
         '''
-        changed_fraction = len(changed_pixels[0]) / (self.diff.shape[0] * self.diff.shape[1])
+        changed_fraction = (len(changed_pixels[0]) /
+            (self.diff.shape[0] * self.diff.shape[1]))
 
-        # TODO TODO this was printed several times but no new png. what gives? flag ever effecting?
-        if not self.reset_background_flag and changed_fraction > self.params['max_change_in_frame']:
-            rospy.logwarn(os.path.split(__file__)[-1] + ': resetting background image for # ' + \
-                'changed fraction of pixels (' + str(changed_fraction) + ') > max_change_in_frame '+\
+        # TODO TODO this was printed several times but no new png. what gives?
+        # flag ever effecting?
+        if (not self.reset_background_flag and 
+            changed_fraction > self.params['max_change_in_frame']):
+
+            rospy.logwarn(os.path.split(__file__)[-1] + ': resetting ' + 
+                'background image for # changed fraction of pixels (' + 
+                str(changed_fraction) + ') > max_change_in_frame ' +
                 '(' + str(self.params['max_change_in_frame']) + ')')
             self.reset_background_flag = True
             
@@ -465,18 +516,24 @@ class Compressor:
             rospy.set_param('~' + str(i) + '/circular_mask_y', r.y)
             rospy.set_param('~' + str(i) + '/circular_mask_r', r.r)
 
-        roi_param_filename = time.strftime('compressor_rois_%Y%m%d_%H%M%S_N' + str(self.pipeline_num) + \
-            '.yaml', time.localtime(rospy.Time.now().to_sec()))
+        roi_param_filename = time.strftime('compressor_rois_%Y%m%d_%H%M%S_N' +
+            str(self.pipeline_num) + '.yaml', 
+            time.localtime(rospy.Time.now().to_sec()))
 
         # now invoke the snapshot_param node in this namespace to dump the 
-        # TODO maybe save through other means? just pickle? api for launching single nodes?
-        params = ['roslaunch', 'multi_tracker', 'snapshot_params.launch', 'ns:=' + \
-            rospy.get_namespace(), 'filename:=' + roi_param_filename]
+        # TODO maybe save through other means? just pickle? api for launching
+        # single nodes?
+        params = ['roslaunch', 'multi_tracker', 'snapshot_params.launch',
+            'ns:=' + rospy.get_namespace(), 'filename:=' + roi_param_filename]
         self.child = Popen(params)
 
         self.have_rois = True
         sizeImage = 128+1024*1024*3 # Size of header + data.
-        self.subImage = rospy.Subscriber(self.params['image_topic'], Image, self.image_callback, queue_size=5, buff_size=2*sizeImage, tcp_nodelay=True)
+        self.subImage = rospy.Subscriber(self.params['image_topic'], Image,
+                                         self.image_callback, queue_size=5,
+                                         buff_size=2*sizeImage,
+                                         tcp_nodelay=True)
+
         # this seems to be what ros expects for return
         # when service does not specify a return type
         return []
@@ -510,14 +567,14 @@ class Compressor:
                     self.process_image_buffer(self.image_buffer.pop(0))
                 if len(self.image_buffer) > 3:
                     pt = (rospy.Time.now() - time_now).to_sec()
-                    rospy.logwarn("Delta video processing time exceeds acquisition rate. " + \
-                        "Processing time: %f, Buffer: %d", pt, len(self.image_buffer))
+                    rospy.logwarn("Delta video processing time exceeds " + 
+                        "acquisition rate. Processing time: %f, Buffer: %d",
+                        pt, len(self.image_buffer))
 
         if not self.child is None:
             self.child.kill()
 
-#####################################################################################################
-    
+
 if __name__ == '__main__':
     compressor = Compressor()
     compressor.main()
