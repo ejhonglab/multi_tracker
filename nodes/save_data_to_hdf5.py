@@ -79,8 +79,15 @@ class DataListener:
 
         rospy.loginfo('Saving hdf5 data to: ' + filename)
         
-        self.record_length_seconds = (3600 * 
-            rospy.get_param('multi_tracker/record_length_hours', 24))
+
+        # TODO should the default here be to record indefinitely? (i.e. -1)
+        hrs_to_record = rospy.get_param('multi_tracker/record_length_hours', 24)
+        # TODO document this behavior + implement in other nodes using this
+        # param
+        if hrs_to_record > 0:
+            self.record_length_seconds = 3600 * hrs_to_record
+        else:
+            self.record_length_seconds = -1
 
         self.time_start = rospy.Time.now()
         
@@ -199,8 +206,15 @@ class DataListener:
             # TODO delete this comment. is there a reason this was previously
             # not using ros time?
             t = (rospy.Time.now() - self.time_start).to_sec()
-            if t > self.record_length_seconds:
-                self.stop_saving_data()
+
+            if (self.record_length_seconds > 0 and
+                t > self.record_length_seconds):
+
+                # TODO should still work without this, right? maybe just remove
+                # and test it still works? oh... maybe that HDF5 error was
+                # caused by double closing, since the atexit call is also
+                # invoked?)
+                #self.stop_saving_data()
                 return
             
             # TODO why locking here and not further down? (less probably better)
@@ -214,7 +228,9 @@ class DataListener:
                     rospy.logwarn('Data saving processing time exceeds ' +
                         'acquisition rate. Processing time: %f, Buffer: %d',
                         pt, len(self.buffer))
-        
+    
+    # TODO fix hdf5 bug here (maybe just requires updating HDF5 / h5py?)
+    # see note above
     def stop_saving_data(self):
         self.hdf5.close()
         # presumably printing because the logging facilities will be inoperable
