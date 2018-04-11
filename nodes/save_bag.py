@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 
 from __future__ import division
-import rospy
-import rostopic
+
 import time
 import os
 import subprocess
-import numpy as np
 import errno
+
+import numpy as np
+import rospy
+import rostopic
+
 
 class SaveBag:
     def __init__(self):
@@ -24,29 +27,44 @@ class SaveBag:
                 'data, otherwise, there is no point in this node.')
 
         node_name = rospy.get_name()
+        # but bewarned that this will also get the integer appended via
+        # anonymous flag which will cause this to not save anything, because no
+        # topics will have this random number appended to them upstream of this
+        # node...
         last_name_component = node_name.split('_')[-1]
+        
 
-        # but bewarned that this will also get the integer appended via anonymous flag
-        # which will cause this to not save anything, because no topics will have
-        # this random number appended to them upstream of this node...
-        
-        # TODO delete me
-        rospy.logwarn('topics being saved in node ' + rospy.get_name() + ': ' + str(self.topics))
-        
-        self.record_length_seconds = 3600 * rospy.get_param('multi_tracker/record_length_hours', 24)
+        # TODO should the default here be to record indefinitely? (i.e. -1)
+        # TODO document this behavior
+        hrs_to_record = rospy.get_param('multi_tracker/record_length_hours', 24)
+
+        # This logic is duplicated here and in save_data_to_hdf5 because some
+        # launch files only use one or the other, at each of those counts on
+        # whichever of these nodes that is running to stop the acquisition.
+        if hrs_to_record > 0:
+            self.record_length_seconds = 3600 * hrs_to_record
+        else:
+            self.record_length_seconds = -1
         
         # TODO break into utility function?
-        self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', None)
+        self.experiment_basename = \
+            rospy.get_param('multi_tracker/experiment_basename', None)
+
         generated_basename = False
         if self.experiment_basename is None:
-            rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
-                ' Run the set_basename.py node along with others to fix this.')
-            self.experiment_basename = time.strftime('%Y%m%d_%H%M%S', time.localtime())
+            rospy.logwarn('Basenames output by different nodes in this ' +
+                'tracker run may differ!')
+
+            self.experiment_basename = \
+                time.strftime('%Y%m%d_%H%M%S', time.localtime())
+
             generated_basename = True
 
         filename = self.experiment_basename + '_delta_video.bag'
         if rospy.get_param('multi_tracker/explicit_directories', False):
-            directory = os.path.expanduser(rospy.get_param('multi_tracker/data_directory'))
+            directory = os.path.expanduser(
+                rospy.get_param('multi_tracker/data_directory'))
+
         else:
             directory = os.path.join(os.getcwd(), self.experiment_basename)
 
@@ -73,18 +91,19 @@ class SaveBag:
         rospy.loginfo('Saving bag file: %s' % (self.bag_filename))
         cmdline = ['rosbag', 'record','-O', self.bag_filename]
         cmdline.extend(self.topics)
-        print cmdline
-        self.processRosbag = subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)
+        self.processRosbag = \
+            subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)
     
      
     def stop_recording(self):
         if not self.processRosbag is None:
-            subprocess.os.killpg(self.processRosbag.pid, subprocess.signal.SIGINT)
+            subprocess.os.killpg(self.processRosbag.pid,
+                                 subprocess.signal.SIGINT)
             rospy.loginfo('Closed bag file.')
             # maybe hold on to it in case we need to escalate shutdown signals?
             self.processRosbag = None
-                
-    
+   
+
     def main(self):
         self.start_recording()
 
@@ -96,8 +115,8 @@ class SaveBag:
                 if recheck:
                     time.sleep(0.5)
 
-                # TODO failure mode if topics that dont currently exist are in list to record?
-                # i want to support that w/o failure
+                # TODO failure mode if topics that dont currently exist are in
+                # list to record? i want to support that w/o failure
                 
                 name = rospy.resolve_name(topic)
                 msg_type, _, _ = rostopic.get_topic_class(name)
@@ -120,9 +139,13 @@ class SaveBag:
 
         while not rospy.is_shutdown():
             t = rospy.Time.now().to_sec() - self.time_start
-            if t > self.record_length_seconds:
+
+            if (self.record_length_seconds > 0 and
+                t > self.record_length_seconds):
+
                 # TODO maybe now i should check that process
                 # is killed there?
+                # TODO atexit hook also a good idea here?
                 self.stop_recording()      
                 return
         

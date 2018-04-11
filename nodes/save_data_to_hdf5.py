@@ -81,9 +81,12 @@ class DataListener:
         
 
         # TODO should the default here be to record indefinitely? (i.e. -1)
+        # TODO document this behavior
         hrs_to_record = rospy.get_param('multi_tracker/record_length_hours', 24)
-        # TODO document this behavior + implement in other nodes using this
-        # param
+
+        # This logic is duplicated here and in save_data_to_hdf5 because some
+        # launch files only use one or the other, at each of those counts on
+        # whichever of these nodes that is running to stop the acquisition.
         if hrs_to_record > 0:
             self.record_length_seconds = 3600 * hrs_to_record
         else:
