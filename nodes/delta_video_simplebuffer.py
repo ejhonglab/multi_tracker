@@ -547,11 +547,12 @@ class Compressor:
         
         while not rospy.is_shutdown():
             with self.lockBuffer:
-                time_now = rospy.Time.now()
+                time_then = rospy.Time.now()
                 if len(self.image_buffer) > 0:
                     self.process_image_buffer(self.image_buffer.pop(0))
+
                 if len(self.image_buffer) > 3:
-                    pt = (rospy.Time.now() - time_now).to_sec()
+                    pt = (rospy.Time.now() - time_then).to_sec()
                     rospy.logwarn("Delta video processing time exceeds " + 
                         "acquisition rate. Processing time: %f, Buffer: %d",
                         pt, len(self.image_buffer))

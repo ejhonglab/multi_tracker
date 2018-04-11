@@ -73,7 +73,6 @@ class Tracker:
             '~roi_points'           : None,
             # use moments for x,y,area instead of fitted ellipse
             'use_moments'           : True,
-            'record_length_hours'   : 24
         }
 
         # TODO break this code out into a utility function
@@ -115,8 +114,6 @@ class Tracker:
         # TODO maybe just reduce to debug flag and not save data in that case?
         self.save_data = rospy.get_param('multi_tracker/tracker/save_data',True)
         self.debug = rospy.get_param('multi_tracker/tracker/debug', False)
-        self.record_length_seconds = (3600 * 
-            rospy.get_param('multi_tracker/record_length_hours', 24))
         
         node_name = rospy.get_name()
         last_name_component = node_name.split('_')[-1]
@@ -283,19 +280,13 @@ class Tracker:
         
     def main(self):
         while (not rospy.is_shutdown()):
-            t = rospy.Time.now().to_sec() - self.time_start
-            if t > self.record_length_seconds:
-                return
             with self.lockBuffer:
-                # TODO TODO only calc time_now and pt if buffer is in warning
-                # regime?
-                time_now = rospy.Time.now()
+                time_then = rospy.Time.now()
                 if len(self.image_buffer) > 0:
                     self.process_image_buffer(self.image_buffer.pop(0))
 
-                pt = (rospy.Time.now() - time_now).to_sec()
-
                 if len(self.image_buffer) > 9:
+                    pt = (rospy.Time.now() - time_then).to_sec()
                     rospy.logwarn('Tracking processing time exceeds ' + 
                         'acquisition rate. Processing time: %f, Buffer: %d',
                         pt, len(self.image_buffer))

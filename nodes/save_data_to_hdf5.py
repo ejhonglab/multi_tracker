@@ -207,9 +207,8 @@ class DataListener:
         atexit.register(self.stop_saving_data)
         while not rospy.is_shutdown():
             # TODO delete this comment. is there a reason this was previously
-            # not using ros time?
+            # not using ROS time?
             t = (rospy.Time.now() - self.time_start).to_sec()
-
             if (self.record_length_seconds > 0 and
                 t > self.record_length_seconds):
 
@@ -222,12 +221,12 @@ class DataListener:
             
             # TODO why locking here and not further down? (less probably better)
             with self.lockBuffer:
-                time_now = rospy.Time.now()
+                time_then = rospy.Time.now()
                 if len(self.array_buffer) > 0:
                     self.process_buffer()
 
-                pt = (rospy.Time.now() - time_now).to_sec()
                 if len(self.buffer) > 9:
+                    pt = (rospy.Time.now() - time_then).to_sec()
                     rospy.logwarn('Data saving processing time exceeds ' +
                         'acquisition rate. Processing time: %f, Buffer: %d',
                         pt, len(self.buffer))
