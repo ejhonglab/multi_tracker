@@ -71,7 +71,8 @@ class Compressor:
             '~circular_mask_y'   : None,
             '~circular_mask_r'   : None,
             '~roi_points'        : None,
-            '~wait_for_rois'     : False # TODO TODO implement
+            # TODO TODO implement
+            '~wait_for_rois'     : False
         }
 
         for parameter, default_value in self.params.items():
@@ -149,10 +150,6 @@ class Compressor:
             rospy.logwarn('delta_video not saving data! multi_tracker' + 
                 '/delta_video/save_data was False')
         
-        # TODO warn if using default here?
-        self.record_length_seconds = 3600 * rospy.get_param(
-            'multi_tracker/record_length_hours', 24)
-
         self.debug = rospy.get_param('multi_tracker/delta_video/debug', False)
 
         self.use_original_timestamp = rospy.get_param(
@@ -548,20 +545,7 @@ class Compressor:
                     break
                 rate.sleep()
         
-        # TODO why does rospy.Time.now() jump from 0 to ~149998...???
-        # this solution seems hacky and i wish i didn't have to do it...
-        # TODO also put in other nodes? utility func?
-        # also handle shutdown here?
-        self.time_start = 0
-        while np.isclose(self.time_start, 0.0):
-            self.time_start = rospy.Time.now().to_sec()
-        
         while not rospy.is_shutdown():
-            # TODO reset time_start when each new roi is added?
-            t = rospy.Time.now().to_sec() - self.time_start
-            if t > self.record_length_seconds:
-                return
-            
             with self.lockBuffer:
                 time_now = rospy.Time.now()
                 if len(self.image_buffer) > 0:
