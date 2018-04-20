@@ -9,6 +9,7 @@ if __name__ == '__main__':
     if rospy.get_param('multi_tracker/retracking_original_timestamp', False):
         experiment_basename = rospy.get_param('original_basename', None)
         if experiment_basename is None:
+            # TODO get rid of linebreaks, so you can see full error
             raise ValueError('need original_basename parameter to be set if using ' + \
                 'original timestamp. possibly incorrect argument to set_original_basename.py' + \
                 ' or you are not calling this node?')

@@ -47,6 +47,9 @@ else
 fi
 
 
+# TODO TODO make it so roi_finder/load_rois doesn't need to be set in
+# roi_finder.yaml for the below to work? extra arg in the launch file? no
+# reason for current behavior...
 ROS_HOME=$INPUT_PATH "roslaunch" multi_tracker play_delta_video.launch rate:=${rate} pause:=False delay:=5 &
 sleep 0.5
 cd $OUTPUT_PATH

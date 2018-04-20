@@ -5,16 +5,19 @@ from __future__ import print_function
 
 import os
 import traceback
-import cv2
-from enum import Enum
-from multi_tracker.msg import DeltaVid
-from sensor_msgs.msg import Image
-import rosbag
 import glob
 import copy
 import sys
-
+from enum import Enum
 from distutils.version import LooseVersion, StrictVersion
+
+import cv2
+from sensor_msgs.msg import Image
+import rosbag
+
+from multi_tracker.msg import DeltaVid
+
+
 print('Using open cv: ', cv2.__version__)
 if StrictVersion(cv2.__version__.split('-')[0]) >= StrictVersion("3.0.0"):
     OPENCV_VERSION = 3
