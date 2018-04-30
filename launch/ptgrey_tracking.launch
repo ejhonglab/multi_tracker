@@ -5,6 +5,8 @@
   -->
   <arg name="camera" default="/image_raw" />
   <arg name="video_only" default="False" />
+  <arg name="viewer" default="True" />
+  <arg name="compression" default="True" />
   
   <include file="$(find multi_tracker)/launch/pointgrey_cam.launch">
     <!--
@@ -13,7 +15,10 @@
   </include>
   
   <include file="$(find multi_tracker)/launch/tracking.launch">
-    <arg name="camera" value="$(arg camera)" />
     <arg name="video_only" value="$(arg video_only)" />
+    <arg name="viewer" value="$(arg viewer)" />
+    <arg name="compression" value="$(arg compression)" />
+
+    <arg name="camera" value="$(arg camera)" />
   </include>
 </launch>

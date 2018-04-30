@@ -50,6 +50,8 @@ class SaveBag:
         self.experiment_basename = \
             rospy.get_param('multi_tracker/experiment_basename', None)
 
+        self.compression = rospy.get_param('~compression', True)
+
         generated_basename = False
         if self.experiment_basename is None:
             rospy.logwarn('Basenames output by different nodes in this ' +
@@ -90,6 +92,11 @@ class SaveBag:
     def start_recording(self):
         rospy.loginfo('Saving bag file: %s' % (self.bag_filename))
         cmdline = ['rosbag', 'record','-O', self.bag_filename]
+
+        if self.compression:
+            # could try --lz4, if bz2 proves too resource intensive
+            cmdline.append('--bz2')
+
         cmdline.extend(self.topics)
         self.processRosbag = \
             subprocess.Popen(cmdline, preexec_fn=subprocess.os.setpgrp)

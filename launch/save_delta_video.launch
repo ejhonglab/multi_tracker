@@ -1,13 +1,16 @@
 <launch>
   <arg name="camera" default="/camera/image_raw" />
   <arg name="wait_for_rois" default="False" />
+  <arg name="compression" default="True" />
   
-  <node name="delta_compressor" pkg="multi_tracker" type="delta_video_simplebuffer.py" output="screen" required="true" >
+  <node name="delta_compressor" pkg="multi_tracker" type="delta_video_simplebuffer.py" output="screen" required="true">
     <remap from="/camera/image_raw" to="$(arg camera)" />
     <param name="wait_for_rois" value="$(arg wait_for_rois)" type="bool" />
   </node>
   
   <!-- TODO if this is going to be required, it may need to leave
        termination to the above? maybe if wait_for_rois? -->
-  <node name="save_delta_video" pkg="multi_tracker" type="save_bag.py" output="screen" required="true" />
+  <node name="save_delta_video" pkg="multi_tracker" type="save_bag.py" output="screen" required="true">
+    <param name="compression" value="$(arg compression)" type="bool" />
+  </node>
 </launch>

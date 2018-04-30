@@ -4,6 +4,7 @@
   <arg name="video_only" default="False" />
   <!-- TODO maybe rename or no_delta_video or something? -->
   <arg name="tracking_only" default="False" />
+  <arg name="compression" default="True" />
 
   <rosparam command="load" file="debug_flags.yaml" />
   
@@ -17,6 +18,7 @@
   <include file="$(find multi_tracker)/launch/save_delta_video.launch" unless="$(arg tracking_only)">
     <arg name="wait_for_rois" value="True"/>
     <arg name="camera" value="$(arg camera)"/>
+    <arg name="compression" value="$(arg compression)" />
   </include>
 
   <!-- This will identify relevant ROIs and start instances of the single_tracking_pipeline.launch,
