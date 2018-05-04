@@ -4,6 +4,7 @@
 
   <arg name="dump_roi_params" default="False" />
   <arg name="viewer" default="True" />
+  <arg name="track_reconstructed_delta_video" default="False" />
 
   <arg name="polygonal_roi" default="False" />
   <arg name="roi_points" default="[]" />
@@ -25,7 +26,8 @@
   <!-- TODO remove slight redundancy between ns and num now? (ns is set w/ that num in roi_finder.py) -->
   <group ns="$(arg ns)">
     <node name="tracker_$(arg num)" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" required="true">
-      <remap from="/camera/image_raw" to="$(arg camera)" />
+      <remap unless="$(arg track_reconstructed_delta_video)" from="/camera/image_raw" to="$(arg camera)" />
+      <remap if="$(arg track_reconstructed_delta_video)" from="/camera/image_raw" to="reconstructed_image" />
       
       <!-- TODO maybe condense all this loading into another launch file somehow?
            w/ arg passthrough syntax maybe? -->

@@ -2,6 +2,11 @@
   <arg name="camera" default="/camera/image_raw" />
   <arg name="wait_for_rois" default="False" />
   <arg name="compression" default="True" />
+
+  <arg name="track_reconstructed_delta_video" default="False" />
+  <arg name="delta_video_topic" default="/multi_tracker/delta_video" />
+  <arg name="saveto" default="" />
+  <arg name="output_topic" default="reconstructed_image" />
   
   <node name="delta_compressor" pkg="multi_tracker" type="delta_video_simplebuffer.py" output="screen" required="true">
     <remap from="/camera/image_raw" to="$(arg camera)" />
@@ -13,4 +18,8 @@
   <node name="save_delta_video" pkg="multi_tracker" type="save_bag.py" output="screen" required="true">
     <param name="compression" value="$(arg compression)" type="bool" />
   </node>
+
+  <node name="delta_video_player" pkg="multi_tracker" type="delta_video_player.py" 
+   args="--in='$(arg delta_video_topic)' --out='$(arg output_topic)' 
+   --saveto='$(arg saveto)'" required="True" if="$(arg track_reconstructed_delta_video)"/>
 </launch>

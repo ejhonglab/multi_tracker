@@ -5,6 +5,7 @@
   <!-- TODO maybe rename or no_delta_video or something? -->
   <arg name="tracking_only" default="False" />
   <arg name="compression" default="True" />
+  <arg name="track_reconstructed_delta_video" default="False" />
 
   <rosparam command="load" file="debug_flags.yaml" />
   
@@ -19,15 +20,17 @@
     <arg name="wait_for_rois" value="True"/>
     <arg name="camera" value="$(arg camera)"/>
     <arg name="compression" value="$(arg compression)" />
+    <arg name="track_reconstructed_delta_video" value="$(arg track_reconstructed_delta_video)" />
   </include>
 
   <!-- This will identify relevant ROIs and start instances of the single_tracking_pipeline.launch,
        with appropriate parameters. -->
   <node name="roi_finder" pkg="multi_tracker" type="roi_finder.py" output="screen" required="True">
     <remap from="/camera/image_raw" to="$(arg camera)" />
-    
+
     <!-- TODO TODO implement -->
     <param name="video_only" value="$(arg video_only)" type="bool" />
+    <param name="track_reconstructed_delta_video" value="$(arg track_reconstructed_delta_video)" type="bool"/>
   </node>
   
   <group if="$(arg viewer)">
