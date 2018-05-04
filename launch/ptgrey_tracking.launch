@@ -7,6 +7,7 @@
   <arg name="video_only" default="False" />
   <arg name="viewer" default="True" />
   <arg name="compression" default="True" />
+  <arg name="track_reconstructed_delta_video" default="False" />
   
   <include file="$(find multi_tracker)/launch/pointgrey_cam.launch">
     <!--
@@ -18,6 +19,7 @@
     <arg name="video_only" value="$(arg video_only)" />
     <arg name="viewer" value="$(arg viewer)" />
     <arg name="compression" value="$(arg compression)" />
+    <arg name="track_reconstructed_delta_video" value="$(arg track_reconstructed_delta_video)" />
 
     <arg name="camera" value="$(arg camera)" />
   </include>

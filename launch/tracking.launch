@@ -4,7 +4,6 @@
   <arg name="tracking_only" default="False" />
   <arg name="viewer" default="True" />
   <arg name="compression" default="True" />
-
   <arg name="track_reconstructed_delta_video" default="False" />
 
   <!-- TODO only load d.v. in here if video only? or break into
