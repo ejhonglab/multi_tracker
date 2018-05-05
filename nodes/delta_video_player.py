@@ -72,6 +72,12 @@ class DeCompressor:
             self.videowriter = None
 
         self.fps = fps
+
+        sim_time = rospy.get_param('/use_sim_time', False)
+        # TODO TODO How to get original images (to republish w/o bg image in
+        # this case). I should... right? Just integrate r.t. decompression in to
+        # compressor?
+        self.real_time = (not sim_time)
             
         
     def delta_image_callback(self, delta_vid):
