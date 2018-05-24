@@ -1,42 +1,40 @@
 #!/usr/bin/env python
 
-from optparse import OptionParser
-import sys, os
+import sys
+import os
 import imp
-
-import rosbag, rospy
 import pickle
-
-import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
-import pyqtgraph.ptime as ptime
 import time
-import numpy as np
-
-import matplotlib.pyplot as plt
-
-import multi_tracker_analysis as mta
-import cv2
 import copy
-
-import progressbar
-
 import subprocess
 import warnings
-
+from optparse import OptionParser
 from distutils.version import LooseVersion, StrictVersion
+
+import numpy as np
+import cv2
+import rosbag
+import rospy
+import progressbar
+import pyqtgraph as pg
+import pyqtgraph.ptime as ptime
+from pyqtgraph.Qt import QtCore, QtGui
+
+import multi_tracker_analysis as mta
 
 
 print('Using numpy: ' + np.version.version)
 print('Using pyqtgraph: ' + pg.__version__)
 
-# video would not load before installing most recent version of pyqtgraph from github repo
-# this is the version of the commit that fixed the
+# video would not load before installing most recent version of pyqtgraph from
+# github repo this is the version of the commit that fixed the
 # issue with current numpy: pyqtgraph-0.9.10-118-ge495bbc (in commit e495bbc...)
-# version checking with distutils.version. See: http://stackoverflow.com/questions/11887762/compare-version-strings
+# version checking with distutils.version.
+# See: http://stackoverflow.com/questions/11887762/compare-version-strings
 if StrictVersion(pg.__version__) < StrictVersion("0.9.10"):
     if StrictVersion(np.version.version) > StrictVersion("1.10"):
-        warnings.warn('Using pyqtgraph may be incompatible with numpy. Video may not load.')
+        warnings.warn('Using pyqtgraph may be incompatible with numpy. ' +
+            'Video may not load.')
         quit()
 pg.mkQApp()
 
@@ -57,11 +55,17 @@ else:
 WindowTemplate, TemplateBaseClass = pg.Qt.loadUiType(uiFile)
 
 def get_random_color():
-    color = (np.random.randint(0,255), np.random.randint(0,255), np.random.randint(0,255))
-    return color
+    return (
+        np.random.randint(0, 255),
+        np.random.randint(0, 255),
+        np.random.randint(0, 255)
+    )
   
 class QTrajectory(TemplateBaseClass):
-    def __init__(self, data_filename, bgimg, delta_video_filename, load_original=False, clickable_width=6, draw_interesting_time_points=True, draw_config_function=False):
+    def __init__(self, data_filename, bgimg, delta_video_filename,
+                 load_original=False, clickable_width=6, 
+                 draw_interesting_time_points=True, draw_config_function=False):
+
         self.load_original = load_original 
         
         TemplateBaseClass.__init__(self)

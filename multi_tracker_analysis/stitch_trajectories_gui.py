@@ -1,30 +1,24 @@
-from optparse import OptionParser
-import sys, os
 
+import sys
+import os
+import time
+import copy
+import pickle
+from optparse import OptionParser
+
+import numpy as np
+import cv2
+import rosbag
+import rospy
+import pandas
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 import pyqtgraph.ptime as ptime
 
-import numpy as np
-import time
-
 import read_hdf5_file_to_pandas
-
-import matplotlib.pyplot as plt
-
-import multi_tracker_analysis as mta
-import cv2
-import copy
-
-import rosbag, rospy
-
-import pandas
-
 import stitch_trajectories
 import data_slicing
-import read_hdf5_file_to_pandas
 
-import pickle
 
 def get_filename(path, contains):
     cmd = 'ls ' + path
@@ -51,10 +45,10 @@ def load_data(path):
         try:
             pd = pandas.read_pickle(data_filename_pickled)
         except:
-            pd = mta.read_hdf5_file_to_pandas.load_data_as_pandas_dataframe_from_hdf5_file(data_filename)
+            pd = read_hdf5_file_to_pandas.load_data_as_pandas_dataframe_from_hdf5_file(data_filename)
             pandas.to_pickle(pd, data_filename_pickled)
             
-    pd = mta.read_hdf5_file_to_pandas.remove_rows_above_speed_threshold(pd, speed_threshold=2)
+    pd = read_hdf5_file_to_pandas.remove_rows_above_speed_threshold(pd, speed_threshold=2)
             
     return pd
             

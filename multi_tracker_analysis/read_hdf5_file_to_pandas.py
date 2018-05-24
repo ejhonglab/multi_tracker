@@ -1,17 +1,20 @@
-import numpy as np
-import h5py
+
 import copy
-import pandas
 import os
 import imp
 import pickle
-import scipy.interpolate
 import warnings
 import time
-import matplotlib.pyplot as plt
 import inspect
-import types
 import warnings
+# used?
+import types
+
+import numpy as np
+import h5py
+import pandas
+import scipy.interpolate
+
 
 def get_filenames(path, contains, does_not_contain=['~', '.pyc']):
     cmd = 'ls ' + '"' + path + '"'
@@ -240,7 +243,8 @@ def load_dataset_from_path(path, load_saved=False, convert_to_units=True, use_an
                 dataset = pickle.load(f)
                 f.close()
                 # check path
-                if dataset.path != path: # an issue if the files get moved around
+                # an issue if the files get moved around
+                if dataset.path != path: 
                     dataset.path = path 
                     dataset.set_dataset_filename()
                 if dataset.has_zero_length_objects():
@@ -265,10 +269,11 @@ def load_dataset_from_path(path, load_saved=False, convert_to_units=True, use_an
     else:
         annotations = None
 
-    dataset = Dataset(pd, path=path, 
+    # if load_saved is True, copy the dataset, so it can be cached
+    dataset = Dataset(pd, path=path,
                           save=load_saved, 
                           convert_to_units=convert_to_units,
-                          annotations=annotations) # if load_saved is True, copy the dataset, so it can be cached
+                          annotations=annotations) 
 
     if load_saved:
         dataset.remove_zero_length_objects()
@@ -276,9 +281,14 @@ def load_dataset_from_path(path, load_saved=False, convert_to_units=True, use_an
 
     return dataset
 
-# TODO make methods like this "private". anywhere else accidentally calling it? (gui v2 was)
-# TODO fix / suppress FutureWarning generated in here (was it here or gui in background?)
+# TODO make methods like this "private". anywhere else accidentally calling it?
+# (gui v2 was)
+# TODO fix / suppress FutureWarning generated in here (was it here or gui in
+# background?)
 def load_data_as_pandas_dataframe_from_hdf5_file(filename, attributes=None):
+    # TODO 
+    """
+    """
     if '.pickle' in filename:
         pd = pandas.read_pickle(filename)
         return pd
@@ -289,34 +299,44 @@ def load_data_as_pandas_dataframe_from_hdf5_file(filename, attributes=None):
         data = h5py.File(filename, 'r', swmr=False)['data']
 
     if attributes is None:
-        attributes = {   'objid'                : 'objid',
-                         'time_epoch_secs'      : 'header.stamp.secs',
-                         'time_epoch_nsecs'     : 'header.stamp.nsecs',
-                         'position_x'           : 'position.x',
-                         'position_y'           : 'position.y',
-                         'measurement_x'        : 'measurement.x',
-                         'measurement_y'        : 'measurement.y',
-                         'velocity_x'           : 'velocity.x',
-                         'velocity_y'           : 'velocity.y',
-                         'angle'                : 'angle',
-                         'frames'               : 'header.frame_id',
-                         'area'                 : 'size',
-                         }
+        attributes = {
+            'objid'           : 'objid',
+            'time_epoch_secs' : 'header.stamp.secs',
+            'time_epoch_nsecs': 'header.stamp.nsecs',
+            'position_x'      : 'position.x',
+            'position_y'      : 'position.y',
+            'measurement_x'   : 'measurement.x',
+            'measurement_y'   : 'measurement.y',
+            'velocity_x'      : 'velocity.x',
+            'velocity_y'      : 'velocity.y',
+            'angle'           : 'angle',
+            'frames'          : 'header.frame_id',
+            'area'            : 'size',
+         }
+
     index = data['header.frame_id'].flat
     d = {}
     for attribute, name in attributes.items():
         d.setdefault(attribute, data[name].flat)
     pd = pandas.DataFrame(d, index=index)
-    pd = pd.drop(pd.index==[0]) # delete 0 frames (frames with no data)
+
+    # delete 0 frames (frames with no data)
+    # TODO is this really working as expected?
+    pd = pd.drop(pd.index == [0])
     pd = calc_additional_columns(pd)
-    # pd_subset = pd[pd.objid==key]
     return pd
-    
+   
+# TODO TODO clarify exactly when any functions convert units. I don't really
+# want it to do the conversion silently just based on whether a config file
+# exists and has a certain value. At least include option to never convert
+# units / another function.
 def load_and_preprocess_data(hdf5_filename):
     '''
-    requires that a configuration file be found in the same directory as the hdf5 file, with the same prefix
+    Requires that a configuration file be found in the same directory as the
+    hdf5 file, with the same prefix.
     
-    returns: pandas dataframe, processed according to configuration file, and the configuration file instance
+    Returns: pandas dataframe, processed according to configuration file, 
+    and the configuration file instance.
     '''
     if 'trackedobjects' not in hdf5_filename:
         print 'File is not a trackedobjects file, looking for a trackedobjects file in this directory'

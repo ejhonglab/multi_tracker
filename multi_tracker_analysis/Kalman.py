@@ -1,9 +1,6 @@
+
 import numpy as np
 import scipy.stats
-import matplotlib.pyplot as plt
-
-# TODO for debugging delete me
-import rospy
 
 # class for running the discrete kalman filter algorithm from table 3.1
 class DiscreteKalmanFilter(object):
@@ -108,6 +105,7 @@ class DiscreteKalmanFilter(object):
         
         
 if __name__ == '__main__':
+    import matplotlib.pyplot as plt
     
     # Generate synthetic data
     time_points = np.linspace(0, 20, 500)

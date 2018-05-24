@@ -1,6 +1,7 @@
-import matplotlib.pyplot as plt
-import numpy as np
+
 import os
+
+import numpy as np
 
 def get_filename(path, contains):
     cmd = 'ls ' + path
@@ -15,13 +16,17 @@ def get_filename(path, contains):
         if contains in filename:
             return os.path.join(path, filename)
 
+
 def get_bins_from_backgroundimage(backgroundimage, pixel_resolution=1):
+    import matplotlib.pyplot as plt
+
     if type(backgroundimage) is str:
         backgroundimage = plt.imread(backgroundimage)
     binsx = np.arange(0, backgroundimage.shape[1]+1, pixel_resolution)
     binsy = np.arange(0, backgroundimage.shape[0]+1, pixel_resolution)
     return binsx, binsy
-    
+
+
 def get_heatmap(pd, binsx, binsy, position_x='position_x', position_y='position_y', position_z='position_z', position_z_slice=None):
     if position_z_slice is not None:
         pd_subset = pd[ (pd[position_z]>position_z_slice[0]) & (pd[position_z]<position_z_slice[1])]
@@ -31,7 +36,8 @@ def get_heatmap(pd, binsx, binsy, position_x='position_x', position_y='position_
     y = pd_subset[position_y].values
     h, xedges, yedges = np.histogram2d(x,y,bins=[binsx,binsy])
     return h
-    
+
+
 def get_heatmap_weighted(pd, sample_names, bins, weight_name=None, normed=False):
     sample = [pd[sample_name].values for sample_name in sample_names]
     if weight_name is not None:
@@ -40,8 +46,11 @@ def get_heatmap_weighted(pd, sample_names, bins, weight_name=None, normed=False)
         weights = None
     h, edges = np.histogramdd(sample,bins,weights=weights, normed=normed)
     return h
-    
+
+
 def plot_heatmap(pd, binsx, binsy, ax=None, vmin=0, vmax=None, logcolorscale=False, position_x='position_x',position_y='position_y', position_z='position_z', position_z_slice=None):   
+    import matplotlib.pyplot as plt
+
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -54,6 +63,7 @@ def plot_heatmap(pd, binsx, binsy, ax=None, vmin=0, vmax=None, logcolorscale=Fal
     ax.imshow(heatmap.T, cmap=plt.get_cmap('hot'), vmin=vmin, vmax=vmax, origin='lower', extent=[binsx[0],binsx[-1],binsy[0],binsy[-1]])
     
     return ax
+
 
 def resampling_statistics_on_heatmaps(h_ons, h_offs, iterations=1000, neff=None):
     '''
@@ -100,12 +110,13 @@ def resampling_statistics_on_heatmaps(h_ons, h_offs, iterations=1000, neff=None)
             iq = np.argmin( np.abs(q-actual_difference[r,c]) )
             p = 1 - np.abs((iq - iterations/2.) / (iterations/2.))
             pvals[r,c] = p
-            
-    
     
     return actual_difference, pvals
-    
+
+
 def plot_trajectories(pd, binsx, binsy, backgroundimage=None, ax=None, position_x='position_x',position_y='position_y', position_z='position_z', position_z_slice=None):
+    import matplotlib.pyplot as plt
+
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -128,7 +139,10 @@ def plot_trajectories(pd, binsx, binsy, backgroundimage=None, ax=None, position_
     ax.set_yticks([])
     ax.set_aspect('equal')
 
+
 def plot_individual_trajectories_from_dataset_format(dataset, keys, backgroundimage, ax=None, binsx=None, binsy=None):
+    import matplotlib.pyplot as plt
+
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -143,11 +157,15 @@ def plot_individual_trajectories_from_dataset_format(dataset, keys, backgroundim
         
         ax.plot(trajec.position_x, trajec.position_y)
 
+
 def plot_trajectories_from_dataset(dataset, keys, interpolated_data='hide'):
     '''
     interpolated_data - if trajectories contain interpolated data, use 'hide' to hide that data, 'dotted' to show it as a dotted line, or 'show' to show it in its entirety
     '''
-    import fly_plot_lib.plot as fpl # download at: https://github.com/florisvb/FlyPlotLib
+    import matplotlib.pyplot as plt
+
+    # download at: https://github.com/florisvb/FlyPlotLib
+    import fly_plot_lib.plot as fpl 
     from fly_plot_lib.colormaps import viridis as viridis
     
     path = dataset.config.path
@@ -175,5 +193,4 @@ def plot_trajectories_from_dataset(dataset, keys, interpolated_data='hide'):
     
     fpl.adjust_spines(ax, [])
     ax.set_frame_on(False)
-    
     

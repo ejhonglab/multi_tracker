@@ -1,10 +1,9 @@
 
 import numpy as np
-import matplotlib.pyplot as plt
-import multi_tracker_analysis as mta
-import fly_plot_lib.flymath as flymath
+
 
 def plot(trajec, ax=None, x='position_x', y='position_y', linestyle='-'):
+    import matplotlib.pyplot as plt
 
     if ax is None:
         fig = plt.figure()
@@ -12,6 +11,7 @@ def plot(trajec, ax=None, x='position_x', y='position_y', linestyle='-'):
         ax.plot(trajec.__dict__[x], trajec.__dict__[y], linestyle=linestyle)
 
 def calculate_stopped_and_walking_frames(trajec):
+    import fly_plot_lib.flymath as flymath
 
     stopped_threshold = 1 # mm/sec
     walking_threshold = 2 # mm/sec

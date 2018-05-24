@@ -1,11 +1,13 @@
-import data_slicing
-import numpy as np
+
 import sys
-sys.path.append('../nodes')
-import Kalman
-import matplotlib.pyplot as plt
 import imp
 
+import numpy as np
+
+import data_slicing
+# TODO still necessary? is this because Kalman used to be in nodes?
+sys.path.append('../nodes')
+import Kalman
 
 def find_covariance_R_given_static_object_data(X):
     '''
@@ -75,6 +77,8 @@ def calc_actual_covariance_for_all_trajecs_given_q(dataset, keys, kalman_paramet
     
     Use "keys = multi_tracker_analysis.data_slicing.get_keys_of_length_greater_than(data, no_data_after_nth_frame*2)" to get the keys
     '''
+    import matplotlib.pyplot as plt
+
     p = []
     k = []
     
