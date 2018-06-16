@@ -52,6 +52,7 @@ fi
 # reason for current behavior...
 ROS_HOME=$INPUT_PATH "roslaunch" multi_tracker play_delta_video.launch rate:=${rate} pause:=False delay:=5 &
 sleep 0.5
+# TODO is the cd really necessary, if setting ROS_HOME?
 cd $OUTPUT_PATH
 ROS_HOME=${OUTPUT_PATH} "roslaunch" multi_tracker detect_roi_tracking.launch viewer:=False tracking_only:=True &
 # see https://unix.stackexchange.com/questions/231676/

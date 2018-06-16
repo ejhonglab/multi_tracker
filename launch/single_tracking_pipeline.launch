@@ -1,4 +1,8 @@
 <launch>
+  <!-- TODO can the default be a bool (for conditionals), yet be overridden w/
+    arbitrary types (e.g. string hostname)? -->
+  <arg name="machine" default="False" />
+
   <arg name="ns" default="/" />
   <arg name="num" default="1" />
 
