@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+
+# If given directory, operate on any ROS bag or HDF5 files as below.
+# If given either an HDF5 file or a bag file, and the file is not already
+# compressed (with desired compression): compress it, apply shallow check
+# against original, and delete original.
+
+# Bzip for bag files and Gzip for HDF5, because it seems there is not default
+# support for Bzip in HDF5?
+
+# TODO only print [rosrun multi_tracker ...] if was invoked that way?
+usage="Usage: compress [directory/HDF5 file/ROS bag file]\n"
+if [ "$#" -ne 1 ]; then
+	printf "$usage"
+fi
+
+if [ -d "$1" ]; then
+	# Argument was a directory.
+
+	# TODO decide whether this should work with symlinks or not, and then
+	# check it behaves appropriately
+	# TODO also print files beinf recursed over?
+	find -type f \( -name "*.hdf5" -o -name "*.bag" \) -exec "$0" {} \;
+	# TODO Find all bag files and hdf5 files in the directory, and call
+	# this script on each of them.
+
+elif [ -f "$1" ]; then
+	filename=$(basename -- "$1")
+	# TODO how does this work?
+	# https://stackoverflow.com/questions/965053/extract-filename-and-extension-in-bash
+	# http://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html
+	extension="${filename##*.}"
+	base="${filename%.*}"
+
+	if [[ $extension = "hdf5" ]]; then
+		# check whether already compressed
+		# 1 if GZIP compressed, 0 otherwise
+		gz_filt=$(h5stat $1 | grep GZIP | tail -c 2 | head -c 1)
+		if [[ $gz_filt = "1" ]]; then
+			echo "$1 already compressed with gzip"
+			exit
+		fi
+
+		# compress it
+		gzipped=$(mktemp)
+		echo "gzipping to $gzipped"
+		h5repack -i $1 -o $gzipped -f GZIP=9
+
+		# check them
+		# TODO this actually work?
+		h5diff $1 $gzipped
+
+		# delete original
+		# TODO more canonical way?
+		mv $1 "$1.tmp"
+		mv $gzipped $1
+		rm "$1.tmp"
+
+
+	elif [[ $extension = "bag" ]]; then
+		new_file=$1
+		orig_file="${base}.orig.bag"
+		compress=true
+
+		# check orig isn't in name, w/ shortened name existant
+		if grep -q ".orig." <<<"$filename"; then
+			orig_base="${filename%.*.*}"
+
+			# could technically be uncompressed...
+			if [ -f "${orig_base}.bag" ]; then
+				printf "'.orig.' in filename and "
+				printf "${orig_base}.bag exists.\n"
+				# TODO this overrides above def, right?
+				compress=false
+				new_file="${orig_base}.bag"
+				orig_file=$1
+			fi
+		fi
+
+		# check not already compressed w/ bzip
+		# (rosbag compress will go right ahead and try to compress it
+		# again, apparently taking longer than original compression)
+		cline=$(rosbag info $1 | grep "^compression")
+		if grep -q "bz2" <<<"$cline"; then
+			echo "$1 already compressed with bz2"
+			compress=false
+		fi
+
+		if [ "$compress" = true ]; then
+			rosbag compress $1
+		fi
+
+		# TODO maybe option to not check/delete?
+		# Compare to original, and then delete original if they match.
+
+		# $1 is now the output of rosbag compress, and the original file
+		# will have been renamed to <base>.orig.bag
+		new=$(rosbag info $new_file |
+		      grep -v "^path\|^size\|^compression\|^compressed\|^uncompressed" |
+		      tr -d '[:space:]')
+		orig=$(rosbag info $orig_file | 
+		       grep -v "^path\|^size\|^compression\|^compressed\|^uncompressed" |
+		       tr -d '[:space:]')
+
+		# TODO rosbag check too? not sure if that is meaningful on top
+		# of this
+
+		if [[ "$new" = "$orig" ]]; then
+			printf "deleting renamed original: $orig_file\n"
+			rm -f "$orig_file"
+		else
+			printf "Contents of compressed file $new_file differ "
+			printf "from $orig_file! Failure!!!\n"
+			exit 1
+		fi
+	fi
+else
+	printf "$usage"
+fi
