@@ -14,15 +14,14 @@ if [ "$#" -ne 1 ]; then
 	printf "$usage"
 fi
 
+printf "$0 $1\n"
+
 if [ -d "$1" ]; then
 	# Argument was a directory.
-
 	# TODO decide whether this should work with symlinks or not, and then
 	# check it behaves appropriately
-	# TODO also print files beinf recursed over?
-	find -type f \( -name "*.hdf5" -o -name "*.bag" \) -exec "$0" {} \;
-	# TODO Find all bag files and hdf5 files in the directory, and call
-	# this script on each of them.
+	# TODO also print files being recursed over?
+	find $1 -maxdepth 1 -type f \( -name "*.hdf5" -o -name "*.bag" \) -exec "$0" {} \;
 
 elif [ -f "$1" ]; then
 	filename=$(basename -- "$1")
