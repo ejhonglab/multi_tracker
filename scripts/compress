@@ -18,10 +18,15 @@ printf "$0 $1\n"
 
 if [ -d "$1" ]; then
 	# Argument was a directory.
+
 	# TODO decide whether this should work with symlinks or not, and then
 	# check it behaves appropriately
 	# TODO also print files being recursed over?
-	find $1 -maxdepth 1 -type f \( -name "*.hdf5" -o -name "*.bag" \) -exec "$0" {} \;
+    # TODO TODO fix locking mechanism so i can work across nsfv4 and samba
+    # versions installed in the lab (simple tests reveal bottom will NOT work!)
+    # (though it works as long as all clients are either nfs or samba)
+	find $1 -maxdepth 1 -type f \( -name "*.hdf5" -o -name "*.bag" \) \
+        -exec "flock -n $0" {} \;
 
 elif [ -f "$1" ]; then
 	filename=$(basename -- "$1")
@@ -113,8 +118,8 @@ elif [ -f "$1" ]; then
 		      grep -v "^path\|^size\|^compression\|^compressed\|^uncompressed" |
 		      tr -d '[:space:]')
 		orig=$(rosbag info $orig_file | 
-		       grep -v "^path\|^size\|^compression\|^compressed\|^uncompressed" |
-		       tr -d '[:space:]')
+		       grep -v "^path\|^size\|^compression\|^compressed\|^uncompressed"\
+                   | tr -d '[:space:]')
 
 		# TODO rosbag check too? not sure if that is meaningful on top
 		# of this
