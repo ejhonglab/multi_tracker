@@ -93,6 +93,17 @@ elif [ -f "$1" ]; then
 		# TODO maybe option to not check/delete?
 		# Compare to original, and then delete original if they match.
 
+		if [ ! -f "$orig_file" ]; then
+			if [ "$compress" = true ]; then
+				printf "Ran rosbag compress, but no orig file! Failure!!!\n"
+				exit 1
+			else
+				# If, for intance, file is already compressed,
+				# and original has been deleted. OK.
+				exit
+			fi
+		fi
+
 		# $1 is now the output of rosbag compress, and the original file
 		# will have been renamed to <base>.orig.bag
 		new=$(rosbag info $new_file |
