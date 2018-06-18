@@ -56,6 +56,10 @@ elif [ -f "$1" ]; then
 		mv $gzipped $1
 		rm "$1.tmp"
 
+		# TODO TODO fail w/ concurrency? bag v. hdf5 case? (currently
+		# unpredictable tmp file name for hdf5 case might be a prob.)
+		# lsof based lock?
+
 
 	elif [[ $extension = "bag" ]]; then
 		new_file=$1
