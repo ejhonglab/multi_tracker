@@ -11,139 +11,157 @@
 # TODO only print [rosrun multi_tracker ...] if was invoked that way?
 usage="Usage: compress [directory/HDF5 file/ROS bag file]\n"
 if [ "$#" -ne 1 ]; then
-	printf "$usage"
+    printf "$usage"
 fi
 
 printf "$0 $1\n"
 
 if [ -d "$1" ]; then
-	# Argument was a directory.
+    # Argument was a directory.
 
-	# TODO decide whether this should work with symlinks or not, and then
-	# check it behaves appropriately
-	# TODO also print files being recursed over?
+    # TODO decide whether this should work with symlinks or not, and then
+    # check it behaves appropriately
+    # TODO also print files being recursed over?
     # TODO TODO fix locking mechanism so i can work across nsfv4 and samba
     # versions installed in the lab (simple tests reveal bottom will NOT work!)
     # (though it works as long as all clients are either nfs or samba)
-	find $1 -type f \( -name "*.hdf5" -o -name "*.bag" \) \
+
+    # TODO does find work in a way that it might try to exec stuff on files
+    # deleted in other calls?
+    find $1 -type f \( -name "*.hdf5" -o -name "*.bag" \) \
         -exec "$0" {} \;
 
 elif [ -f "$1" ]; then
-	filename=$(basename -- "$1")
-	# TODO how does this work?
-	# https://stackoverflow.com/questions/965053/extract-filename-and-extension-in-bash
-	# http://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html
-	extension="${filename##*.}"
-	base="${filename%.*}"
+    # TODO why the -- again? (i.e. what is it guarding against?) for dirname
+    # too?
+    filename=$(basename -- "$1")
+    # TODO how does this work?
+    # https://stackoverflow.com/questions/965053/extract-filename-and-extension-in-bash
+    # http://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html
+    extension="${filename##*.}"
+    dir=$(dirname "$1")
+    base="$dir/${filename%.*}"
 
-	if [[ $extension = "hdf5" ]]; then
+    if [[ $extension = "hdf5" ]]; then
         if ! command -v h5repack >/dev/null 2>&1 || \
             ! command -v h5stat >/dev/null 2>&1 || \
             ! command -v h5diff >/dev/null 2>&1; then
 
-            printf "Please run: sudo apt install hdf5-tools\n"
+            # TODO maybe exit recursion too? or supress on subsequent hdf5
+            # encounters?
+            printf "Please run: sudo apt install hdf5-tools\n\n"
             exit 1
         fi
 
-		# check whether already compressed
-		# 1 if GZIP compressed, 0 otherwise
-		gz_filt=$(h5stat $1 | grep GZIP | tail -c 2 | head -c 1)
-		if [[ $gz_filt = "1" ]]; then
-			printf "$1 already compressed with gzip\n"
-			exit
-		fi
+        # check whether already compressed
+        # 1 if GZIP compressed, 0 otherwise
+        gz_filt=$(h5stat $1 | grep GZIP | tail -c 2 | head -c 1)
+        if [[ $gz_filt = "1" ]]; then
+            printf "$1 already compressed with gzip\n\n"
+            exit
+        fi
 
-		# compress it
-		gzipped=$(mktemp)
-		echo "gzipping to $gzipped"
-		h5repack -i $1 -o $gzipped -f GZIP=9
+        # compress it
+        gzipped=$(mktemp)
+        printf "gzipping to $gzipped\n"
+        h5repack -i $1 -o $gzipped -f GZIP=9
 
-		# check them
-		if h5diff -q $1 $gzipped; then
-            # if they matched, delete original
-            # TODO more canonical way?
-            mv $1 "$1.tmp"
-            mv $gzipped $1
-            rm "$1.tmp"
-            printf "replacing $1 with gzipped version\n"
+        # check them
+        if [ -f "$gzipped" ]; then
+            if h5diff -q $1 $gzipped; then
+                # if they matched, delete original
+                # TODO more canonical way?
+                mv $1 "$1.tmp"
+                mv $gzipped $1
+                rm "$1.tmp"
+                printf "h5diff considers gzipped version the same\n"
+                printf "replacing $1 with gzipped version\n"
+            else
+                printf "Compressed and original hdf5 files "
+                printf "differed! Failure!!!\n\n"
+                exit 1
+            fi
         else
-            printf "Compressed and original hdf5 files differed! Failure!!!\n"
+            printf "Ran h5repack, but output $gzipped missing! Failure!!!\n\n"
             exit 1
         fi
 
-	elif [[ $extension = "bag" ]]; then
+    elif [[ $extension = "bag" ]]; then
         if ! command -v rosbag >/dev/null 2>&1; then
-            printf "Please install package containing rosbag\n"
+            printf "Please install package containing rosbag\n\n"
             exit 1
         fi
+        new_file=$1
+        orig_file="${base}.orig.bag"
+        compress=true
 
-		new_file=$1
-		orig_file="${base}.orig.bag"
-		compress=true
+        # check orig isn't in name, w/ shortened name existant
+        if grep -q ".orig." <<<"$filename"; then
+            printf "skipping because '.orig.' in filename\n\n"
+            exit
+        fi
 
-		# check orig isn't in name, w/ shortened name existant
-		if grep -q ".orig." <<<"$filename"; then
-			orig_base="${filename%.*.*}"
+        # check not already compressed w/ bzip
+        # (rosbag compress will go right ahead and try to compress it
+        # again, apparently taking longer than original compression)
+        cline=$(rosbag info $1 | grep "^compression")
+        if grep -q "bz2" <<<"$cline"; then
+            printf "$1 already compressed with bz2\n"
+            compress=false
 
-			# could technically be uncompressed...
-			if [ -f "${orig_base}.bag" ]; then
-				printf "'.orig.' in filename and "
-				printf "${orig_base}.bag exists.\n"
-				# TODO this overrides above def, right?
-				compress=false
-				new_file="${orig_base}.bag"
-				orig_file=$1
-			fi
-		fi
+        # Don't try to compress empty bag files (rosbag compress does)
+        # and the output would be confusing.
+        elif [ $(stat --printf="%s" "$1") -lt 5000 ]; then
+            # Calling stat first, to not duplicate the (potentially time-costly)
+            # rosbag info check. It shouldn't be costly if the file is already
+            # small.
+            if ! rosbag info $1 | $(grep -q "^messages:"); then
+                printf "$1 had no messages. not compressing.\n"
+                compress=false
+            fi
+        fi
 
-		# check not already compressed w/ bzip
-		# (rosbag compress will go right ahead and try to compress it
-		# again, apparently taking longer than original compression)
-		cline=$(rosbag info $1 | grep "^compression")
-		if grep -q "bz2" <<<"$cline"; then
-			echo "$1 already compressed with bz2"
-			compress=false
-		fi
+        if [ "$compress" = true ]; then
+            rosbag compress $1
+        fi
 
-		if [ "$compress" = true ]; then
-			rosbag compress $1
-		fi
+        # TODO maybe option to not check/delete?
+        # Compare to original, and then delete original if they match.
 
-		# TODO maybe option to not check/delete?
-		# Compare to original, and then delete original if they match.
+        if [ ! -f "$orig_file" ]; then
+            if [ "$compress" = true ]; then
+                printf "Ran rosbag compress, but no orig file! Failure!!!\n\n"
+                exit 1
+            else
+                # If, for intance, file is already compressed,
+                # and original has been deleted. OK.
+                printf "\n"
+                exit
+            fi
+        fi
 
-		if [ ! -f "$orig_file" ]; then
-			if [ "$compress" = true ]; then
-				printf "Ran rosbag compress, but no orig file! Failure!!!\n"
-				exit 1
-			else
-				# If, for intance, file is already compressed,
-				# and original has been deleted. OK.
-				exit
-			fi
-		fi
-
-		# $1 is now the output of rosbag compress, and the original file
-		# will have been renamed to <base>.orig.bag
-		new=$(rosbag info $new_file |
-		      grep -v "^path\|^size\|^compression\|^compressed\|^uncompressed" |
-		      tr -d '[:space:]')
-		orig=$(rosbag info $orig_file | 
-		       grep -v "^path\|^size\|^compression\|^compressed\|^uncompressed"\
+        # $1 is now the output of rosbag compress, and the original file
+        # will have been renamed to <base>.orig.bag
+        new=$(rosbag info $new_file |
+              grep -v "^path\|^size\|^compression\|^compressed\|^uncompressed" |
+              tr -d '[:space:]')
+        orig=$(rosbag info $orig_file | 
+               grep -v "^path\|^size\|^compression\|^compressed\|^uncompressed"\
                    | tr -d '[:space:]')
 
-		# TODO rosbag check too? not sure if that is meaningful on top
-		# of this
+        # TODO rosbag check too? not sure if that is meaningful on top
+        # of this
 
-		if [[ "$new" = "$orig" ]]; then
-			printf "deleting renamed original: $orig_file\n"
-			rm -f "$orig_file"
-		else
-			printf "Contents of compressed file $new_file differ "
-			printf "from $orig_file! Failure!!!\n"
-			exit 1
-		fi
-	fi
+        if [[ "$new" = "$orig" ]]; then
+            printf "$new_file and $orig_file have same essential rosbag info\n"
+            printf "deleting renamed original: $orig_file\n\n"
+            rm -f "$orig_file"
+        else
+            printf "Contents of compressed file $new_file differ "
+            printf "from $orig_file! Failure!!!\n\n"
+            exit 1
+        fi
+    fi
 else
-	printf "$usage"
+    printf "$usage"
 fi
