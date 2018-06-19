@@ -75,7 +75,7 @@ elif [ -f "$1" ]; then
                 mv $gzipped $1
                 rm "$1.tmp"
                 printf "h5diff considers gzipped version the same\n"
-                printf "replacing $1 with gzipped version\n"
+                printf "replacing $1 with gzipped version\n\n"
             else
                 printf "Compressed and original hdf5 files "
                 printf "differed! Failure!!!\n\n"
