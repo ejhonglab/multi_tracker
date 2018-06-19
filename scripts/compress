@@ -25,8 +25,8 @@ if [ -d "$1" ]; then
     # TODO TODO fix locking mechanism so i can work across nsfv4 and samba
     # versions installed in the lab (simple tests reveal bottom will NOT work!)
     # (though it works as long as all clients are either nfs or samba)
-	find $1 -maxdepth 1 -type f \( -name "*.hdf5" -o -name "*.bag" \) \
-        -exec "flock -n $0" {} \;
+	find $1 -type f \( -name "*.hdf5" -o -name "*.bag" \) \
+        -exec "$0" {} \;
 
 elif [ -f "$1" ]; then
 	filename=$(basename -- "$1")
@@ -37,11 +37,19 @@ elif [ -f "$1" ]; then
 	base="${filename%.*}"
 
 	if [[ $extension = "hdf5" ]]; then
+        if ! command -v h5repack >/dev/null 2>&1 || \
+            ! command -v h5stat >/dev/null 2>&1 || \
+            ! command -v h5diff >/dev/null 2>&1; then
+
+            printf "Please run: sudo apt install hdf5-tools\n"
+            exit 1
+        fi
+
 		# check whether already compressed
 		# 1 if GZIP compressed, 0 otherwise
 		gz_filt=$(h5stat $1 | grep GZIP | tail -c 2 | head -c 1)
 		if [[ $gz_filt = "1" ]]; then
-			echo "$1 already compressed with gzip"
+			printf "$1 already compressed with gzip\n"
 			exit
 		fi
 
@@ -51,21 +59,24 @@ elif [ -f "$1" ]; then
 		h5repack -i $1 -o $gzipped -f GZIP=9
 
 		# check them
-		# TODO this actually work?
-		h5diff $1 $gzipped
-
-		# delete original
-		# TODO more canonical way?
-		mv $1 "$1.tmp"
-		mv $gzipped $1
-		rm "$1.tmp"
-
-		# TODO TODO fail w/ concurrency? bag v. hdf5 case? (currently
-		# unpredictable tmp file name for hdf5 case might be a prob.)
-		# lsof based lock?
-
+		if h5diff -q $1 $gzipped; then
+            # if they matched, delete original
+            # TODO more canonical way?
+            mv $1 "$1.tmp"
+            mv $gzipped $1
+            rm "$1.tmp"
+            printf "replacing $1 with gzipped version\n"
+        else
+            printf "Compressed and original hdf5 files differed! Failure!!!\n"
+            exit 1
+        fi
 
 	elif [[ $extension = "bag" ]]; then
+        if ! command -v rosbag >/dev/null 2>&1; then
+            printf "Please install package containing rosbag\n"
+            exit 1
+        fi
+
 		new_file=$1
 		orig_file="${base}.orig.bag"
 		compress=true
