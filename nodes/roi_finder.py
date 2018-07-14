@@ -112,7 +112,10 @@ class RoiFinder:
                                  buff_size=buff_size)
 
             else:
-                self.manual_sub = rospy.Subscriber(self.camera, Image, 
+                # TODO maybe use wait_for_message construct instead?
+                # (instead of immediately unsubscribing)
+                self.manual_sub = rospy.Subscriber(self.camera,
+                                                   Image,
                                                    self.manual_roi_callback,
                                                    queue_size=queue_size,
                                                    buff_size=buff_size)
@@ -249,15 +252,13 @@ class RoiFinder:
         cv2.namedWindow(window_name)
         cv2.setMouseCallback(window_name, self.get_pixel_coords)
         cv2.imshow(window_name, frame)
-        '''
-        # TODO how to turn off callback when done? just destroy window?
-        '''
+
 
     def manual_polygons(self, frame):
         """
         Prompt the user to click the corners of each rectangle.
-        (allow ctrl-z and ctrl-[(shift-z)/y]?)
         """
+        # TODO allow ctrl-z and ctrl-[(shift-z)/y]?
         self.show_frame_for_selecting(frame)
         rospy.loginfo('Click corners of the polygonal ROI. Press any key to ' +
             'store the points added so far as an ROI. Press <Esc> to close ' +
@@ -280,7 +281,11 @@ class RoiFinder:
             # 27 is the escape key
             # ctrl-s? z/y?
             if masked_key == 27:
-                break
+                if len(polygons) == 0:
+                    rospy.logerr('Need to select at least one polygon before' +
+                        ' ESC closes ROI selection window.')
+                else:
+                    break
 
             #if len(self.points) == 4:
             # TODO prompt to press any / specific key to move to next roi
@@ -304,11 +309,7 @@ class RoiFinder:
         if len(self.points) != 0:
             rospy.logwarn(
                 'had points in buffer when <Esc> key ended manual selection.')
-        
-        # TODO how to only destroy one window? those from this node?
-        # (don't want to screw with liveviewer or image_view windows...)
-        cv2.destroyAllWindows()
-        self.manual_selection_done = True
+
         return polygons
 
 
@@ -461,7 +462,7 @@ class RoiFinder:
                     break
 
         if not found_func:
-            raise ValueError('no ' + description + 
+            raise ValueError('no ' + description +
                 ' function found for roi_type "' + self.roi_type + '"')
 
         return rois
@@ -535,7 +536,11 @@ class RoiFinder:
         rois = self.find_and_call_function('manual_', 'manual selection', 
             frame=frame)
         self.launch_queue.put(rois)
-        #self.launch_tracking_pipelines(rois)
+        self.manual_sub.unregister()
+        # TODO how to only destroy one window? those from this node?
+        # (don't want to screw with liveviewer or image_view windows...)
+        cv2.destroyAllWindows()
+        self.manual_selection_done = True
 
 
     # TODO what does Ctrax use to detect the ROIs?
@@ -601,7 +606,6 @@ class RoiFinder:
                 self.register_rois(rois)
 
             if self.manual_selection_done:
-                self.manual_sub.unregister()
                 if self.launch_queue.empty() and rois is None:
                     rospy.logerr(
                         'Manual selection closed without selecting any ROIs!')
@@ -614,6 +618,7 @@ class RoiFinder:
                     'multi_tracker/experiment_basename', None)
             else:
                 rospy.sleep(5.0)
+
 
         if not (self.frame_to_save is None):
             if not (experiment_basename is None):
@@ -628,6 +633,7 @@ class RoiFinder:
         elif not (rois is None):
             rospy.logwarn('did not have frame to save uncropped background ' + 
                 'when shutdown')
+
 
         for p in self.to_kill:
             p.kill()

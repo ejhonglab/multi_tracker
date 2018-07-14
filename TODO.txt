@@ -47,3 +47,7 @@ link to checkerboard or make a local copy.
 
 - w/ tracking for choice experiments: am i re-ordering ROIs in re-formatting, but
   maybe not appropriately numbering HDF5 output?
+
+- make param for max # ROIs expected in roi_finder, and err if over
+  - also err if overlapping? (by at least a certain amount?)
+  - or if one is an anomalous shape / size?
