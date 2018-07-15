@@ -121,8 +121,10 @@ class RoiFinder:
                                                    buff_size=buff_size)
 
         else:
-            rospy.logwarn('Ignoring roi_finder/automatic_roi_detection, ' + 
-                'because roi_finder/load_rois was True.')
+            if automatic_roi_detection:
+                rospy.logwarn('Ignoring roi_finder/automatic_roi_detection, ' + 
+                    'because roi_finder/load_rois was True.')
+
             self.load_rois()
 
         self.main()
@@ -471,7 +473,6 @@ class RoiFinder:
     def load_rois(self):
         """
         """
-        # TODO might need load_manifest('rosparam')?
         import rosparam
         # TODO also check in current directory?
         #files = glob.glob('compressor_rois_*.yaml')

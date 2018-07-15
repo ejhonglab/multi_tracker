@@ -57,5 +57,19 @@ cd $OUTPUT_PATH
 ROS_HOME=${OUTPUT_PATH} "roslaunch" multi_tracker detect_roi_tracking.launch viewer:=False tracking_only:=True &
 # see https://unix.stackexchange.com/questions/231676/
 # given-two-background-commands-terminate-the-remaining-one-when-either-exits
+# TODO so this is waiting for any one of the child processes to exit or what? it
+# doesn't seem to be waiting for all of them to finish...
 wait -n
 pkill -P $$
+# Enough time for ROS to shut down, so that the prompt returns to normal when
+# this terminates.
+# TODO way to do this sleep -> prompt recovering in background?
+# (so other commands can proceed, but when left alone, a normal prompt will be
+# recovered?)
+# TODO TODO rather than sleeping, maybe wait until no files are open in
+# directories in question? or (weaker) ROS is down / there is no output?
+#sleep 4
+
+# TODO TODO
+#mv ${OUTPUT_PATH}$(dirname $INPUT_PATH)
+

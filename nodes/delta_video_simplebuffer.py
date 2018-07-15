@@ -222,8 +222,10 @@ class Compressor:
         
         # Subscriptions - subscribe to images, and tracked objects
         self.image_mask = None 
+        # TODO correct?
         if not self.params['wait_for_rois']:
-            sizeImage = 128+1024*1024*3 # Size of header + data.
+            # size of header + data
+            sizeImage = 128+1024*1024*3
             self.subImage = rospy.Subscriber(self.params['image_topic'], Image,
                 self.image_callback, queue_size=5, buff_size=2*sizeImage,
                 tcp_nodelay=True)
@@ -514,6 +516,8 @@ class Compressor:
             rospy.set_param('~' + str(i) + '/circular_mask_y', r.y)
             rospy.set_param('~' + str(i) + '/circular_mask_r', r.r)
 
+        # TODO TODO why wasn't i just saving this in roi_finder? move it there?
+        # this doesn't predate me, does it (others have dependencies on it?)?
         roi_param_filename = time.strftime('compressor_rois_%Y%m%d_%H%M%S_N' +
             str(self.pipeline_num) + '.yaml', 
             time.localtime(rospy.Time.now().to_sec()))
@@ -527,8 +531,10 @@ class Compressor:
 
         self.have_rois = True
         sizeImage = 128+1024*1024*3 # Size of header + data.
-        self.subImage = rospy.Subscriber(self.params['image_topic'], Image,
-                                         self.image_callback, queue_size=5,
+        self.subImage = rospy.Subscriber(self.params['image_topic'],
+                                         Image,
+                                         self.image_callback,
+                                         queue_size=5,
                                          buff_size=2*sizeImage,
                                          tcp_nodelay=True)
 

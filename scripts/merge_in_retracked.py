@@ -16,6 +16,8 @@ import warnings
 
 # TODO option to delete from source after verifying correct copy
 
+# TODO TODO move to util library (haven't I already wrote something doing part
+# of this?)
 def valid_replicate_dir(d, source=True):
     """Returns True if d is a valid replicate dir, False otherwise.
 
