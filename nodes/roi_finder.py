@@ -4,6 +4,7 @@ import os
 from subprocess import Popen
 import Queue
 import glob
+import time
 
 import rospy
 import roslaunch
@@ -91,8 +92,7 @@ class RoiFinder:
         # TODO should the buff_size not be queue_size * size_image?
         buff_size = 2 * size_image
         self.frame_to_save = None
-
-        self.manual_selection_done = False
+        self.frame = None
 
         # can't just rospy.spin() here because the main thread
         # is the only one that can call launch files (a sequence
@@ -105,20 +105,25 @@ class RoiFinder:
             # TODO check there aren't race conditions that could cause this to
             # trigger twice / handle
             if automatic_roi_detection:
-                rospy.Subscriber(self.camera,
-                                 Image,
-                                 self.detect_roi_callback,
-                                 queue_size=queue_size,
-                                 buff_size=buff_size)
+                rospy.Subscriber(
+                    self.camera,
+                    Image,
+                    self.detect_roi_callback,
+                    queue_size=queue_size,
+                    buff_size=buff_size
+                )
 
             else:
                 # TODO maybe use wait_for_message construct instead?
                 # (instead of immediately unsubscribing)
-                self.manual_sub = rospy.Subscriber(self.camera,
-                                                   Image,
-                                                   self.manual_roi_callback,
-                                                   queue_size=queue_size,
-                                                   buff_size=buff_size)
+                self.manual_sub = rospy.Subscriber(
+                    self.camera,
+                    Image,
+                    self.update_frame,
+                    queue_size=queue_size,
+                    buff_size=buff_size
+                )
+                self.manual_roi_selection()
 
         else:
             if automatic_roi_detection:
@@ -249,36 +254,35 @@ class RoiFinder:
             rospy.loginfo('Added point ' + str([x, y]))
 
 
-    def show_frame_for_selecting(self, frame):
-        window_name = 'Manual ROI selection'
-        cv2.namedWindow(window_name)
-        cv2.setMouseCallback(window_name, self.get_pixel_coords)
-        cv2.imshow(window_name, frame)
-
-
-    def manual_polygons(self, frame):
+    # TODO TODO restructure so gui (save functions, un/redo, etc) can be shared
+    # across ROI types
+    def manual_polygons(self):
         """
         Prompt the user to click the corners of each rectangle.
         """
         # TODO allow ctrl-z and ctrl-[(shift-z)/y]?
-        self.show_frame_for_selecting(frame)
         rospy.loginfo('Click corners of the polygonal ROI. Press any key to ' +
             'store the points added so far as an ROI. Press <Esc> to close ' +
             'manual selection and launch tracking pipelines.')
         polygons = []
+
+        while self.frame is None:
+            rospy.logerr('frame is None')
+            rospy.sleep(0.2)
+
         while True:
+            cv2.imshow(self.window_name, self.frame)
+
+            # waitKey delays for >= milliseconds equal to the argument
+            key = cv2.waitKey(20)
+
             # bitwise and to get the last 8 bytes, so that key states are
             # considered the same whether or not things like num-lock are
             # pressed
             # TODO (maybe i want to know some of the other control keys though?)
-            # waitKey delays for >= milliseconds equal to the argument
-
             # TODO idk why people said it was -1... maybe in 2s
             # complement, but not as far as python seems to care
             # it seems to return 255 when no key pressed
-            key = cv2.waitKey(100)
-            # adds invariance to things like the state of the num-lock key
-            # supposedly
             masked_key = key & 0xFF
             # 27 is the escape key
             # ctrl-s? z/y?
@@ -308,14 +312,10 @@ class RoiFinder:
                     polygons.append(polygon)
                     self.points = []
         
-        if len(self.points) != 0:
-            rospy.logwarn(
-                'had points in buffer when <Esc> key ended manual selection.')
-
         return polygons
 
 
-    def manual_rectangles(self, frame):
+    def manual_rectangles(self):
         """
         Prompt the user to click the corners of each rectangle.
         (allow ctrl-z and ctrl-[(shift-z)/y]?)
@@ -324,11 +324,11 @@ class RoiFinder:
         return rectangles
 
 
-    def manual_circles(self, frame):
+    def manual_circles(self):
         raise NotImplementedError
 
 
-    def manual_mask(self, frame):
+    def manual_mask(self):
         raise NotImplementedError
 
 
@@ -433,6 +433,9 @@ class RoiFinder:
         """
         # TODO rename fn to indicate it is also deciding whether to toss frames?
         # or refactor?
+        # TODO refactor. would be used by ROI detection methods (not that those
+        # are currently used) but no longer used for manual ROI selection
+        '''
         if not frame is None:
             if self.frames_tossed < self.toss_first_n_frames:
                 self.frames_tossed += 1
@@ -446,6 +449,7 @@ class RoiFinder:
                 # raise?
                 rospy.logerr(e)
                 return None
+        '''
         
         found_func = False
         for attr in dir(self):
@@ -454,11 +458,14 @@ class RoiFinder:
                 if callable(f):
                     if not frame is None:
                         rois = f(self, frame)
+                    # TODO what was this for again?
                     elif not params is None:
                         rois = f(self, params)
                     else:
-                        raise ValueError(
-                            'either params or frame needs to be specified')
+                        # TODO delete me
+                        #raise ValueError(
+                        #    'either params or frame needs to be specified')
+                        rois = f(self)
 
                     found_func = True
                     break
@@ -529,19 +536,47 @@ class RoiFinder:
                 return None
 
 
-    def manual_roi_callback(self, frame):
+    def update_frame(self, frame):
+        if not frame is None:
+            if self.frames_tossed < self.toss_first_n_frames:
+                self.frames_tossed += 1
+                return
+
+            try:
+                self.frame = self.bridge.imgmsg_to_cv2(frame, 'bgr8')
+                if self.frame_to_save is None:
+                    self.frame_to_save = frame
+
+            except CvBridgeError as e:
+                # raise?
+                rospy.logerr(e)
+                return
+
+
+    # TODO TODO TODO Refactor so GUI is initialized unconditionally, and then
+    # frames are added (w/ ROIs redrawn) in the callback.
+    # May not be straightforward to maintain similarities w/ ROI detection
+    # callbacks...
+    def manual_roi_selection(self):
         """
         Manually select ROIs of specified type and launch an instance of
         tracking pipeline appropriately.
         """
-        rois = self.find_and_call_function('manual_', 'manual selection', 
-            frame=frame)
-        self.launch_queue.put(rois)
+        self.window_name = 'Manual ROI selection'
+        cv2.namedWindow(self.window_name)
+        cv2.setMouseCallback(self.window_name, self.get_pixel_coords)
+
+        rois = self.find_and_call_function('manual_', 'manual selection')
         self.manual_sub.unregister()
+
+        if len(self.points) != 0:
+            rospy.logwarn(
+                'had points in buffer when <Esc> key ended manual selection.')
+        self.launch_queue.put(rois)
+
         # TODO how to only destroy one window? those from this node?
         # (don't want to screw with liveviewer or image_view windows...)
         cv2.destroyAllWindows()
-        self.manual_selection_done = True
 
 
     # TODO what does Ctrax use to detect the ROIs?
@@ -606,11 +641,10 @@ class RoiFinder:
                 # tries to send ROIs (to delta_video node)
                 self.register_rois(rois)
 
-            if self.manual_selection_done:
-                if self.launch_queue.empty() and rois is None:
-                    rospy.logerr(
-                        'Manual selection closed without selecting any ROIs!')
-                    break
+            if self.launch_queue.empty() and rois is None:
+                rospy.logerr(
+                    'Manual selection closed without selecting any ROIs!')
+                break
 
             # TODO i thought this node shut down, but it doesn't seem like it
             # does? is it busy spinning (fix if so)?
