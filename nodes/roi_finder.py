@@ -4,7 +4,8 @@ import os
 from subprocess import Popen
 import Queue
 import glob
-import time
+import pickle
+import copy
 
 import rospy
 import roslaunch
@@ -50,6 +51,7 @@ class RoiFinder:
             rospkg.RosPack().get_path(THIS_PACKAGE) +
             '/launch/single_tracking_pipeline.launch')
 
+        self.roi_cache_name = os.path.abspath('../.tmp_roi_cache.p')
         self.current_node_num = 1
 
         node_namespace = 'roi_finder/'
@@ -75,6 +77,7 @@ class RoiFinder:
         if not automatic_roi_detection:
             # a place for the click event callback to store points
             self.points = []
+            self.rois = []
 
         self.toss_first_n_frames = rospy.get_param(node_namespace +
             'toss_first_n_frames', 0)
@@ -112,8 +115,23 @@ class RoiFinder:
                 )
 
             else:
-                # TODO maybe use wait_for_message construct instead?
-                # (instead of immediately unsubscribing)
+                self.preload_cache = rospy.get_param(node_namespace +
+                    'preload_cached_rois', True)
+                self.delete_cache_if_cleared = rospy.get_param(node_namespace +
+                    'clearing_loaded_rois_deletes_cache', True)
+                self.use_cached_without_displaying = rospy.get_param(
+                    node_namespace + 'use_cached_without_displaying', False)
+                self.autocache_rois = rospy.get_param(node_namespace +
+                    'autocache_rois', True)
+
+                if (self.use_cached_without_displaying and 
+                    not self.preload_cache):
+
+                    # TODO test
+                    raise ValueError(('Must have {0}preload_cached_rois ' +
+                        'True if {0}use_cached_without_displaying is True.'
+                        ).format(node_namespace))
+
                 self.manual_sub = rospy.Subscriber(
                     self.camera,
                     Image,
@@ -121,6 +139,8 @@ class RoiFinder:
                     queue_size=queue_size,
                     buff_size=buff_size
                 )
+                self.undo_stack = []
+                self.undo_index = 0
                 self.manual_roi_selection()
 
         else:
@@ -245,11 +265,96 @@ class RoiFinder:
         raise NotImplementedError
 
 
+    def print_undo_state(self):
+        cw = 70
+        rospy.loginfo('*' * cw)
+        rospy.loginfo('self.rois={}'.format(self.rois))
+        rospy.loginfo('self.points={}'.format(self.points))
+        rospy.loginfo('undo_index={}'.format(self.undo_index))
+        for i, (rs, ps) in enumerate(self.undo_stack):
+            if i == self.undo_index:
+                rospy.logwarn('***')
+            else:
+                rospy.loginfo('')
+
+            rospy.loginfo('ROIs={}'.format(rs))
+            rospy.loginfo('points={}'.format(ps))
+
+            if i == self.undo_index:
+                rospy.logwarn('***')
+            else:
+                rospy.loginfo('')
+        rospy.loginfo('*' * cw)
+        print('')
+
+
+    def save_state_for_undo(self):
+        rospy.logwarn('pre')
+        self.print_undo_state()
+
+        # If not at tail of undo_stack, we need to replace the current tail with
+        # the current state. Has no effect if we are at tail.
+        if len(self.undo_stack) > len(self.undo_stack[:(self.undo_index + 1)]):
+            rospy.logerr('CHANGING UNDO STACK GETTING SHORTER')
+
+        elif self.undo_stack != self.undo_stack[:(self.undo_index + 1)]:
+            rospy.logerr('UNDO STACKS WILL DIFFER THOUGH SAME LEN')
+
+        rospy.logerr('undo_index={}'.format(self.undo_index))
+        rospy.logerr('old undo stack:')
+        rospy.logerr(self.undo_stack)
+        rospy.logerr('trimmed stack before adding:')
+        rospy.logerr(self.undo_stack[:(self.undo_index + 1)])
+
+        self.undo_stack = self.undo_stack[:(self.undo_index + 1)]
+
+        # TODO TODO cause problem in case where it gets cleared?
+        if len(self.undo_stack) > 0:
+            self.undo_index += 1
+
+        rois_copy = copy.deepcopy(self.rois)
+        points_copy = copy.deepcopy(self.points)
+        # alawys seems false, but how is something in the stack getting mutated?
+        #rospy.logerr(rois_copy is self.rois)
+        #rospy.logerr(points_copy is self.points)
+        self.undo_stack.append((rois_copy, points_copy))
+
+        rospy.logwarn('post')
+        self.print_undo_state()
+
+
+    def undo(self):
+        if len(self.undo_stack) == 0:
+            return
+
+        if self.undo_index > 0:
+            self.undo_index -= 1
+            prev_state = self.undo_stack[self.undo_index]
+            self.rois, self.points = prev_state
+
+        self.print_undo_state()
+
+
+    def redo(self):
+        if len(self.undo_stack) == 0:
+            return
+
+        if self.undo_index < (len(self.undo_stack) - 1):
+            self.undo_index += 1
+            new_state = self.undo_stack[self.undo_index]
+            self.rois, self.points = new_state
+
+        self.print_undo_state()
+
+
     def get_pixel_coords(self, event, x, y, flags, param):
         # TODO draw a marker too?
         if event == cv2.EVENT_LBUTTONDOWN:
+            rospy.logwarn('before appending point:')
+            self.print_undo_state()
             self.points.append([x, y])
             rospy.loginfo('Added point ' + str([x, y]))
+            self.save_state_for_undo()
 
 
     # TODO TODO restructure so gui (save functions, un/redo, etc) can be shared
@@ -258,14 +363,53 @@ class RoiFinder:
         """
         Prompt the user to click the corners of each rectangle.
         """
-        # TODO allow ctrl-z and ctrl-[(shift-z)/y]?
         rospy.loginfo('Click corners of the polygonal ROI. Press any key to ' +
             'store the points added so far as an ROI. Press <Esc> to close ' +
             'manual selection and launch tracking pipelines.')
-        polygons = []
+        loaded_rois = False
+        saved_rois = False
+
+        def load_cache():
+            # TODO test this case
+            self.undo_stack = []
+            self.undo_index = 0
+
+            self.points = []
+            with open(self.roi_cache_name, 'rb') as f:
+                self.rois = pickle.load(f)
+
+            self.save_state_for_undo()
+
+        def write_cache(rois):
+            # TODO TODO check each element is also a list (of lists?)
+            if len(rois) == 0:
+                return
+
+            with open(self.roi_cache_name, 'wb') as f:
+                pickle.dump(rois, f)
+            rospy.loginfo('Saving ROIs to {}'.format(self.roi_cache_name))
+
+        if self.preload_cache:
+            if os.path.isfile(self.roi_cache_name):
+                rospy.logwarn("Loading ROIs from " +
+                    "{} because preload_cached_rois".format(
+                    self.roi_cache_name))
+
+                load_cache()
+                loaded_rois = True
+
+                if self.use_cached_without_displaying:
+                    rospy.logwarn('Starting without showing ROIs because ' +
+                        'use_cached_without_displaying True.')
+                    return self.rois
+
+            else:
+                rospy.logwarn('Tried to load ROIs from ' +
+                    '{}, but file not there.'.format(self.roi_cache_name) + 
+                    ' Press Ctrl-S/s to save current ROIs there.')
+
 
         while self.frame is None:
-            rospy.logerr('frame is None')
             rospy.sleep(0.2)
 
         while True:
@@ -278,7 +422,7 @@ class RoiFinder:
             for p in self.points:
                 cv2.circle(frame, tuple(p), 5, (0, 255, 0))
 
-            for p in polygons:
+            for p in self.rois:
                 hull = cv2.convexHull(np.array(p))
                 # TODO convert to one drawContours call outside loop?
                 cv2.drawContours(frame, [hull], -1, (0, 255, 0))
@@ -291,20 +435,77 @@ class RoiFinder:
             # bitwise and to get the last 8 bytes, so that key states are
             # considered the same whether or not things like num-lock are
             # pressed
-            # TODO (maybe i want to know some of the other control keys though?)
-            # TODO idk why people said it was -1... maybe in 2s
-            # complement, but not as far as python seems to care
-            # it seems to return 255 when no key pressed
             masked_key = key & 0xFF
+
             # 27 is the escape key
             # ctrl-s? z/y?
             if masked_key == 27:
-                if len(polygons) == 0:
+                if len(self.rois) == 0:
                     rospy.logerr('Need to select at least one polygon before' +
                         ' ESC closes ROI selection window.')
                 else:
                     break
 
+            # shift/alt/no-modifier 'c' (not ctrl) (99)
+            elif masked_key == ord('c'):
+                if len(self.rois) > 0 or len(self.points) > 0:
+                    self.rois = []
+                    self.points = []
+                    self.save_state_for_undo()
+
+                    rospy.logwarn(
+                        "Clearing all ROIs and points because 'C/c' pressed.")
+
+                if loaded_rois and self.delete_cache_if_cleared:
+                    # TODO test
+                    os.remove(self.roi_cache_name)
+
+            # shift/alt/no-modifier 'x' (not ctrl) (120)
+            elif masked_key == ord('x') and len(self.points) > 0:
+                self.points = []
+                self.save_state_for_undo()
+                rospy.logwarn("Clearing point buffer because 'X/x' pressed.")
+
+            # Delete cache if there is one.
+            # shift/alt/no-modifier 'd' (not ctrl) (100)
+            elif masked_key == ord('d'):
+                if os.path.isfile(self.roi_cache_name):
+                    rospy.logwarn("Deleting {} because 'D/d' pressed.".format(
+                        self.roi_cache_name))
+
+                    os.remove(self.roi_cache_name)
+
+            # shift/alt/no-modifier 'l' (not ctrl) (108)
+            # Not undoable. (would require saving state of loaded_rois too)
+            elif masked_key == ord('l'):
+                if os.path.isfile(self.roi_cache_name):
+                    # TODO deal w/ ROIs being in a different format, if i
+                    # implement support for other ROI formats
+                    rospy.logwarn("Loading ROIs from " +
+                        "{} because 'L/l' pressed".format(self.roi_cache_name))
+
+                    load_cache()
+                    loaded_rois = True
+
+                else:
+                    rospy.logerr('Tried to load ROIs from ' +
+                        '{}, but file not there.'.format(self.roi_cache_name) + 
+                        ' Press Ctrl-S/s to save current ROIs there.')
+
+            # TODO try to get ctrl-s somehow? (captured by imshow window now)
+            elif masked_key == ord('s'):
+                write_cache(self.rois)
+                saved_rois = True
+
+            # undo
+            # TODO check shift state?
+            # TODO arrow keys too?
+            elif masked_key == ord('z'):
+                self.undo()
+
+            elif masked_key == ord('y'):
+                self.redo()
+            
             #if len(self.points) == 4:
             # TODO prompt to press any / specific key to move to next roi
             elif masked_key != 255:
@@ -321,10 +522,14 @@ class RoiFinder:
                     rospy.loginfo('Added polygon from current points. ' + 
                         'Resetting current points.')
 
-                    polygons.append(polygon)
+                    self.rois.append(polygon)
                     self.points = []
-        
-        return polygons
+                    self.save_state_for_undo()
+
+        if self.autocache_rois and not saved_rois:
+            write_cache(self.rois)
+
+        return self.rois
 
 
     def manual_rectangles(self):
@@ -574,6 +779,9 @@ class RoiFinder:
         Manually select ROIs of specified type and launch an instance of
         tracking pipeline appropriately.
         """
+        # TODO maybe move this next to self.undo_index init
+        self.save_state_for_undo()
+
         self.window_name = 'Manual ROI selection'
         cv2.namedWindow(self.window_name)
         cv2.setMouseCallback(self.window_name, self.get_pixel_coords)
