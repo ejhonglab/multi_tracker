@@ -16,6 +16,7 @@ from sensor_msgs.msg import Image
 # import dynamic_reconfigure.server
 from cv_bridge import CvBridge, CvBridgeError
 import cv2
+import numpy as np
 
 from multi_tracker.msg import Point2D, PolygonalROI, RectangularROI, CircularROI
 from multi_tracker.srv import RegisterROIs
@@ -25,9 +26,6 @@ from multi_tracker.srv import RegisterROIs
 # will be called here separately
 # TODO dynamic reconfigure and display ROIs that will be selected with button to
 # lock them in maybe a gui to manually edit / define ROIs too?
-
-# TODO save a background image here (the one used to select the ROIs) so that it
-# is at least possible to recreate full movie (w/ static background) for display
 class RoiFinder:
     def __init__(self):
         # TODO what happens if init_node is called after / before defining
@@ -271,7 +269,21 @@ class RoiFinder:
             rospy.sleep(0.2)
 
         while True:
-            cv2.imshow(self.window_name, self.frame)
+            frame = np.copy(self.frame)
+
+            if len(self.points) > 0:
+                hull = cv2.convexHull(np.array(self.points))
+                cv2.drawContours(frame, [hull], -1, (255, 0, 0))
+
+            for p in self.points:
+                cv2.circle(frame, tuple(p), 5, (0, 255, 0))
+
+            for p in polygons:
+                hull = cv2.convexHull(np.array(p))
+                # TODO convert to one drawContours call outside loop?
+                cv2.drawContours(frame, [hull], -1, (0, 255, 0))
+
+            cv2.imshow(self.window_name, frame)
 
             # waitKey delays for >= milliseconds equal to the argument
             key = cv2.waitKey(20)
