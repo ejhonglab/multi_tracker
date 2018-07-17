@@ -360,7 +360,7 @@ class RoiFinder:
             else:
                 rospy.logwarn('Tried to load ROIs from ' +
                     '{}, but file not there.'.format(self.roi_cache_name) + 
-                    ' Press Ctrl-S/s to save current ROIs there.')
+                    ' Press S/s to save current ROIs there.')
 
 
         while self.frame is None:
@@ -450,7 +450,7 @@ class RoiFinder:
                 else:
                     rospy.logerr('Tried to load ROIs from ' +
                         '{}, but file not there.'.format(self.roi_cache_name) + 
-                        ' Press Ctrl-S/s to save current ROIs there.')
+                        " Press 'S/s' to save current ROIs there.")
 
             # TODO try to get ctrl-s somehow? (captured by imshow window now)
             elif masked_key == ord('s'):
@@ -460,10 +460,10 @@ class RoiFinder:
             # undo
             # TODO check shift state?
             # TODO arrow keys too?
-            elif masked_key == ord('z'):
+            elif masked_key == ord('z') or masked_key == ord('u'):
                 self.undo()
 
-            elif masked_key == ord('y'):
+            elif masked_key == ord('y') or masked_key == ord('r'):
                 self.redo()
             
             #if len(self.points) == 4:
