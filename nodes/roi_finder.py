@@ -6,6 +6,7 @@ import Queue
 import glob
 import pickle
 import copy
+import sys
 
 import rospy
 import roslaunch
@@ -21,6 +22,7 @@ import numpy as np
 
 from multi_tracker.msg import Point2D, PolygonalROI, RectangularROI, CircularROI
 from multi_tracker.srv import RegisterROIs
+
 
 # TODO break out ROI definitions from core tracking launch file, and make
 # another tracking launch file that includes the core + ROI defs, the core which
@@ -265,62 +267,19 @@ class RoiFinder:
         raise NotImplementedError
 
 
-    def print_undo_state(self):
-        cw = 70
-        rospy.loginfo('*' * cw)
-        rospy.loginfo('self.rois={}'.format(self.rois))
-        rospy.loginfo('self.points={}'.format(self.points))
-        rospy.loginfo('undo_index={}'.format(self.undo_index))
-        for i, (rs, ps) in enumerate(self.undo_stack):
-            if i == self.undo_index:
-                rospy.logwarn('***')
-            else:
-                rospy.loginfo('')
-
-            rospy.loginfo('ROIs={}'.format(rs))
-            rospy.loginfo('points={}'.format(ps))
-
-            if i == self.undo_index:
-                rospy.logwarn('***')
-            else:
-                rospy.loginfo('')
-        rospy.loginfo('*' * cw)
-        print('')
-
-
     def save_state_for_undo(self):
-        rospy.logwarn('pre')
-        self.print_undo_state()
-
         # If not at tail of undo_stack, we need to replace the current tail with
         # the current state. Has no effect if we are at tail.
-        if len(self.undo_stack) > len(self.undo_stack[:(self.undo_index + 1)]):
-            rospy.logerr('CHANGING UNDO STACK GETTING SHORTER')
-
-        elif self.undo_stack != self.undo_stack[:(self.undo_index + 1)]:
-            rospy.logerr('UNDO STACKS WILL DIFFER THOUGH SAME LEN')
-
-        rospy.logerr('undo_index={}'.format(self.undo_index))
-        rospy.logerr('old undo stack:')
-        rospy.logerr(self.undo_stack)
-        rospy.logerr('trimmed stack before adding:')
-        rospy.logerr(self.undo_stack[:(self.undo_index + 1)])
-
         self.undo_stack = self.undo_stack[:(self.undo_index + 1)]
 
-        # TODO TODO cause problem in case where it gets cleared?
+        # TODO cause problem in case where it gets cleared?
         if len(self.undo_stack) > 0:
             self.undo_index += 1
 
         rois_copy = copy.deepcopy(self.rois)
         points_copy = copy.deepcopy(self.points)
-        # alawys seems false, but how is something in the stack getting mutated?
-        #rospy.logerr(rois_copy is self.rois)
-        #rospy.logerr(points_copy is self.points)
-        self.undo_stack.append((rois_copy, points_copy))
 
-        rospy.logwarn('post')
-        self.print_undo_state()
+        self.undo_stack.append((rois_copy, points_copy))
 
 
     def undo(self):
@@ -329,10 +288,9 @@ class RoiFinder:
 
         if self.undo_index > 0:
             self.undo_index -= 1
-            prev_state = self.undo_stack[self.undo_index]
-            self.rois, self.points = prev_state
-
-        self.print_undo_state()
+            prev_rois, prev_points = self.undo_stack[self.undo_index]
+            self.rois = copy.deepcopy(prev_rois)
+            self.points = copy.deepcopy(prev_points)
 
 
     def redo(self):
@@ -341,17 +299,13 @@ class RoiFinder:
 
         if self.undo_index < (len(self.undo_stack) - 1):
             self.undo_index += 1
-            new_state = self.undo_stack[self.undo_index]
-            self.rois, self.points = new_state
-
-        self.print_undo_state()
+            newer_rois, newer_points = self.undo_stack[self.undo_index]
+            self.rois = copy.deepcopy(newer_rois)
+            self.points = copy.deepcopy(newer_points)
 
 
     def get_pixel_coords(self, event, x, y, flags, param):
-        # TODO draw a marker too?
         if event == cv2.EVENT_LBUTTONDOWN:
-            rospy.logwarn('before appending point:')
-            self.print_undo_state()
             self.points.append([x, y])
             rospy.loginfo('Added point ' + str([x, y]))
             self.save_state_for_undo()
@@ -410,9 +364,15 @@ class RoiFinder:
 
 
         while self.frame is None:
+            if rospy.is_shutdown():
+                sys.exit()
+
             rospy.sleep(0.2)
 
         while True:
+            if rospy.is_shutdown():
+                sys.exit()
+
             frame = np.copy(self.frame)
 
             if len(self.points) > 0:
