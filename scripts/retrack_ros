@@ -39,13 +39,18 @@ mkdir -p ${OUTPUT_PATH}
 echo "Using input path $INPUT_PATH"
 echo "Using output path $OUTPUT_PATH"
 
+# Conversion from relative to absolute path (realpath) needs to happen before cd
+# below.
+exp_group_name=$(realpath $INPUT_PATH | xargs dirname | xargs basename)
+group_tracking_dir=${OUTPUT_PATH}/${exp_group_name}
+curr_tracking_output=${OUTPUT_PATH}/$(basename $INPUT_PATH)
+
 if [ -z "$2" ]
 then
 	rate=0.8
 else
 	rate=$2
 fi
-
 
 # TODO TODO make it so roi_finder/load_rois doesn't need to be set in
 # roi_finder.yaml for the below to work? extra arg in the launch file? no
@@ -65,11 +70,15 @@ pkill -P $$
 # this terminates.
 # TODO way to do this sleep -> prompt recovering in background?
 # (so other commands can proceed, but when left alone, a normal prompt will be
-# recovered?)
+# recovered?) (I suppose stuff getting printed means some stuff may still be
+# getting written to, though?)
 # TODO TODO rather than sleeping, maybe wait until no files are open in
 # directories in question? or (weaker) ROS is down / there is no output?
-#sleep 4
+sleep 4
 
-# TODO TODO
-#mv ${OUTPUT_PATH}$(dirname $INPUT_PATH)
+# make if not exists
+[ -d ${group_tracking_dir} ] || mkdir ${group_tracking_dir}
+
+echo "Moving tracking output ${curr_tracking_output} to ${group_tracking_dir}"
+mv ${curr_tracking_output} ${group_tracking_dir}
 
