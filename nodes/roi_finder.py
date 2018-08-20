@@ -722,7 +722,7 @@ class RoiFinder:
             try:
                 self.frame = self.bridge.imgmsg_to_cv2(frame, 'bgr8')
                 if self.frame_to_save is None:
-                    self.frame_to_save = frame
+                    self.frame_to_save = self.frame
 
             except CvBridgeError as e:
                 # raise?
