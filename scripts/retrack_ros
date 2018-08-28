@@ -52,6 +52,12 @@ else
 	rate=$2
 fi
 
+# TODO will this fix the problem? why wasn't it necessary before?
+# Without this, run_id match problem starting two instances of roslaunch.
+roscore &
+sleep 1.0
+# sleep at all?
+
 # TODO TODO make it so roi_finder/load_rois doesn't need to be set in
 # roi_finder.yaml for the below to work? extra arg in the launch file? no
 # reason for current behavior...
@@ -79,6 +85,8 @@ sleep 4
 # make if not exists
 [ -d ${group_tracking_dir} ] || mkdir ${group_tracking_dir}
 
+# TODO TODO TODO fail early if this would collide with a directory already in
+# the destination
 echo "Moving tracking output ${curr_tracking_output} to ${group_tracking_dir}"
 mv ${curr_tracking_output} ${group_tracking_dir}
 
