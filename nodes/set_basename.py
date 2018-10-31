@@ -2,11 +2,13 @@
 import rospy
 import time
 
-# TODO get rid of this?
 
 if __name__ == '__main__':
     rospy.init_node('set_exp_basename', log_level=rospy.INFO)
-    if rospy.get_param('multi_tracker/retracking_original_timestamp', False):
+
+    if (rospy.get_param('/use_sim_time', False) and
+	rospy.get_param('multi_tracker/retracking_original_timestamp', False)):
+
         experiment_basename = rospy.get_param('original_basename', None)
         if experiment_basename is None:
             # TODO get rid of linebreaks, so you can see full error

@@ -338,7 +338,9 @@ class Compressor:
 
         def background_png_name():
             # TODO also check we are using sim_time
-            if self.use_original_timestamp:
+            if (rospy.get_param('/use_sim_time', False) and
+		self.use_original_timestamp):
+
                 # TODO make sure everything that loads these doesn't break w/
                 # addition of seconds
                 background_img_filename = self.experiment_basename + \
