@@ -109,6 +109,16 @@ class Compressor:
             
             self.params[parameter] = value
 
+        # If we are tracking an experiment that is being played back
+        # ("retracking"), we don't want to further restrict roi, and we will
+        # always use the same camera topic.
+        if rospy.get_param('/use_sim_time', False):
+            self.params['image_topic'] = 'camera/image_raw'
+            self.params['roi_l'] = 0
+            self.params['roi_r'] = -1
+            self.params['roi_b'] = 0
+            self.params['roi_t'] = -1
+
         self.clear_rois()
 
         # TODO TODO share in utility module w/ liveviewer somehow
@@ -337,9 +347,8 @@ class Compressor:
             self.imgScaled = self.image_mask*self.imgScaled
 
         def background_png_name():
-            # TODO also check we are using sim_time
             if (rospy.get_param('/use_sim_time', False) and
-		self.use_original_timestamp):
+                self.use_original_timestamp):
 
                 # TODO make sure everything that loads these doesn't break w/
                 # addition of seconds

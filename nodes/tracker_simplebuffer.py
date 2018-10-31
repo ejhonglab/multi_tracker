@@ -106,6 +106,16 @@ class Tracker:
             
             self.params[parameter] = value
 
+        # If we are tracking an experiment that is being played back
+        # ("retracking"), we don't want to further restrict roi, and we will
+        # always use the same camera topic.
+        if rospy.get_param('/use_sim_time', False):
+            self.params['image_topic'] = 'camera/image_raw'
+            self.params['roi_l'] = 0
+            self.params['roi_r'] = -1
+            self.params['roi_b'] = 0
+            self.params['roi_t'] = -1
+
         if self.params['min_size'] < 5:
             rospy.logfatal('only contours that can be fit with ellipses are ' + 
                 'supported now. contours must have at least 5 pixels to be ' + 

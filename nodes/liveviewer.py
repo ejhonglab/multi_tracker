@@ -113,6 +113,16 @@ class LiveViewer:
                 parameter = parameter[1:]
             self.params[parameter] = value
 
+        # If we are tracking an experiment that is being played back
+        # ("retracking"), we don't want to further restrict roi, and we will
+        # always use the same camera topic.
+        if rospy.get_param('/use_sim_time', False):
+            self.params['image_topic'] = 'camera/image_raw'
+            self.params['roi_l'] = 0
+            self.params['roi_r'] = -1
+            self.params['roi_b'] = 0
+            self.params['roi_t'] = -1
+
         self.videowriter = None
         if self.params['save_demo']:
             # TODO include timestamp?
