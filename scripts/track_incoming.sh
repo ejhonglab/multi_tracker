@@ -6,6 +6,12 @@
 # After adding the line, either type ". ~/.bashrc" in your current shell to
 # reload your settings, or open a new shell.
 
+if ! dpkg-query -W -f='${Status}' inotify-tools | grep "ok installed";
+then
+    sudo apt install -y inotify-tools;
+fi
+
+
 while true;
 do
 	echo "waiting for file write in $DATA_DIR"
@@ -39,5 +45,5 @@ do
 	# run tracking on the video, as recreated from the bag file
 	echo "running \"rosrun multi_tracker retrack ${INCOMING_DATA_DIR}\""
     # TODO TODO put rate in a configuration file or another environment var
-	rosrun multi_tracker retrack_ros ${INCOMING_DATA_DIR} 3.0 &&
+	rosrun multi_tracker retrack_ros ${INCOMING_DATA_DIR} 2.0
 done
