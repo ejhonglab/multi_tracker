@@ -1,10 +1,12 @@
 <launch>
-  <!-- TODO reason this is a bad idea? will it be from local or package directory? -->
-  <!-- TODO what will happen if these arent found? fail i hope / assume? -->
-  <!-- TODO pull remote changes that nixed delta_video_config.py -->
+
   <rosparam command="load" file="tracker_parameters.yaml"/>
   <rosparam command="load" file="data_association_parameters.yaml"/>
   <rosparam command="load" file="liveviewer_parameters.yaml"/>
-  <!-- TODO validate all parameters together! -->
   <rosparam command="load" file="delta_video_parameters.yaml"/>
+
+  <!-- TODO can't always load optional yamls here because it will fail, but 
+    probably still want to prevent loading things like roi_finder.yaml if
+    loading dumped acquisition params... !-->
+
 </launch>

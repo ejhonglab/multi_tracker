@@ -14,8 +14,6 @@
   <node name="set_original_basename" pkg="multi_tracker" type="set_original_basename.py" />
 
   <group if="$(arg pause)">
-    # TODO this won't currently play video recorded on multi_tracker/delta_video.
-    # fix so that it does. check for both? (the other being the original multi_tracker/1/delta_video)
     <node name="rosbag_player" pkg="multi_tracker" type="rosbag_play_wrapper.py" required="True"
      output="screen" args="--clock --pause --rate=$(arg rate) --start=$(arg start) --delay=$(arg delay)" >
       <param name="topic_in" value="$(arg delta_video_topic)" />
@@ -24,16 +22,12 @@
   </group>
 
   <group unless="$(arg pause)">
-    # TODO this won't currently play video recorded on multi_tracker/delta_video.
-    # fix so that it does. check for both? (the other being the original multi_tracker/1/delta_video)
     <node name="rosbag_player" pkg="multi_tracker" type="rosbag_play_wrapper.py" required="True"
      output="screen" args="--clock --rate=$(arg rate) --start=$(arg start) --delay=$(arg delay)" >
       <param name="topic_in" value="$(arg delta_video_topic)" />
       <param name="topic_out" value="original_delta_video" />
     </node>
   </group>
-
-  <!-- TODO TODO should multi_tracker/delta_video here be original_delta_video?? if not, why not? -->
 
   # TODO make camera/image_raw the default / changeable via remapping?
   # likewise with input topic? (this is what all the other nodes do)

@@ -7,10 +7,16 @@
   <arg name="compression" default="True" />
   <arg name="track_reconstructed_delta_video" default="False" />
 
-  <rosparam command="load" file="debug_flags.yaml" />
-  
-  <rosparam command="load" file="roi_finder.yaml" />
-  <include file="$(find multi_tracker)/launch/load_tracking_parameter_yamls.launch" />
+  <arg name="retracking" default="False" />
+
+  <!-- TODO maybe move handling to same place as other yamls
+    (can't do all logic in launch syntax though...) !-->
+  <group unless="$(arg retracking)">
+    <rosparam command="load" file="debug_flags.yaml" />
+    <rosparam command="load" file="roi_finder.yaml" />
+
+    <include file="$(find multi_tracker)/launch/load_tracking_parameter_yamls.launch" />
+  </group>
   
   <!-- TODO move / get rid of this one? -->
   <!-- maybe i want different basenames anyway? -->

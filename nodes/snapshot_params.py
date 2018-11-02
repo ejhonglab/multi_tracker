@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
-import rospy
 import time
 import os
 import subprocess
 import shutil
 import glob
 import errno
+
+import rospy
+
 
 class SaveParams:
     def __init__(self):

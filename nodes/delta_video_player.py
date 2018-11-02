@@ -123,6 +123,10 @@ class DeCompressor:
             
             if delta_vid.values is not None:
                 if len(delta_vid.values) > 0:
+                    # TODO TODO check whether range of delta_vid.<>pixels is
+                    # same as that of original frame, or cropped. trying to set
+                    # values outside of frame? what's behavior in that case?
+                    # assertion?
                     try:
                         # for hydro
                         new_image[delta_vid.xpixels, delta_vid.ypixels, 0] = \

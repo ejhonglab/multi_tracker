@@ -6,9 +6,13 @@
   <arg name="compression" default="True" />
   <arg name="track_reconstructed_delta_video" default="False" />
 
-  <!-- TODO only load d.v. in here if video only? or break into
-       something that loads delta_video and save_bag nodes? + set_basename? + snapshot_params? -->
-  <include file="$(find multi_tracker)/launch/load_tracking_parameter_yamls.launch" />
+  <!-- Must be set if retracking. Only necessary because /use_sim_time can not
+    be detected in a launch file. !-->
+  <arg name="retracking" default="False" />
+
+  <group unless="$(arg retracking)">
+    <include file="$(find multi_tracker)/launch/load_tracking_parameter_yamls.launch" />
+  </group>
 
   <node name="set_exp_basename" pkg="multi_tracker" type="set_basename.py" output="screen" />
   

@@ -45,6 +45,8 @@ exp_group_name=$(realpath $INPUT_PATH | xargs dirname | xargs basename)
 group_tracking_dir=${OUTPUT_PATH}/${exp_group_name}
 curr_tracking_output=${OUTPUT_PATH}/$(basename $INPUT_PATH)
 
+INPUT_PATH=$(realpath $INPUT_PATH)
+
 if [ -z "$2" ]
 then
 	rate=0.8
@@ -55,17 +57,33 @@ fi
 # TODO will this fix the problem? why wasn't it necessary before?
 # Without this, run_id match problem starting two instances of roslaunch.
 roscore &
-sleep 1.0
+sleep 3.0
+#sleep 1.0
 # sleep at all?
 
 # TODO TODO make it so roi_finder/load_rois doesn't need to be set in
 # roi_finder.yaml for the below to work? extra arg in the launch file? no
 # reason for current behavior...
-ROS_HOME=$INPUT_PATH "roslaunch" multi_tracker play_delta_video.launch rate:=${rate} pause:=False delay:=5 &
-sleep 0.5
+ROS_HOME=${INPUT_PATH} "roslaunch" multi_tracker play_delta_video.launch rate:=${rate} pause:=False delay:=5 &
+sleep 3.0
+#sleep 0.5
+
+# Checking for any of a file that is diagnostic of needing to call the
+# detect_roi_tracking pipeline.
+
+count=`ls -1 ${INPUT_PATH}/compressor_rois_*.yaml 2>/dev/null | wc -l`
+if [ $count != 0 ]
+then 
+    tracking_launch=detect_roi_tracking.launch
+else
+    tracking_launch=tracking.launch
+fi
+echo "Using tracking launch file ${tracking_launch}"
+
 # TODO is the cd really necessary, if setting ROS_HOME?
 cd $OUTPUT_PATH
-ROS_HOME=${OUTPUT_PATH} "roslaunch" multi_tracker detect_roi_tracking.launch viewer:=False tracking_only:=True &
+ROS_HOME=${OUTPUT_PATH} "roslaunch" multi_tracker ${tracking_launch} viewer:=False tracking_only:=True retracking:=True &
+
 # see https://unix.stackexchange.com/questions/231676/
 # given-two-background-commands-terminate-the-remaining-one-when-either-exits
 # TODO so this is waiting for any one of the child processes to exit or what? it
@@ -82,11 +100,13 @@ pkill -P $$
 # directories in question? or (weaker) ROS is down / there is no output?
 sleep 4
 
+# TODO if i want to keep doing this, make it work with the way Kristina wants
+# this to work...
 # make if not exists
-[ -d ${group_tracking_dir} ] || mkdir ${group_tracking_dir}
+#[ -d ${group_tracking_dir} ] || mkdir ${group_tracking_dir}
 
 # TODO TODO TODO fail early if this would collide with a directory already in
 # the destination
-echo "Moving tracking output ${curr_tracking_output} to ${group_tracking_dir}"
-mv ${curr_tracking_output} ${group_tracking_dir}
+#echo "Moving tracking output ${curr_tracking_output} to ${group_tracking_dir}"
+#mv ${curr_tracking_output} ${group_tracking_dir}
 

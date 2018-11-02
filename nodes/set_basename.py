@@ -1,6 +1,8 @@
 #!/usr/bin/env python
-import rospy
+
 import time
+
+import rospy
 
 
 if __name__ == '__main__':
@@ -12,13 +14,13 @@ if __name__ == '__main__':
         experiment_basename = rospy.get_param('original_basename', None)
         if experiment_basename is None:
             # TODO get rid of linebreaks, so you can see full error
-            raise ValueError('need original_basename parameter to be set if using ' + \
-                'original timestamp. possibly incorrect argument to set_original_basename.py' + \
-                ' or you are not calling this node?')
+            raise ValueError('need original_basename parameter to be set ' +
+                'if using original timestamp. possibly incorrect argument to ' +
+                'set_original_basename.py or you are not calling this node?')
     
     else:
-        # TODO do i want the node number? i'm kind of inclined to put them all in same place
-        # else make N# work as other code
+        # TODO do i want the node number? i'm kind of inclined to put them all
+        # in same place else make N# work as other code
         experiment_basename = time.strftime('%Y%m%d_%H%M%S', time.localtime())
     
     rospy.set_param('multi_tracker/experiment_basename', experiment_basename)
