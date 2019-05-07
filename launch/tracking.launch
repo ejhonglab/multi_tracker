@@ -1,5 +1,5 @@
 <launch>
-  <arg name="camera" default="/camera/image_raw" />
+  <arg name="camera" default="camera/image_raw" />
   <arg name="video_only" default="False" />
   <arg name="tracking_only" default="False" />
   <arg name="viewer" default="True" />
