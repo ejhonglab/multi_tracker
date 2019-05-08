@@ -22,5 +22,15 @@ if __name__ == '__main__':
         # TODO do i want the node number? i'm kind of inclined to put them all
         # in same place else make N# work as other code
         experiment_basename = time.strftime('%Y%m%d_%H%M%S', time.localtime())
+
+        # TODO might want to also support multiple trackers in one of those
+        # namespaces... see how my roi_finder did it again?
+        # check this doesn't break stuff
+
+        # Assumes ns always starts with a forward slash.
+        ns_parts = rospy.get_namespace().split('/')
+        if len(ns_parts) >= 3:
+            # For example: '/0/' -> ['','0',''] -> '0'
+            experiment_basename += '_' + ns_parts[-2]
     
     rospy.set_param('multi_tracker/experiment_basename', experiment_basename)

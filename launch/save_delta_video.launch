@@ -1,15 +1,18 @@
 <launch>
-  <arg name="camera" default="/camera/image_raw" />
+  <arg name="camera" default="camera/image_raw" />
   <arg name="wait_for_rois" default="False" />
   <arg name="compression" default="True" />
 
   <arg name="track_reconstructed_delta_video" default="False" />
-  <arg name="delta_video_topic" default="/multi_tracker/delta_video" />
+  <arg name="delta_video_topic" default="multi_tracker/delta_video" />
   <arg name="saveto" default="" />
   <arg name="output_topic" default="reconstructed_image" />
   
   <node name="delta_compressor" pkg="multi_tracker" type="delta_video_simplebuffer.py" output="screen" required="true">
-    <remap from="/camera/image_raw" to="$(arg camera)" />
+    <remap from="camera/image_raw" to="$(arg camera)" />
+    <!-- TODO delete next line. just for debugging remapping. -->
+    <param name="cam_topic" value="$(arg camera)" type="str" />
+
     <param name="wait_for_rois" value="$(arg wait_for_rois)" type="bool" />
   </node>
   

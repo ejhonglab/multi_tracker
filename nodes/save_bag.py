@@ -46,12 +46,24 @@ class SaveBag:
         else:
             self.record_length_seconds = -1
         
+        rospy.sleep(0.5)
         # TODO break into utility function?
         self.experiment_basename = \
+            rospy.get_param('multi_tracker/experiment_basename')
+        # TODO delete after 1) implementing blocking for experiment_basename and
+        # 2) checking all calling code invokes set_basename explicitly somewhere
+        '''
+        self.experiment_basename = \
             rospy.get_param('multi_tracker/experiment_basename', None)
+        '''
 
         self.compression = rospy.get_param('~compression', True)
 
+        # TODO TODO just block until param is available. don't want to overwrite
+        # nodes from other namespaces.
+        # TODO delete after 1) implementing blocking for experiment_basename and
+        # 2) checking all calling code invokes set_basename explicitly somewhere
+        '''
         generated_basename = False
         if self.experiment_basename is None:
             rospy.logwarn('Basenames output by different nodes in this ' +
@@ -61,6 +73,7 @@ class SaveBag:
                 time.strftime('%Y%m%d_%H%M%S', time.localtime())
 
             generated_basename = True
+        '''
 
         filename = self.experiment_basename + '_delta_video.bag'
         if rospy.get_param('multi_tracker/explicit_directories', False):
@@ -72,9 +85,14 @@ class SaveBag:
 
         try:
             os.makedirs(directory)
+            # TODO delete after 1) implementing blocking for experiment_basename
+            # and 2) checking all calling code invokes set_basename explicitly
+            # somewhere
+            '''
             if generated_basename:
                 rospy.set_param('multi_tracker/experiment_basename', \
                     self.experiment_basename)
+            '''
 
         except OSError as e:
             if e.errno != errno.EEXIST:

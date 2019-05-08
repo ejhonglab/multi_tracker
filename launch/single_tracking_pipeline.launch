@@ -25,13 +25,13 @@
   <arg name="circular_mask_r" default="-1" />
 
   <!-- TODO can i change to camera/image_raw? that remappable? -->
-  <arg name="camera" default="/camera/image_raw" />
+  <arg name="camera" default="camera/image_raw" />
   
   <!-- TODO remove slight redundancy between ns and num now? (ns is set w/ that num in roi_finder.py) -->
   <group ns="$(arg ns)">
     <node name="tracker_$(arg num)" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" required="true">
-      <remap unless="$(arg track_reconstructed_delta_video)" from="/camera/image_raw" to="$(arg camera)" />
-      <remap if="$(arg track_reconstructed_delta_video)" from="/camera/image_raw" to="reconstructed_image" />
+      <remap unless="$(arg track_reconstructed_delta_video)" from="camera/image_raw" to="$(arg camera)" />
+      <remap if="$(arg track_reconstructed_delta_video)" from="camera/image_raw" to="reconstructed_image" />
       
       <!-- TODO maybe condense all this loading into another launch file somehow?
            w/ arg passthrough syntax maybe? -->
@@ -57,7 +57,7 @@
     <node name="liveview_$(arg num)" pkg="multi_tracker" type="liveviewer.py" output="screen" if="$(arg viewer)"> 
       <!-- considering making only one node in the pipeline directly subscribe to this topic... 
            delta_video_simplebuffer or a crop / roi node -->
-      <remap from="/camera/image_raw" to="$(arg camera)" />
+      <remap from="camera/image_raw" to="$(arg camera)" />
 
       <param name="roi_l" value="$(arg roi_l)" if="$(arg rectangular_roi)" />
       <param name="roi_r" value="$(arg roi_r)" if="$(arg rectangular_roi)" />

@@ -15,7 +15,13 @@ class SaveParams:
         rospy.init_node('save_params', log_level=rospy.INFO)
         rospy.sleep(1)
         
-        self.experiment_basename = rospy.get_param('multi_tracker/experiment_basename', None)
+        self.experiment_basename = \
+            rospy.get_param('multi_tracker/experiment_basename')
+        '''
+        self.experiment_basename = \
+            rospy.get_param('multi_tracker/experiment_basename', None)
+        '''
+        '''
         generated_basename = False
         if self.experiment_basename is None:
             rospy.logwarn('Basenames output by different nodes in this tracker run may differ!' + \
@@ -25,6 +31,7 @@ class SaveParams:
             self.experiment_basename = time.strftime('%Y%m%d_%H%M%S', \
                 time.localtime())
             generated_basename = True
+        '''
 
         self.namespace = rospy.get_param('~namespace', None)
         
@@ -44,9 +51,11 @@ class SaveParams:
         # result of central code
         try:
             os.makedirs(directory)
+            '''
             if generated_basename:
                 rospy.set_param('multi_tracker/experiment_basename', \
                     self.experiment_basename)
+            '''
 
         except OSError as e:
             if e.errno != errno.EEXIST:

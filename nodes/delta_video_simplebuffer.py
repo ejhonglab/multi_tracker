@@ -48,6 +48,7 @@ class Compressor:
         '''
         # initialize the node
         rospy.init_node('delta_compressor')
+        rospy.sleep(1)
 
         self.child = None
         
@@ -71,7 +72,6 @@ class Compressor:
             '~circular_mask_y'   : None,
             '~circular_mask_r'   : None,
             '~roi_points'        : None,
-            # TODO TODO implement
             '~wait_for_rois'     : False
         }
 
@@ -91,6 +91,10 @@ class Compressor:
                 # assumes strings like 'none' floris used
                 # should not be overwriting defaults of None.
                 # may not always be true.
+                # TODO could this be causing some problems? won't this always
+                # force default (of None) to be kept if ret is a str?
+                # TODO isn't self.params[parameter] == default_value? change to
+                # latter if so...
                 if self.params[parameter] is None:
                     if isinstance(value, str):
                         use_default = True

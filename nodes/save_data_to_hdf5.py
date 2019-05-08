@@ -22,7 +22,6 @@ from multi_tracker.msg import Trackedobject, Trackedobjectlist
 class DataListener:
     def __init__(self, info='data information'):
         rospy.init_node('save_hdf5_data', log_level=rospy.INFO)
-        rospy.sleep(0.5)
 
         node_name = rospy.get_name()
         last_name_component = node_name.split('_')[-1]
@@ -45,10 +44,16 @@ class DataListener:
                                                   self.tracked_object_callback,
                                                   queue_size=300)
         
+        rospy.sleep(0.5)
+        self.experiment_basename = \
+            rospy.get_param('multi_tracker/experiment_basename')
         # TODO maybe append _<n> to this?
+        '''
         self.experiment_basename = \
             rospy.get_param('multi_tracker/experiment_basename', None)
+        '''
 
+        '''
         generated_basename = False
         if self.experiment_basename is None:
             rospy.logwarn('Basenames output by different nodes in this ' + 
@@ -56,6 +61,7 @@ class DataListener:
             self.experiment_basename = time.strftime('%Y%m%d_%H%M%S',
                 time.localtime())
             generated_basename = True
+        '''
         
         if rospy.get_param('multi_tracker/explicit_directories', False):
             directory = os.path.expanduser(
@@ -65,10 +71,13 @@ class DataListener:
             directory = os.path.join(os.getcwd(), self.experiment_basename)
         
         try:
+            # TODO probably just do this in set_basename?
             os.makedirs(directory)
+            '''
             if generated_basename:
                 rospy.set_param('multi_tracker/experiment_basename', \
                     self.experiment_basename)
+            '''
 
         except OSError as e:
             if e.errno != errno.EEXIST:
