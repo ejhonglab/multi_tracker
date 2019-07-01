@@ -109,7 +109,9 @@ class SaveBag:
     
     def start_recording(self):
         rospy.loginfo('Saving bag file: %s' % (self.bag_filename))
-        cmdline = ['rosbag', 'record', '-O', self.bag_filename]
+        # -b/--buffsize MB size of internal buffer
+        # 0=infinite. default=256.
+        cmdline = ['rosbag', 'record', '-O', self.bag_filename, '-b', '0']
 
         if self.compression:
             # could try --lz4, if bz2 proves too resource intensive
