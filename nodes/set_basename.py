@@ -34,6 +34,6 @@ if __name__ == '__main__':
             # For example: '/0/' -> ['','0',''] -> '0'
             experiment_basename += '_' + ns_parts[-2]
 
-        experiment_basename = socket.gethostname() + experiment_basename
+        experiment_basename = socket.gethostname() + '_' + experiment_basename
     
     rospy.set_param('multi_tracker/experiment_basename', experiment_basename)
