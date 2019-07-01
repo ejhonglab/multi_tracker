@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import time
+import socket
 
 import rospy
 
@@ -32,5 +33,7 @@ if __name__ == '__main__':
         if len(ns_parts) >= 3:
             # For example: '/0/' -> ['','0',''] -> '0'
             experiment_basename += '_' + ns_parts[-2]
+
+        experiment_basename = socket.gethostname() + experiment_basename
     
     rospy.set_param('multi_tracker/experiment_basename', experiment_basename)
