@@ -111,7 +111,7 @@ elif [ -f "$1" ]; then
 
         # Don't try to compress empty bag files (rosbag compress does)
         # and the output would be confusing.
-        elif [ $(stat --printf="%s" "$1") -lt 5000 ]; then
+        elif [ "$(stat --printf="%s" "$1")" -lt 5000 ]; then
             # Calling stat first, to not duplicate the (potentially time-costly)
             # rosbag info check. It shouldn't be costly if the file is already
             # small.

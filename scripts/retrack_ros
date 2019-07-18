@@ -45,6 +45,12 @@ exp_group_name=$(realpath $INPUT_PATH | xargs dirname | xargs basename)
 group_tracking_dir=${OUTPUT_PATH}/${exp_group_name}
 curr_tracking_output=${OUTPUT_PATH}/$(basename $INPUT_PATH)
 
+if [ -d "${curr_tracking_output}" ]
+then
+    echo "Tracking output ${curr_tracking_output} already exists! Exiting."
+    exit 1
+fi
+
 INPUT_PATH=$(realpath $INPUT_PATH)
 
 if [ -z "$2" ]
@@ -82,7 +88,20 @@ echo "Using tracking launch file ${tracking_launch}"
 
 # TODO is the cd really necessary, if setting ROS_HOME?
 cd $OUTPUT_PATH
-ROS_HOME=${OUTPUT_PATH} "roslaunch" multi_tracker ${tracking_launch} viewer:=False tracking_only:=True retracking:=True &
+# TODO should rename 'retracking' arg if i don't *always* want to set that when
+# retracking (it looks more like it's controlling whether to use
+# acquisition-time params vs load local ones, but not clear whether i fully
+# implemented the option to load acq-time ones)
+# doing this check now to keep K's behavior in first case and my old behavior in
+# other case.
+if [ $count != 0 ]
+then 
+    echo "Including retracking:=True, to use acquisition-time parameters"
+    ROS_HOME=${OUTPUT_PATH} "roslaunch" multi_tracker ${tracking_launch} viewer:=False tracking_only:=True retracking:=True &
+else
+    echo "NOT including retracking:=True, to use parameters under ${OUTPUT_PATH}"
+    ROS_HOME=${OUTPUT_PATH} "roslaunch" multi_tracker ${tracking_launch} viewer:=False tracking_only:=True &
+fi
 
 # see https://unix.stackexchange.com/questions/231676/
 # given-two-background-commands-terminate-the-remaining-one-when-either-exits

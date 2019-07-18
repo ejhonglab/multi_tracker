@@ -6,6 +6,10 @@
   <arg name="compression" default="True" />
   <arg name="track_reconstructed_delta_video" default="False" />
 
+  <!-- TODO under which circumstances did i actually not want to load params if
+  retracking? it seems i am loading them for K's pipeline, but was i not for
+  mine? was there something else that was loading acquisition-time params for
+  me? flag of a different name to switch between behaviors? -->
   <!-- Must be set if retracking. Only necessary because /use_sim_time can not
     be detected in a launch file. !-->
   <arg name="retracking" default="False" />
