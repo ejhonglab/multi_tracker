@@ -5,7 +5,7 @@ sudo apt install -y git
 
 curl -s https://raw.githubusercontent.com/tom-f-oconnell/multi_tracker/master/setup/install_ros.sh | bash
 
-CATKIN_SRC="~/catkin/src"
+CATKIN_SRC="$HOME/catkin/src"
 if [ ! -d $CATKIN_SRC ]; then
 	mkdir -p $CATKIN_SRC
 fi
