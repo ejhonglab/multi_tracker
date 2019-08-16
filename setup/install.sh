@@ -3,7 +3,7 @@
 sudo apt update
 sudo apt install -y git
 
-./install_ros.sh
+curl -s https://raw.githubusercontent.com/tom-f-oconnell/multi_tracker/master/setup/install_ros.sh | bash
 
 CATKIN_SRC="~/catkin/src"
 if [ ! -d $CATKIN_SRC ]; then
@@ -13,6 +13,8 @@ fi
 # TODO check for ssh key first?
 # this clone syntax fine?
 git clone git://github.com/tom-f-oconnell/multi_tracker.git ~/catkin/src/.
+
+source /opt/ros/kinetic/setup.bash
 rosdep install -y multi_tracker
 
 cd ~/catkin
