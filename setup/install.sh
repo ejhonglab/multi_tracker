@@ -34,12 +34,15 @@ cd ~/catkin
 # separate invokation of something like wstool?
 catkin_make
 
-SRC="~/src"
+SRC="$HOME/src"
 if [ ! -d $SRC ]; then
 	mkdir $SRC
 fi
 
 # TODO if cant use git+<url> keys for pip, package this for pypi?
+# TODO this sudo -H thing seemed to work in vagrant, but i would expect it to
+# fail for lack of a sudo password / pause elsewhere, but i'm not sure i saw
+# that... what's up? just do --user install anyway or something?
 git clone git://github.com/florisvb/FlyPlotLib.git ~/src/FlyPlotLib &&
 (cd ~/src/FlyPlotLib && sudo -H python setup.py install)
 # -H appropriate? better means of install?
