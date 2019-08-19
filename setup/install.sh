@@ -12,9 +12,10 @@ fi
 
 # TODO check for ssh key first?
 # this clone syntax fine?
-git clone git://github.com/tom-f-oconnell/multi_tracker.git ~/catkin/src/.
+git clone git://github.com/tom-f-oconnell/multi_tracker.git ~/catkin/src/multi_tracker
 
 source /opt/ros/kinetic/setup.bash
+# TODO this install image_view + other necessities?
 rosdep install -y multi_tracker
 
 cd ~/catkin
