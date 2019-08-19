@@ -10,6 +10,7 @@ if [ ! -d $CATKIN_SRC ]; then
 	mkdir -p $CATKIN_SRC
 fi
 cd ~/catkin
+source /opt/ros/kinetic/setup.bash
 catkin_make
 echo "if [ -f $HOME/catkin/devel/setup.bash ]; then" >> ~/.bashrc
 echo "  source $HOME/catkin/devel/setup.bash" >> ~/.bashrc
@@ -19,7 +20,7 @@ echo "fi" >> ~/.bashrc
 # otherwise use https?
 git clone git://github.com/tom-f-oconnell/multi_tracker.git ~/catkin/src/multi_tracker
 
-source /opt/ros/kinetic/setup.bash
+# TODO this necessary?
 source ~/catkin/devel/setup.bash
 # TODO this install image_view + other necessities?
 rosdep install -y multi_tracker
