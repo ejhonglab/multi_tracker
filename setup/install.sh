@@ -20,6 +20,7 @@ echo "fi" >> ~/.bashrc
 git clone git://github.com/tom-f-oconnell/multi_tracker.git ~/catkin/src/multi_tracker
 
 source /opt/ros/kinetic/setup.bash
+source ~/catkin/devel/setup.bash
 # TODO this install image_view + other necessities?
 rosdep install -y multi_tracker
 if [ $? -eq 0 ]; then
