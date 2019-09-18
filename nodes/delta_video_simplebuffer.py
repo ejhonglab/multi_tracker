@@ -330,6 +330,12 @@ class Compressor:
             rospy.logerr('Exception converting background image from ROS to ' + 
                 'OpenCV:  %s' % e)
 
+        # TODO maybe rethink this step (not sure what would be an appropriate
+        # way to threshold acrossthe colors otherwise though... seems this would
+        # keep params more const across bw/color cameras)
+        if (len(img.shape) == 2 or (len(img.shape) == 3 and img.shape[2] > 1)):
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
         # TODO i guess i could see a case for this not being mutually exclusive
         # w/ the circular mask?
         self.imgScaled = img[self.params['roi_b']:self.params['roi_t'], 
@@ -476,6 +482,10 @@ class Compressor:
             retval, threshed = cv2.threshold(self.diff,
                 self.params['threshold'], 255, 0)
             # TODO passthru cheaper + an option here?
+            # TODO maybe support color w/ "any" operation across color channel
+            # to compare to what K was doing before (though not sure delta
+            # message was actually treating color channels correctly / saving
+            # all of them in reality anyway?)
             img = self.cvbridge.cv2_to_imgmsg(threshed, 'mono8')
             self.pub_threshed.publish(img)
 
