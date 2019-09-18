@@ -200,6 +200,14 @@ class Compressor:
         self.pubDeltaVid = rospy.Publisher(delta_video_topic, DeltaVid,
                                            queue_size=30)
 
+        # Just for easier debugging. Saving this directly would immediately null
+        # the entire point of this node (to save only a sparse subset of
+        # pixels to reduce file size).
+        self.pub_threshed = rospy.Publisher('delta_video/thresholded', Image,
+            queue_size=5)
+        self.pub_changed_frac = rospy.Publisher(
+            'delta_video/changed_pixel_frac', Float32, queue_size=5)
+
         # determine what kind of differences from background frame we are
         # interested in
         tracking_fn = rospy.get_param('multi_tracker/tracker/image_processor')
@@ -441,7 +449,7 @@ class Compressor:
             self.diff = self.imgScaled - self.backgroundImage
         else:
 	'''
-        # TODO temporary hack fix. revert.
+        # TODO temporary hack fix. revert. (?)
         self.diff = cv2.absdiff(self.imgScaled, self.backgroundImage)
 
         #rospy.loginfo('comparing to threshold ' +
@@ -462,6 +470,15 @@ class Compressor:
             delta_msg.xpixels = [0]
             delta_msg.ypixels = [0]
             #delta_msg.values = [0]
+
+        # TODO not much overhead on this, right?
+        if self.pub_threshed.get_num_connections() > 0:
+            retval, threshed = cv2.threshold(self.diff,
+                self.params['threshold'], 255, 0)
+            # TODO passthru cheaper + an option here?
+            img = self.cvbridge.cv2_to_imgmsg(threshed, 'mono8')
+            self.pub_threshed.publish(img)
+
         self.pubDeltaVid.publish(delta_msg)
         
         '''
@@ -476,6 +493,11 @@ class Compressor:
         '''
         changed_fraction = (len(changed_pixels[0]) /
             (self.diff.shape[0] * self.diff.shape[1]))
+
+        if self.pub_changed_frac.get_num_connections() > 0:
+            # TODO maybe timestamp this for recording -> troubleshooting
+            # purposes?
+            self.pub_changed_frac.publish(Float32(changed_fraction))
 
         # TODO TODO this was printed several times but no new png. what gives?
         # flag ever effecting?

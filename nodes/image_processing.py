@@ -44,6 +44,8 @@ def incredibly_basic(self):
         return
       
     self.absdiff = cv2.absdiff(np.float32(self.imgScaled), self.backgroundImage)
+    # TODO delete this line? some purpose back in tracker or something?
+    # (doesn't seem used here)
     self.imgproc = copy.copy(self.imgScaled)
     retval, self.threshed = cv2.threshold(self.absdiff, self.params['threshold'], 255, 0)
     
