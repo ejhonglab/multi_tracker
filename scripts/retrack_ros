@@ -30,9 +30,14 @@ if ! [ -d "${INPUT_PATH}" ]; then
 	exit 1
 fi
 
-# TODO might not want to assume output path should have same parent as input
-# how best to support? if env var detected?
-OUTPUT_PATH="${DATA_DIR}/retracked"
+if [ -z "$2" ]
+then
+    # TODO might not want to assume output path should have same parent as input
+    # how best to support? if env var detected?
+    OUTPUT_PATH="${DATA_DIR}/retracked"
+else
+	OUTPUT_PATH=$2
+fi
 
 mkdir -p ${OUTPUT_PATH}
 
@@ -53,11 +58,11 @@ fi
 
 INPUT_PATH=$(realpath $INPUT_PATH)
 
-if [ -z "$2" ]
+if [ -z "$3" ]
 then
 	rate=0.8
 else
-	rate=$2
+	rate=$3
 fi
 
 # TODO will this fix the problem? why wasn't it necessary before?
