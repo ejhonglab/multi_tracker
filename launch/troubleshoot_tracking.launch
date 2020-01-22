@@ -26,6 +26,10 @@
 
 <node name="delta_video" pkg="multi_tracker" type="delta_video_simplebuffer.py" output="screen" />
 
+<node name="video_player" pkg="image_view" type="image_view">
+  <remap from="image" to="camera/image_raw" />
+</node>
+
 <node name="thresholded_viewer" pkg="image_view" type="image_view">
   <remap from="image" to="multi_tracker/1_thresholded" />
 </node>
