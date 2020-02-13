@@ -2,8 +2,6 @@
   <arg name="rate" default="1.0" />
   <arg name="start" default="0.0" />
   <arg name="viewer" default="False" />
-  <!-- TODO if possible to use xacro to make default value for this False when
-    pause_after is set, do that -->
   <arg name="pause" default="True" />
   <arg name="pause_after" default="-1" />
   <arg name="delay" default="0.0" />
