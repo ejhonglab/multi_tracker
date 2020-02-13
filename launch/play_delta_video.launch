@@ -2,7 +2,10 @@
   <arg name="rate" default="1.0" />
   <arg name="start" default="0.0" />
   <arg name="viewer" default="False" />
+  <!-- TODO if possible to use xacro to make default value for this False when
+    pause_after is set, do that -->
   <arg name="pause" default="True" />
+  <arg name="pause_after" default="-1" />
   <arg name="delay" default="0.0" />
   <arg name="delta_video_topic" default="/multi_tracker/delta_video" />
   <arg name="saveto" default="" />
@@ -18,6 +21,7 @@
      output="screen" args="--clock --pause --rate=$(arg rate) --start=$(arg start) --delay=$(arg delay)" >
       <param name="topic_in" value="$(arg delta_video_topic)" />
       <param name="topic_out" value="original_delta_video" />
+      <param name="pause_after" value="$(arg pause_after)" />
     </node>
   </group>
 
@@ -26,6 +30,7 @@
      output="screen" args="--clock --rate=$(arg rate) --start=$(arg start) --delay=$(arg delay)" >
       <param name="topic_in" value="$(arg delta_video_topic)" />
       <param name="topic_out" value="original_delta_video" />
+      <param name="pause_after" value="$(arg pause_after)" />
     </node>
   </group>
 
