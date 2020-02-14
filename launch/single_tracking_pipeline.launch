@@ -51,7 +51,6 @@
 
     <node name="data_association_$(arg num)" pkg="multi_tracker" type="data_association.py" output="screen" required="true" />
     
-    # launch node to save data to hdf5
     <node name="save_hdf5_data_$(arg num)" pkg="multi_tracker" type="save_data_to_hdf5.py" output="screen" required="true" />
     
     <node name="liveview_$(arg num)" pkg="multi_tracker" type="liveviewer.py" output="screen" if="$(arg viewer)"> 

@@ -19,8 +19,8 @@
 <node name="set_exp_basename" pkg="multi_tracker" type="set_basename.py" output="screen" />
 
 # launch tracking and data association nodes
-<node name="tracker" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" />
-<node name="data_association" pkg="multi_tracker" type="data_association.py" output="screen" />
+<node name="tracker" pkg="multi_tracker" type="tracker_simplebuffer.py" output="screen" required="true" />
+<node name="data_association" pkg="multi_tracker" type="data_association.py" output="screen" required="true" />
 
 <node name="liveview" pkg="multi_tracker" type="liveviewer.py" output="screen" />
 
