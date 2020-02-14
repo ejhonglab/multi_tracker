@@ -12,6 +12,7 @@ from enum import Enum
 from distutils.version import LooseVersion, StrictVersion
 import argparse
 
+import numpy as np
 import cv2
 from sensor_msgs.msg import Image
 import rosbag
@@ -20,14 +21,14 @@ from multi_tracker.msg import DeltaVid
 
 
 # TODO factor into some multi_tracker util thing if we are going to duplicate
-# this portion
-print('Using open cv: ', cv2.__version__)
+# this portion (+ put all prints behind some (ros?) debug flag / ros logdebug
+#print('Using open cv: ', cv2.__version__)
 if StrictVersion(cv2.__version__.split('-')[0]) >= StrictVersion("3.0.0"):
     OPENCV_VERSION = 3
-    print('Open CV 3')
+    #print('Open CV 3')
 else:
     OPENCV_VERSION = 2
-    print('Open CV 2')
+    #print('Open CV 2')
 
 class InterpType(Enum):
     NONE = 0
@@ -52,11 +53,34 @@ class Converter:
                 self.directory))
 
         self.bag_file = bag_files[0]
-        self.video_filename = self.bag_file[:-4] + '.avi'
 
-        # TODO don't exit if we want min projection and that doesn't exist
-        if os.path.exists(self.video_filename):
-            print(self.video_filename, 'already exists. exiting.')
+        if 'no_avi' in kwargs and kwargs['no_avi']:
+            self.video_filename = None
+        else:
+            self.video_filename = self.bag_file[:-4] + '.avi'
+
+        if 'timestamps' in kwargs and kwargs['timestamps']:
+            self.write_timestamps = True
+        else:
+            self.write_timestamps = False
+
+        if self.video_filename and os.path.exists(self.video_filename):
+            print(self.video_filename, 'already exists.')
+            self.video_filename = None
+
+        if self.video_filename is None:
+            self.write_timestamps = False
+
+        self.min_projection_fname = None
+        if 'min_project' in kwargs and kwargs['min_project']:
+            self.min_projection_fname = os.path.join(self.directory,
+                min_projection_fname
+            )
+            if os.path.exists(self.min_projection_fname):
+                print(self.min_projection_fname, 'already exists.')
+                self.min_projection_fname = None
+
+        if self.video_filename is None and self.min_projection_fname is None:
             sys.exit()
 
         self.delta_video_topic, freq, self.message_count = self.topic_info()
@@ -84,11 +108,6 @@ class Converter:
 
         self.desired_frame_interval = 1.0 / self.desired_frame_rate
 
-        if 'timestamps' in kwargs and kwargs['timestamps']:
-            self.write_timestamps = True
-        else:
-            self.write_timestamps = False
-
         # TODO queue of some sort?
         self.frames = []
         self.frame_times = []
@@ -98,6 +117,7 @@ class Converter:
         self.mode = mode
 
         self.videowriter = None
+        self.min_frame = None
 
         try:
             from tqdm import tqdm
@@ -120,11 +140,13 @@ class Converter:
         
         if len(topics) == 0:
             raise ValueError('no topics of type multi_tracker/DeltaVid ' +
-                'in bag file.')
+                'in bag file.'
+            )
 
         elif len(topics) > 1:
             raise ValueError('bag has multiple topics of type ' +
-                'multi_tracker/DeltaVid.')
+                'multi_tracker/DeltaVid.'
+            )
 
         topic = topics[0]
         freq = ti.topics[topic].frequency
@@ -145,11 +167,13 @@ class Converter:
         
         if not os.path.exists(full_png_filename):
             raise IOError('background image file ' + full_png_filename +
-                ' did not exist')
+                ' did not exist'
+            )
 
         if not os.path.getsize(full_png_filename) > 0:
             raise IOError('background image file ' + full_png_filename +
-                ' was empty')
+                ' was empty'
+            )
         
         self.background_image = cv2.imread(full_png_filename, cv2.CV_8UC1)
         # TODO seems to imply not color, but other code doesnt assert that
@@ -185,13 +209,15 @@ class Converter:
                 fourcc = cv2.cv.CV_FOURCC(*format_code)
                 self.videowriter = cv2.VideoWriter(self.video_filename, fourcc,
                     self.desired_frame_rate, (image.shape[1], image.shape[0]),
-                    1 if self.mode == 'color' else 0)
+                    1 if self.mode == 'color' else 0
+                )
 
             elif OPENCV_VERSION == 3:
                 fourcc = cv2.VideoWriter_fourcc(*format_code)
                 self.videowriter = cv2.VideoWriter(self.video_filename, fourcc,
                     self.desired_frame_rate, (image.shape[1], image.shape[0]),
-                    1 if self.mode == 'color' else 0)
+                    1 if self.mode == 'color' else 0
+                )
 
         
     def add_frame_from_deltavid_msg(self, delta_vid):
@@ -230,7 +256,8 @@ class Converter:
 
     def closest_timestamp(self, t):
         return (round(t.to_secs() / self.desired_frame_rate) *
-            self.desired_frame_rate)
+            self.desired_frame_rate
+        )
 
 
     # TODO how to resample online? (i don't think i can load all of the videos
@@ -265,7 +292,17 @@ class Converter:
             if (not current_frame is None and
                 self.interpolation == InterpType.NONE):
 
-                self.write_frame(current_frame)
+                if self.video_filename is not None:
+                    self.write_frame(current_frame)
+
+                if self.min_projection_fname is not None:
+                    if self.min_frame is None:
+                        self.min_frame = current_frame
+                    else:
+                        # This is a different fn than `np.min`
+                        self.min_frame = np.minimum(
+                            current_frame, self.min_frame
+                        )
 
             if not current_frame_time is None and self.write_timestamps:
                 print(current_frame_time, file=ts_fp)
@@ -320,6 +357,10 @@ class Converter:
                 self.current_goal_timestamp += self.desired_frame_interval
             '''
 
+        if self.min_projection_fname:
+            assert self.min_frame is not None
+            cv2.imwrite(self.min_projection_fname, self.min_frame)
+
         bag.close()
         if self.write_timestamps:
             ts_fp.close()
@@ -333,8 +374,6 @@ class Converter:
 
 
 if __name__ == '__main__':
-    # TODO check this parsing doesn't break if called standalone or through
-    # ROS
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--min-project', default=False,
         action='store_true', help='Saves the minimum projection of the video to'
