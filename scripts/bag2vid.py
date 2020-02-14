@@ -10,6 +10,7 @@ import copy
 import sys
 from enum import Enum
 from distutils.version import LooseVersion, StrictVersion
+import argparse
 
 import cv2
 from sensor_msgs.msg import Image
@@ -18,6 +19,8 @@ import rosbag
 from multi_tracker.msg import DeltaVid
 
 
+# TODO factor into some multi_tracker util thing if we are going to duplicate
+# this portion
 print('Using open cv: ', cv2.__version__)
 if StrictVersion(cv2.__version__.split('-')[0]) >= StrictVersion("3.0.0"):
     OPENCV_VERSION = 3
@@ -34,8 +37,9 @@ class InterpType(Enum):
 # TODO write some round trip tests with a lossless codec / approx with
 # (potentially) lossy codec to be used
 
+min_projection_fname = 'min_projection.png'
 class Converter:
-    def __init__(self, directory, mode='mono', args=dict()):
+    def __init__(self, directory, mode='mono', **kwargs):
         self.directory = os.path.abspath(os.path.expanduser(directory))
 
         bag_files = glob.glob(os.path.join(self.directory, '*.bag'))
@@ -50,26 +54,24 @@ class Converter:
         self.bag_file = bag_files[0]
         self.video_filename = self.bag_file[:-4] + '.avi'
 
+        # TODO don't exit if we want min projection and that doesn't exist
         if os.path.exists(self.video_filename):
             print(self.video_filename, 'already exists. exiting.')
             sys.exit()
 
         self.delta_video_topic, freq, self.message_count = self.topic_info()
 
-        self.args = args
-
-        if 'interpolation' in args:
-            if args['interpolation'] is None:
+        if 'interpolation' in kwargs:
+            if kwargs['interpolation'] is None:
                 self.interpolation = InterpType.NONE
 
-            elif args['interpolation'] is 'nearest':
+            elif kwargs['interpolation'] is 'nearest':
                 self.interpolation = InterpType.NEAREST
                 raise NotImplementedError
 
-            elif args['interpolation'] is 'linear':
+            elif kwargs['interpolation'] is 'linear':
                 self.interpolation = InterpType.LINEAR
                 raise NotImplementedError
-
         else:
             self.interpolation = InterpType.NONE
         
@@ -82,7 +84,7 @@ class Converter:
 
         self.desired_frame_interval = 1.0 / self.desired_frame_rate
 
-        if 'timestamps' in args and args['timestamps']:
+        if 'timestamps' in kwargs and kwargs['timestamps']:
             self.write_timestamps = True
         else:
             self.write_timestamps = False
@@ -326,15 +328,30 @@ class Converter:
             self.videowriter.release()
             print('Note: use this command to make a mac / quicktime ' +
                 'friendly video: avconv -i test.avi -c:v libx264 -c:a ' +
-                'copy outputfile.mp4')
+                'copy outputfile.mp4'
+            )
 
 
 if __name__ == '__main__':
-    input_dir = os.getcwd()
-    args = {
+    # TODO check this parsing doesn't break if called standalone or through
+    # ROS
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-m', '--min-project', default=False,
+        action='store_true', help='Saves the minimum projection of the video to'
+        ' {} in current directory.'.format(min_projection_fname)
+    )
+    parser.add_argument('-a', '--no-avi', default=False,
+        action='store_true', help='Does NOT save a .avi movie in the current '
+        'directory.'
+    )
+
+    kwargs = {
         'interpolation': None,
         'timestamps': True
     }
-    conv = Converter(input_dir, args=args)
+    kwargs.update(vars(parser.parse_args()))
+
+    input_dir = os.getcwd()
+    conv = Converter(input_dir, **kwargs)
     conv.process_bag()
 
