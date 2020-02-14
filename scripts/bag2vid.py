@@ -38,7 +38,6 @@ class InterpType(Enum):
 # TODO write some round trip tests with a lossless codec / approx with
 # (potentially) lossy codec to be used
 
-min_projection_fname = 'min_projection.png'
 class Converter:
     def __init__(self, directory, mode='mono', **kwargs):
         self.directory = os.path.abspath(os.path.expanduser(directory))
@@ -50,7 +49,8 @@ class Converter:
 
         elif len(bag_files) > 1:
             raise IOError('more than one bagfile in directory {}'.format(
-                self.directory))
+                self.directory
+            ))
 
         self.bag_file = bag_files[0]
 
@@ -74,7 +74,8 @@ class Converter:
         self.min_projection_fname = None
         if 'min_project' in kwargs and kwargs['min_project']:
             self.min_projection_fname = os.path.join(self.directory,
-                min_projection_fname
+                '_'.join(os.path.basename(self.bag_file).split('_')[:4]) +
+                '_min_projection.png'
             )
             if os.path.exists(self.min_projection_fname):
                 print(self.min_projection_fname, 'already exists.')
@@ -377,7 +378,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--min-project', default=False,
         action='store_true', help='Saves the minimum projection of the video to'
-        ' {} in current directory.'.format(min_projection_fname)
+        ' a PNG in current directory.'
     )
     parser.add_argument('-a', '--no-avi', default=False,
         action='store_true', help='Does NOT save a .avi movie in the current '
