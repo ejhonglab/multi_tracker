@@ -84,11 +84,11 @@ class DataListener:
                 raise
 
         filename = os.path.join(directory, self.experiment_basename + '_N' + 
-            str(self.pipeline_num) + '_trackedobjects.hdf5')
+            str(self.pipeline_num) + '_trackedobjects.hdf5'
+        )
 
         rospy.loginfo('Saving hdf5 data to: ' + filename)
         
-
         # TODO should the default here be to record indefinitely? (i.e. -1)
         # TODO document this behavior
         hrs_to_record = rospy.get_param('multi_tracker/record_length_hours', 24)
@@ -105,8 +105,6 @@ class DataListener:
         
         self.buffer = []
         self.array_buffer = []
-        # set up thread locks
-        self.lockParams = threading.Lock()
         self.lockBuffer = threading.Lock()
         
         self.chunk_size = 5000
@@ -162,13 +160,15 @@ class DataListener:
         self.hdf5['data'].attrs.create('current_frame', 0)
         self.hdf5['data'].attrs.create('line', 0)
         self.hdf5['data'].attrs.create('length', self.chunk_size)
-        
+       
+
     def add_chunk(self):
         length = self.hdf5['data'].attrs.get('length')
         new_length = length + self.chunk_size
         self.hdf5['data'].resize(new_length, axis=0)
         self.hdf5['data'].attrs.modify('length', new_length)
-            
+        
+
     def save_array_data(self):
         newline = self.hdf5['data'].attrs.get('line') + 1
         nrows_to_add = len(self.array_buffer)
@@ -179,14 +179,12 @@ class DataListener:
             self.add_chunk()
         
         self.hdf5['data'][newline:newline+nrows_to_add] = self.array_buffer
-        # TODO (?)
         self.array_buffer = []
-                                                   
+        
+
     def tracked_object_callback(self, tracked_objects):
         with self.lockBuffer:
             for tracked_object in tracked_objects.tracked_objects:
-                # TODO delete this comment. where are stamps in header defined?
-                # using correct time source?
                 a = np.array([(tracked_object.objid,
                                tracked_object.header.stamp.secs,
                                tracked_object.header.stamp.nsecs,
@@ -208,24 +206,19 @@ class DataListener:
                                tracked_object.measurement.y
                               )], dtype=self.dtype)
                 self.array_buffer.append(a)
-        
+ 
+
     def process_buffer(self):
         self.save_array_data()
-            
+
+
     def main(self):
         atexit.register(self.stop_saving_data)
         while not rospy.is_shutdown():
-            # TODO delete this comment. is there a reason this was previously
-            # not using ROS time?
             t = (rospy.Time.now() - self.time_start).to_sec()
             if (self.record_length_seconds > 0 and
                 t > self.record_length_seconds):
 
-                # TODO should still work without this, right? maybe just remove
-                # and test it still works? oh... maybe that HDF5 error was
-                # caused by double closing, since the atexit call is also
-                # invoked?)
-                #self.stop_saving_data()
                 return
             
             # TODO why locking here and not further down? (less probably better)
@@ -236,10 +229,12 @@ class DataListener:
 
                 if len(self.buffer) > 9:
                     pt = (rospy.Time.now() - time_then).to_sec()
-                    rospy.logwarn('Data saving processing time exceeds ' +
+                    rospy.logwarn('Data saving processing time exceeds '
                         'acquisition rate. Processing time: %f, Buffer: %d',
-                        pt, len(self.buffer))
-    
+                        pt, len(self.buffer)
+                    )
+
+
     # TODO fix hdf5 bug here (maybe just requires updating HDF5 / h5py?)
     # see note above
     def stop_saving_data(self):
@@ -247,7 +242,9 @@ class DataListener:
         # presumably printing because the logging facilities will be inoperable
         # by the time this is called
         print('save_data_to_hdf5 shut down nicely')
-        
+    
+
 if __name__ == '__main__':
     datalistener = DataListener()
     datalistener.main()
+
