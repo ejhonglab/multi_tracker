@@ -35,7 +35,6 @@ def end_nonblocking_stdin():
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 
 
-start_nonblocking_stdin()
 def read_stdin_nonblocking():
     # https://stackoverflow.com/questions/21791621
 
@@ -142,6 +141,8 @@ class RosbagPlayWrapper:
             sleep_interval_s = 0.1
             # Since otherwise we can not write to stdin of the subprocess.
             sp_stdin = subprocess.PIPE
+
+            start_nonblocking_stdin()
 
         self.rosbag_process = subprocess.Popen(cmdline,
             preexec_fn=subprocess.os.setpgrp, stdin=sp_stdin
