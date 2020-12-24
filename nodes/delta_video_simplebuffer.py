@@ -332,8 +332,10 @@ class Compressor:
 
         # TODO maybe rethink this step (not sure what would be an appropriate
         # way to threshold acrossthe colors otherwise though... seems this would
-        # keep params more const across bw/color cameras)
-        if (len(img.shape) == 2 or (len(img.shape) == 3 and img.shape[2] > 1)):
+        # keep params more const across grayscale & color cameras)
+        # TODO maybe warn / err if img has len(shape) != 2 and also not matching
+        # the conditional below
+        if len(img.shape) == 3 and img.shape[2] == 3:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # TODO i guess i could see a case for this not being mutually exclusive
@@ -343,7 +345,7 @@ class Compressor:
 
         self.shapeImage = self.imgScaled.shape # (height,width)
         
-        # define a self var in init that dictates whether we should mask?
+        # TODO define a self var in init that dictates whether we should mask?
         if self.have_rois:
             if self.image_mask is None:
                 self.image_mask = np.zeros_like(self.imgScaled)
