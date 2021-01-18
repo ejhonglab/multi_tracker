@@ -38,6 +38,53 @@ class InterpType(Enum):
 # TODO write some round trip tests with a lossless codec / approx with
 # (potentially) lossy codec to be used
 
+class RunningStats:
+    """
+    Adapted from Marc Liyanage's answer here:
+    https://stackoverflow.com/questions/1174984
+
+    ...which is itself based on:
+    https://www.johndcook.com/blog/standard_deviation/
+
+    See also "Welford's online algorithm" from this Wikipedia page:
+    https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+    """
+    def __init__(self, initial_frame):
+        self.n = 1
+
+        # NOTE: it seems that without always immediately converting to
+        # np.float64 (from uint8 the frames are initially represented as), the
+        # minimum variance can sometimes be negative. Not 100% sure this could
+        # not happen despite this change, but some discussion of this algorithm
+        # I found online indicates this algorithm should not have this problem
+        # (a problem that some other algorithms *do* have).
+        self.old_m = self.new_m = initial_frame.astype(np.float64)
+        self.old_s = np.zeros_like(initial_frame, dtype=np.float64)
+        self.new_s = np.zeros_like(initial_frame, dtype=np.float64)
+
+    def push(self, frame):
+        frame = frame.astype(np.float64)
+
+        self.n += 1
+
+        self.new_m = self.old_m + (frame - self.old_m) / self.n
+        self.new_s = self.old_s + (frame - self.old_m) * (frame - self.new_m)
+
+        self.old_m = self.new_m
+        self.old_s = self.new_s
+
+    def mean(self):
+        return self.new_m
+
+    def variance(self):
+        var = self.new_s / (self.n - 1) if self.n > 1 else self.new_s
+        assert var.min() >= 0
+        return var
+
+    def standard_deviation(self):
+        return np.sqrt(self.variance())
+
+
 class Converter:
     def __init__(self, directory, mode='mono', **kwargs):
         self.directory = os.path.abspath(os.path.expanduser(directory))
@@ -81,7 +128,18 @@ class Converter:
                 print(self.min_projection_fname, 'already exists.')
                 self.min_projection_fname = None
 
-        if self.video_filename is None and self.min_projection_fname is None:
+        self.std_dev_fname = None
+        if 'std_dev' in kwargs and kwargs['std_dev']:
+            self.std_dev_fname = os.path.join(self.directory,
+                '_'.join(os.path.basename(self.bag_file).split('_')[:4]) +
+                '_std_dev.png'
+            )
+            if os.path.exists(self.std_dev_fname):
+                print(self.std_dev_fname, 'already exists.')
+                self.std_dev_fname = None
+
+        if (self.video_filename is None and
+            self.min_projection_fname is None and self.std_dev_fname is None):
             sys.exit()
 
         self.delta_video_topic, freq, self.message_count = self.topic_info()
@@ -119,6 +177,7 @@ class Converter:
 
         self.videowriter = None
         self.min_frame = None
+        self.running_stats = None
 
         try:
             from tqdm import tqdm
@@ -305,6 +364,12 @@ class Converter:
                             current_frame, self.min_frame
                         )
 
+                if self.std_dev_fname is not None:
+                    if self.running_stats is None:
+                        self.running_stats = RunningStats(current_frame)
+                    else:
+                        self.running_stats.push(current_frame)
+
             if not current_frame_time is None and self.write_timestamps:
                 print(current_frame_time, file=ts_fp)
 
@@ -362,6 +427,18 @@ class Converter:
             assert self.min_frame is not None
             cv2.imwrite(self.min_projection_fname, self.min_frame)
 
+        if self.std_dev_fname:
+            assert self.running_stats is not None
+            stddev_frame = self.running_stats.standard_deviation()
+            # Because I'm not sure how the OpenCV code would react in this case.
+            # It'd probably fail anyway...
+            assert stddev_frame.max() <= 255, 'stddev > 255 somewhere'
+            # NOTE: this works, but rounds from np.float64 to uint8, so if you
+            # try loading this PNG, you will only have the rounded values. If
+            # you need analysis on the standard deviation image, it would
+            # probably be best to export full precision somewhere.
+            cv2.imwrite(self.std_dev_fname, stddev_frame)
+
         bag.close()
         if self.write_timestamps:
             ts_fp.close()
@@ -379,6 +456,10 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--min-project', default=False,
         action='store_true', help='Saves the minimum projection of the video to'
         ' a PNG in current directory.'
+    )
+    parser.add_argument('-s', '--std-dev', default=False,
+        action='store_true', help='Saves the standard deviation image of the'
+        ' video to a PNG in current directory.'
     )
     parser.add_argument('-a', '--no-avi', default=False,
         action='store_true', help='Does NOT save a .avi movie in the current '
