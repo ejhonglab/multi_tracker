@@ -4,17 +4,17 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-import traceback
 import glob
-import copy
 import sys
 from enum import Enum
 from distutils.version import LooseVersion, StrictVersion
 import argparse
+import warnings
 
 import numpy as np
 import cv2
-from sensor_msgs.msg import Image
+# TODO add this as rosdep or import it behind '-c' flag specification
+import pandas as pd
 import rosbag
 
 from multi_tracker.msg import DeltaVid
@@ -111,7 +111,35 @@ class Converter:
         else:
             self.write_timestamps = False
 
-        if self.video_filename and os.path.exists(self.video_filename):
+        if 'overwrite' in kwargs and kwargs['overwrite']:
+            overwrite = True
+        else:
+            overwrite = False
+
+        if 'overlay_csv' in kwargs and kwargs['overlay_csv']:
+            overlay_csv = kwargs['overlay_csv']
+            if not os.path.exists(overlay_csv):
+                raise IOError('{} (specified via -c) not found'.format(
+                    overlay_csv
+                ))
+
+            # `self.overlay_df` will be checked by a call to
+            # `self._validate_overlay_df()` AFTER `self.start_time` is set in
+            # first iteration of the loop in `process_bag`.
+            self.overlay_df = pd.read_csv(overlay_csv)
+            self.curr_overlay_row = 0
+            self._checked_text_overlay = False
+        else:
+            self.overlay_df = None
+
+        if 'verbose' in kwargs and kwargs['verbose']:
+            self.verbose = True
+        else:
+            self.verbose = False
+
+        if not overwrite and (
+            self.video_filename and os.path.exists(self.video_filename)):
+
             print(self.video_filename, 'already exists.')
             self.video_filename = None
 
@@ -124,7 +152,7 @@ class Converter:
                 '_'.join(os.path.basename(self.bag_file).split('_')[:4]) +
                 '_min_projection.png'
             )
-            if os.path.exists(self.min_projection_fname):
+            if not overwrite and os.path.exists(self.min_projection_fname):
                 print(self.min_projection_fname, 'already exists.')
                 self.min_projection_fname = None
 
@@ -134,7 +162,7 @@ class Converter:
                 '_'.join(os.path.basename(self.bag_file).split('_')[:4]) +
                 '_std_dev.png'
             )
-            if os.path.exists(self.std_dev_fname):
+            if not overwrite and os.path.exists(self.std_dev_fname):
                 print(self.std_dev_fname, 'already exists.')
                 self.std_dev_fname = None
 
@@ -143,6 +171,11 @@ class Converter:
             sys.exit()
 
         self.delta_video_topic, freq, self.message_count = self.topic_info()
+
+        if self.verbose:
+            print('Topic:', self.delta_video_topic)
+            print('Average frame rate: {:.2f} Hz'.format(freq))
+            print('Number of messages:', self.message_count)
 
         if 'interpolation' in kwargs:
             if kwargs['interpolation'] is None:
@@ -158,7 +191,6 @@ class Converter:
         else:
             self.interpolation = InterpType.NONE
         
-        # TODO this comparison right? (?)
         if self.interpolation == InterpType.NONE:
             self.desired_frame_rate = freq
         else:
@@ -189,6 +221,54 @@ class Converter:
             pass
 
 
+    def _validate_overlay_df(self):
+        """
+        Checks some time information in `pd.DataFrame` derived from overlay CSV
+        makes sense, including:
+        - onsets all before offsets (for a given row, representing one interval)
+        - intervals occuring earlier in time are earlier in CSV
+        - intervals are non-overlapping
+        - no intervals occur before first delta video message in bag file
+
+        Does NOT check intervals against end of bag file video data, as this
+        case is handled via warnings in the loop in `process_bag`.
+        """
+        for x in self.overlay_df.itertuples(index=False):
+            # (both of these should be of type `float`)
+            assert x.onset < x.offset, 'one onset >= offset'
+
+        # Checks intervals are sorted and non-overlapping.
+        for i in range(len(self.overlay_df)):
+            if i + 1 >= len(self.overlay_df):
+                break
+
+            curr_row = self.overlay_df.iloc[i]
+            next_row = self.overlay_df.iloc[i + 1]
+            # Not allowing equality so that it's always clear which message
+            # should be drawn.
+            assert next_row.onset > curr_row.offset
+
+        # Ensuring we are calling this after this is defined, since we need it
+        # to check intervals don't precede start of video data.
+        assert self.start_time is not None
+
+        # Since we already know the intervals are sorted, we can just check that
+        # the first interval (first row) doesn't precede start time.
+        start_to_first_onset_s = \
+            self.overlay_df.iloc[0].onset - self.start_time.to_sec()
+
+        if self.verbose:
+            print('First video frame time to first onset: {:.2f} sec'.format(
+                start_to_first_onset_s
+            ))
+
+        if start_to_first_onset_s < 0:
+            raise ValueError('At LEAST the first onset preceded first video '
+                'frame time. This likely reflects a serious error in '
+                'coordinating stimulus presentation and video acquisition.'
+            )
+
+
     def topic_info(self):
         bag = rosbag.Bag(self.bag_file)
         ti = bag.get_type_and_topic_info()
@@ -199,12 +279,12 @@ class Converter:
         bag.close()
         
         if len(topics) == 0:
-            raise ValueError('no topics of type multi_tracker/DeltaVid ' +
+            raise ValueError('no topics of type multi_tracker/DeltaVid '
                 'in bag file.'
             )
 
         elif len(topics) > 1:
-            raise ValueError('bag has multiple topics of type ' +
+            raise ValueError('bag has multiple topics of type '
                 'multi_tracker/DeltaVid.'
             )
 
@@ -237,11 +317,15 @@ class Converter:
         
         self.background_image = cv2.imread(full_png_filename, cv2.CV_8UC1)
         # TODO seems to imply not color, but other code doesnt assert that
-        # (fix in delta_video_player.py)
+        # (fix in delta_video_player.py) (might also need to change read
+        # arguments to support color, perhaps conditional on some check as to
+        # whether it is color or not)
         try:
             # for hydro
             self.background_image = self.background_image.reshape([
-                self.background_image.shape[0], self.background_image[1], 1])
+                self.background_image.shape[0], self.background_image[1], 1
+            ])
+            # TODO check this code actually isn't running before deleting
 
         # TODO handle cases by version explicitly or at least specify expected
         # error
@@ -258,12 +342,11 @@ class Converter:
         if self.mode == 'color':
             image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
 
-        # TODO make this in __init__?
-        if self.videowriter is not None:
-            self.videowriter.write(image)
-        else:
+        if self.videowriter is None:
             # TODO detect fourcc to use from input extension?
             #fourcc = cv2.cv.CV_FOURCC(*'MP4V')
+            # TODO maybe warn that the data is being compressed
+            # (it is https://www.xvid.com/faq/) ?
             format_code = 'XVID'
             if OPENCV_VERSION == 2:
                 fourcc = cv2.cv.CV_FOURCC(*format_code)
@@ -279,38 +362,46 @@ class Converter:
                     1 if self.mode == 'color' else 0
                 )
 
+        self.videowriter.write(image)
+
         
     def add_frame_from_deltavid_msg(self, delta_vid):
-        if self.background_image is None:
-            self.load_background_image(delta_vid.background_image)
-            return None, None
-
-        elif self.background_img_filename != delta_vid.background_image:
-            self.load_background_image(delta_vid.background_image)
-                
-        new_image = copy.copy(self.background_image)
-        
-        if delta_vid.values is not None and len(delta_vid.values) > 0:
-            # TODO check not off by one here?
-            try:
-                # for hydro
-                new_image[delta_vid.xpixels, delta_vid.ypixels, 0] = \
-                    delta_vid.values
-
-            # TODO look for specific error type or handle differently
-            except:
-                # for indigo
-                new_image[delta_vid.xpixels, delta_vid.ypixels] = \
-                    delta_vid.values
-
         secs_from_start = (delta_vid.header.stamp - self.start_time).to_sec()
+
+        if (self.background_image is None or
+            self.background_img_filename != delta_vid.background_image):
+
+            self.load_background_image(delta_vid.background_image)
+
+        assert self.background_image is not None
+        new_image = self.background_image.copy()
+
+        # Previously, new_image was only modified if both of these conditions
+        # were False, but it doesn't seem they are happening, hence these
+        # assertions.
+        assert delta_vid.values is not None
+        assert len(delta_vid.values) > 0
+        
+        # NOTE: hydro is older than indigo. if i should try to delete one
+        # branch, try deleting the hydro one.
+        # TODO check not off by one here?
+        try:
+            # for hydro
+            new_image[delta_vid.xpixels, delta_vid.ypixels, 0] = \
+                delta_vid.values
+
+        # TODO look for specific error type or handle differently
+        except:
+            # for indigo
+            new_image[delta_vid.xpixels, delta_vid.ypixels] = \
+                delta_vid.values
 
         # TODO resample for constant framerate.
         # maybe warn if deviate much from it?
         if self.interpolation != InterpType.NONE:
             self.frames.append(new_image)
             self.frame_times.append(secs_from_start)
-        
+
         return new_image, secs_from_start
 
 
@@ -334,25 +425,106 @@ class Converter:
         # time)
         self.start_time = None
         self.current_goal_timestamp = 0
-        # TODO TODO are these guaranteed to be sorted? how close to? (sort if
-        # not?) make one pass through getting times -> sort -> revisit in sorted
-        # order (how?)
+        # TODO are these guaranteed to be sorted? how close to? (sort if not?)
+        # make one pass through getting times -> sort -> revisit in sorted order
+        # (how?) (or just assert they are in order by keeping track of last and
+        # checking...)
         iterate_over = bag.read_messages(topics=[self.delta_video_topic])
         if self.use_tqdm:
             iterate_over = self.tqdm(iterate_over, total=self.message_count)
 
-        for topic, msg, t in iterate_over:
-
+        # The third value in each element of `iterate_over` is some sort of
+        # time.
+        # TODO could maybe check against msg.header.stamp? why even have
+        # msg.header.stamp in acquisition of these other times are available for
+        # free, and are always consistent (if true)?
+        for topic, msg, _ in iterate_over:
             if self.start_time is None:
                 self.start_time = msg.header.stamp
+
+                if self.overlay_df is not None:
+                    self._validate_overlay_df()
 
             current_frame, current_frame_time = \
                 self.add_frame_from_deltavid_msg(msg)
 
-            if (not current_frame is None and
-                self.interpolation == InterpType.NONE):
-
+            if self.interpolation == InterpType.NONE:
                 if self.video_filename is not None:
+                    # TODO if i do fix the interpolation implementation(s)
+                    # later, might want to refactor write_frame into a get_frame
+                    # type call so that the overlay can be added in a call
+                    # between that and the write_frame call
+                    if self.overlay_df is not None:
+                        curr_time_s = msg.header.stamp.to_sec()
+                        row = self.overlay_df.iloc[self.curr_overlay_row]
+
+                        if curr_time_s < row.onset:
+                            text = None
+
+                        elif row.onset <= curr_time_s <= row.offset:
+                            text = row.overlay
+                            assert type(text) is str and len(text) > 0
+
+                        elif row.offset < curr_time_s:
+                            self.curr_overlay_row += 1
+
+                            # Just assuming that the frame rate is such that we
+                            # won't completely skip past this interval (so not
+                            # checking against the end of this new row this
+                            # iteration). If that were not true, would probably
+                            # want to implment this as recursion or something,
+                            # though we'd also have bigger issues then...
+                            # Mostly just checking here to support the case
+                            # where the CSV specifies intervals where one ends
+                            # the frame before the next starts.
+                            row = self.overlay_df.iloc[self.curr_overlay_row]
+                            if row.onset <= curr_time_s:
+                                text = row.text
+                            else:
+                                text = None
+
+                        else:
+                            assert False, \
+                                'previous cases should have been complete'
+
+                        if text is not None:
+                            font = cv2.FONT_HERSHEY_PLAIN
+                            # Only non-int parameter putText seems to take.
+                            font_scale = 5.0
+                            # White. Would need to convert all frames to some
+                            # colorspace to add a colored overlay.
+                            color = 255
+                            font_thickness = 5
+
+                            # So we can center the text.
+                            (text_width, _), _ = cv2.getTextSize(text, font,
+                                font_scale, font_thickness
+                            )
+
+                            # (0,0) is at the top left.
+                            y_margin = 80
+                            bottom_left = (
+                                (current_frame.shape[1] - text_width) // 2,
+                                current_frame.shape[0] - y_margin
+                            )
+
+                            if not self._checked_text_overlay:
+                                before_overlay = current_frame.copy()
+
+                            cv2.putText(current_frame, text, bottom_left, font,
+                                font_scale, color, font_thickness, cv2.LINE_AA
+                            )
+
+                            # TODO maybe also overlay counter to next onset?
+                            # or just when not text to overlay?
+
+                            if not self._checked_text_overlay:
+                                assert not np.array_equal(
+                                    before_overlay, current_frame
+                                ), 'did not actually draw anything'
+
+                                self._checked_text_overlay = True
+        
                     self.write_frame(current_frame)
 
                 if self.min_projection_fname is not None:
@@ -370,7 +542,7 @@ class Converter:
                     else:
                         self.running_stats.push(current_frame)
 
-            if not current_frame_time is None and self.write_timestamps:
+            if self.write_timestamps:
                 print(current_frame_time, file=ts_fp)
 
             '''
@@ -423,6 +595,35 @@ class Converter:
                 self.current_goal_timestamp += self.desired_frame_interval
             '''
 
+        if self.overlay_df is not None:
+            last_offset_to_last_frame = \
+                msg.header.stamp.to_sec() - self.overlay_df.iloc[-1].offset
+
+            if self.verbose:
+                print('Last offset to last frame: {:.2f} sec'.format(
+                    last_offset_to_last_frame
+                ))
+
+            if last_offset_to_last_frame < 0:
+                warnings.warn('At least one offset happened after time of last'
+                    ' frame. This is OK if experiment was intentionally stopped'
+                    ' early.'
+                )
+
+        # TODO probably (also/exclusively) call all these cleanup functions in
+        # an atexit call
+
+        bag.close()
+        if self.write_timestamps:
+            ts_fp.close()
+
+        if self.videowriter is not None:
+            self.videowriter.release()
+            print('Note: use this command to make a mac / quicktime ' +
+                'friendly video: avconv -i test.avi -c:v libx264 -c:a ' +
+                'copy outputfile.mp4'
+            )
+
         if self.min_projection_fname:
             assert self.min_frame is not None
             cv2.imwrite(self.min_projection_fname, self.min_frame)
@@ -439,17 +640,6 @@ class Converter:
             # probably be best to export full precision somewhere.
             cv2.imwrite(self.std_dev_fname, stddev_frame)
 
-        bag.close()
-        if self.write_timestamps:
-            ts_fp.close()
-
-        if self.videowriter is not None:
-            self.videowriter.release()
-            print('Note: use this command to make a mac / quicktime ' +
-                'friendly video: avconv -i test.avi -c:v libx264 -c:a ' +
-                'copy outputfile.mp4'
-            )
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -465,6 +655,27 @@ if __name__ == '__main__':
         action='store_true', help='Does NOT save a .avi movie in the current '
         'directory.'
     )
+    parser.add_argument('-o', '--overwrite', default=False, action='store_true',
+        help='Overwrite any file that would be generated, yet already exists.'
+    )
+    # TODO arg for x,y position (floats in [0,1] probably) of overlay?
+    # also maybe font size / color of overlay? or just optional extra columns
+    # for that information (+ then it could be changed row-by-row)?
+    # TODO TODO arg for specification of roi (via gui unless position passed by
+    # other args?) that is used to compute a binary signal (via clustering /
+    # other automatic thresholding methods) to compute a signal to be compared
+    # against these intervals? (e.g. for an LED hardware indicator of odor pulse
+    # to be used to check the times recorded in the stimulus metadata are
+    # accurate?) maybe rename overlay-csv arg then, and just have overlay as an
+    # optional column? should i just output the signal to a CSV or something to
+    # be checked by some other program, or check against intervals in here?
+    parser.add_argument('-c', '--overlay-csv', default=None, action='store',
+        help='CSV with columns onset, offset, and overlay. onset and offset '
+            'must contains Unix timestamps in the ROS bag file, and each onset '
+            'must precede the corresponding offset. overlay contains text '
+            'to be overlayed on the image between each onset and offset.'
+    )
+    parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
     kwargs = {
         'interpolation': None,
@@ -475,4 +686,3 @@ if __name__ == '__main__':
     input_dir = os.getcwd()
     conv = Converter(input_dir, **kwargs)
     conv.process_bag()
-
