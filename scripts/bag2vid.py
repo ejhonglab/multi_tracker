@@ -136,6 +136,7 @@ class Converter:
             self.verbose = True
         else:
             self.verbose = False
+        self._n_zero_length_delta_vid_values = 0
 
         if not overwrite and (
             self.video_filename and os.path.exists(self.video_filename)):
@@ -376,25 +377,36 @@ class Converter:
         assert self.background_image is not None
         new_image = self.background_image.copy()
 
-        # Previously, new_image was only modified if both of these conditions
-        # were False, but it doesn't seem they are happening, hence these
-        # assertions.
+        # TODO delete if inspection of multi_tracker code that generates this
+        # seems to indicate this is not possible. left in cause it was a
+        # component of an old check, but seemed to be irrelevant
         assert delta_vid.values is not None
-        assert len(delta_vid.values) > 0
-        
-        # NOTE: hydro is older than indigo. if i should try to delete one
-        # branch, try deleting the hydro one.
-        # TODO check not off by one here?
-        try:
-            # for hydro
-            new_image[delta_vid.xpixels, delta_vid.ypixels, 0] = \
-                delta_vid.values
 
-        # TODO look for specific error type or handle differently
-        except:
-            # for indigo
-            new_image[delta_vid.xpixels, delta_vid.ypixels] = \
-                delta_vid.values
+        # This seems to happen each time a new background frame is added (if not
+        # on the first)? Actually, much more. For example:
+        # `.../choice_20210129_022422$ rosrun nagel_laminar bag2vid -v`
+        # includes this in its output:
+        # ``
+        # and `.../choice_20210129_044604$ rosrun nagel_laminar bag2vid -v`
+        # includes: ``
+        # ...though there it seems neither test experiment had any additional
+        # background frames (beyond the first set) taken.
+        if len(delta_vid.values) > 0:
+            # NOTE: hydro is older than indigo. if i should try to delete one
+            # branch, try deleting the hydro one.
+            # TODO check not off by one here?
+            try:
+                # for hydro
+                new_image[delta_vid.xpixels, delta_vid.ypixels, 0] = \
+                    delta_vid.values
+
+            # TODO look for specific error type or handle differently
+            except:
+                # for indigo
+                new_image[delta_vid.xpixels, delta_vid.ypixels] = \
+                    delta_vid.values
+        else:
+            self._n_zero_length_delta_vid_values += 1
 
         # TODO resample for constant framerate.
         # maybe warn if deviate much from it?
@@ -454,7 +466,9 @@ class Converter:
                     # later, might want to refactor write_frame into a get_frame
                     # type call so that the overlay can be added in a call
                     # between that and the write_frame call
-                    if self.overlay_df is not None:
+                    if (self.overlay_df is not None and
+                        self.curr_overlay_row < len(self.overlay_df)):
+
                         curr_time_s = msg.header.stamp.to_sec()
                         row = self.overlay_df.iloc[self.curr_overlay_row]
 
@@ -468,21 +482,26 @@ class Converter:
                         elif row.offset < curr_time_s:
                             self.curr_overlay_row += 1
 
-                            # Just assuming that the frame rate is such that we
-                            # won't completely skip past this interval (so not
-                            # checking against the end of this new row this
-                            # iteration). If that were not true, would probably
-                            # want to implment this as recursion or something,
-                            # though we'd also have bigger issues then...
-                            # Mostly just checking here to support the case
-                            # where the CSV specifies intervals where one ends
-                            # the frame before the next starts.
-                            row = self.overlay_df.iloc[self.curr_overlay_row]
-                            if row.onset <= curr_time_s:
-                                text = row.text
-                            else:
+                            if self.curr_overlay_row >= len(self.overlay_df):
                                 text = None
-
+                            else:
+                                # Just assuming that the frame rate is such that
+                                # we won't completely skip past this interval
+                                # (so not checking against the end of this new
+                                # row this iteration). If that were not true,
+                                # would probably want to implment this as
+                                # recursion or something, though we'd also have
+                                # bigger issues then...  Mostly just checking
+                                # here to support the case where the CSV
+                                # specifies intervals where one ends the frame
+                                # before the next starts.
+                                row = self.overlay_df.iloc[
+                                    self.curr_overlay_row
+                                ]
+                                if row.onset <= curr_time_s:
+                                    text = row.text
+                                else:
+                                    text = None
                         else:
                             assert False, \
                                 'previous cases should have been complete'
@@ -594,6 +613,11 @@ class Converter:
                 
                 self.current_goal_timestamp += self.desired_frame_interval
             '''
+
+        if self.verbose:
+            print('# of frames with empty delta_vid.values:',
+                self._n_zero_length_delta_vid_values
+            )
 
         if self.overlay_df is not None:
             last_offset_to_last_frame = \
