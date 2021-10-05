@@ -340,15 +340,50 @@ class LiveViewer:
                         offset_center = (int(contour.x) + 15, int(contour.y))
                         cv2.putText(self.imgOutput, str(c), offset_center, cv2.FONT_HERSHEY_SIMPLEX, \
                             0.65, (0,255,0), 2, cv2.LINE_AA)
-        
+
+        assert len(self.imgScaled.shape) > 0
+        # Just to have some bound that isn't so crazy
+        max_covariance_circle_radius = max(self.imgScaled.shape)
+
         # Display the image | Draw the tracked trajectories
         for pipeline_num in self.tracked_trajectories:
             for objid, trajec in self.tracked_trajectories[pipeline_num].items():
                 if len(trajec.positions) > 5:
                     draw_trajectory(self.imgOutput, trajec.positions, trajec.color, 2)
                     trajec_center = (int(trajec.positions[-1][0]), int(trajec.positions[-1][1]))
-                    cv2.circle(self.imgOutput, trajec_center, int(trajec.covariances[-1]), \
-                        trajec.color, 2)
+
+                    # TODO delete these try/excepts after checking it's fixed
+                    log_last_covar = False
+                    try:
+                        # TODO if OverflowError is happening at this int conversion
+                        # and not in the cv2.circle call, will need to move outside
+                        # of min at least, if not rewrite a bit
+                        radius = min(
+                            int(trajec.covariances[-1]), max_covariance_circle_radius
+                        )
+                    except Exception as e:
+                        radius = max_covariance_circle_radius
+
+                        rospy.logwarn('error in radius computation: '
+                            + str(type(e)) + ': ' + str(e)
+                        )
+                        log_last_covar = True
+
+                    try:
+                        cv2.circle(self.imgOutput, trajec_center, radius, trajec.color, 2)
+
+                    except Exception as e:
+                        rospy.logwarn('error in circle drawing: '
+                            + str(type(e)) + ': ' + str(e)
+                        )
+                        rospy.loginfo('radius: {}'.format(radius))
+                        log_last_covar = True
+
+                    if log_last_covar:
+                        rospy.loginfo('trajec.covariances[-1]: {}'.format(
+                            trajec.covariances[-1]
+                        ))
+                    #
                     
                     if self.debug:
                         offset_center = (int(trajec.positions[-1][0]) - 45, int(trajec.positions[-1][1]))
