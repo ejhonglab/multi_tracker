@@ -1,1 +1,5 @@
-See the github page for detailed info: <a href="http://florisvb.github.io/multi_tracker/">Multi Tracker Github Page</a>
+
+This project was modified from Floris van Breugel's [multi_tracker](https://github.com/florisvb/multi_tracker).
+
+See [his project website](https://florisvb.github.io/multi_tracker) for detailed info on setup / operation.
+
