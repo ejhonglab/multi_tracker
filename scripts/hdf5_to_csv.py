@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 
+from argparse import ArgumentParser
 from os.path import join, splitext
 import glob
 
@@ -12,7 +13,20 @@ import multi_tracker_analysis as mta
 
 
 def main():
-    #experiment_dir = 'choice_20210129_162648'
+    additional_cols = ['measurement_x', 'measurement_y', 'objid', 'area']
+
+    parser = ArgumentParser()
+    # TODO where is 'area' column actually coming from? not obvious in
+    # data_association.py...
+    parser.add_argument('-a', '--all', action='store_true', help='saves '
+        'additional columns that might be useful (%s)' % additional_cols
+    )
+    args = parser.parse_args()
+
+    columns = ['time_epoch', 'position_x', 'position_y']
+    if args.all:
+        columns += additional_cols
+
     experiment_dir = '.'
 
     def find_file_via_suffix(suffix):
@@ -32,11 +46,13 @@ def main():
         )
         csv_fname = splitext(hdf5_fname)[0] + '.csv'
 
-        # TODO TODO TODO also add speed / velocity columns after checking they
-        # are correct / fixing if need be
-        df.to_csv(csv_fname, columns=['time_epoch', 'position_x', 'position_y'],
-            index=False
-        )
+        # TODO TODO TODO are measurement_[x|y] columns nan where appropriate?
+        # (seems no...) otherwise, what happens if there isn't truly a contour
+        # updating the filter?
+
+        # TODO also add speed / velocity columns after checking they are correct
+        # / fixing if need be
+        df.to_csv(csv_fname, columns=columns, index=False)
 
 
 if __name__ == '__main__':

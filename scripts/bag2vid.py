@@ -365,7 +365,7 @@ class Converter:
 
         self.videowriter.write(image)
 
-        
+
     def add_frame_from_deltavid_msg(self, delta_vid):
         secs_from_start = (delta_vid.header.stamp - self.start_time).to_sec()
 
